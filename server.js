@@ -1,5 +1,5 @@
 // =================================================================
-// server.js (កំណែទម្រង់បង្ហាញបន្ទប់, បន្ថែម Spectator និងការលេងជុំបន្ទាប់)
+// server.js (កំណែទម្រង់ពេញលេញ - បន្ថែម Spectator, ជុំបន្ទាប់ និងការចាកចេញពីបន្ទប់)
 // =================================================================
 
 const express = require('express');
@@ -369,7 +369,39 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ចាកចេញពីបន្ទប់
+    // ចាកចេញពីបន្ទប់ (តាមរយៈការចុចប៊ូតុង Leave Room ផ្ទាល់)
+    socket.on('leaveRoom', () => {
+        for (const id in rooms) {
+            const room = rooms[id];
+            const pIdx = room.players.findIndex(p => p.id === socket.id);
+            
+            if (pIdx !== -1) {
+                const wasSpectator = room.players[pIdx].isSpectator;
+                room.players.splice(pIdx, 1);
+                
+                socket.leave(id); // ឱ្យ Socket ចាកចេញពីបន្ទប់ជាផ្លូវការ
+                socket.emit('leftRoom'); // ផ្ញើទៅប្រាប់អ្នកចុចចាកចេញឱ្យត្រឡប់ទៅអេក្រង់ដើមវិញ
+                
+                if (room.players.length === 0) {
+                    delete rooms[id]; 
+                } else {
+                    if (room.creatorId === socket.id) {
+                        room.creatorId = room.players[0].id; // ផ្ទេរសិទ្ធិ Host ឱ្យទៅអ្នកបន្ទាប់
+                    }
+                    
+                    if (room.status === 'playing' && !wasSpectator && room.currentTurnIndex === pIdx) {
+                        moveToNextTurn(room);
+                        io.to(id).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex });
+                    }
+                    
+                    io.to(id).emit('updatePlayers', room.players);
+                }
+                broadcastRoomList();
+            }
+        }
+    });
+
+    // ដាច់ការតភ្ជាប់ (Disconnect / បិទកម្មវិធី Web)
     socket.on('disconnect', () => {
         for (const id in rooms) {
             const room = rooms[id];
