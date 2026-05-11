@@ -2,111 +2,723 @@
 <html lang="km">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
     <title>ទៀងឡេន Online</title>
+
     <style>
-        body { font-family: sans-serif; padding: 20px; background: #f0f0f0; }
-        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }
-        input { padding: 8px; margin: 5px 0; width: 100%; box-sizing: border-box; }
-        button { padding: 10px 20px; margin: 5px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }
+
+        *{
+            margin:0;
+            padding:0;
+            box-sizing:border-box;
+        }
+
+        body{
+
+            font-family:sans-serif;
+
+            background:#0f172a;
+
+            color:white;
+
+            padding:20px;
+        }
+
+        .container{
+
+            max-width:1200px;
+
+            margin:auto;
+        }
+
+        h1{
+
+            text-align:center;
+
+            margin-bottom:20px;
+        }
+
+        .panel{
+
+            background:#1e293b;
+
+            padding:20px;
+
+            border-radius:12px;
+
+            margin-bottom:20px;
+        }
+
+        input{
+
+            width:100%;
+
+            padding:12px;
+
+            margin-top:10px;
+
+            border:none;
+
+            border-radius:8px;
+
+            font-size:16px;
+        }
+
+        button{
+
+            padding:12px 20px;
+
+            border:none;
+
+            border-radius:8px;
+
+            background:#22c55e;
+
+            color:white;
+
+            font-size:16px;
+
+            cursor:pointer;
+
+            margin-top:10px;
+
+            margin-right:10px;
+        }
+
+        button:hover{
+
+            opacity:.9;
+        }
+
+        #playersList div{
+
+            padding:10px;
+
+            background:#334155;
+
+            border-radius:8px;
+
+            margin-top:10px;
+        }
+
+        #status{
+
+            font-size:20px;
+
+            margin-bottom:15px;
+
+            text-align:center;
+
+            color:#facc15;
+        }
+
+        #table{
+
+            min-height:100px;
+
+            background:#1e293b;
+
+            border-radius:12px;
+
+            padding:20px;
+
+            margin-bottom:20px;
+
+            text-align:center;
+        }
+
+        #lastCards{
+
+            display:flex;
+
+            justify-content:center;
+
+            flex-wrap:wrap;
+
+            gap:10px;
+
+            margin-top:10px;
+        }
+
+        .card{
+
+            width:60px;
+
+            height:90px;
+
+            border-radius:10px;
+
+            background:white;
+
+            color:black;
+
+            display:flex;
+
+            justify-content:center;
+
+            align-items:center;
+
+            font-size:22px;
+
+            font-weight:bold;
+
+            cursor:pointer;
+
+            user-select:none;
+
+            transition:.2s;
+        }
+
+        .card.selected{
+
+            transform:translateY(-15px);
+
+            background:yellow;
+        }
+
+        #hand{
+
+            display:flex;
+
+            flex-wrap:wrap;
+
+            gap:10px;
+
+            justify-content:center;
+
+            margin-top:20px;
+        }
+
+        .red{
+
+            color:red;
+        }
+
+        .turn{
+
+            border:3px solid #22c55e;
+        }
+
+        #gameArea{
+
+            display:none;
+        }
+
+        #lobbyArea{
+
+            display:none;
+        }
+
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🃏 ទៀងឡេន Online</h1>
-        <div id="loginArea">
-            <input type="text" id="playerName" placeholder="ឈ្មោះរបស់អ្នក">
-            <input type="text" id="roomId" placeholder="លេខបន្ទប់">
-            <input type="password" id="password" placeholder="លេខសម្ងាត់">
-            <br>
-            <button onclick="createRoom()">បង្កើតបន្ទប់</button>
-            <button onclick="joinRoom()">ចូលរួមបន្ទប់</button>
-        </div>
-        <div id="lobbyArea" style="display:none;">
-            <h3>បន្ទប់: <span id="displayRoomId"></span></h3>
-            <div id="playersList"></div>
-            <button id="startBtn" style="display:none;" onclick="startGame()">🚀 ចាប់ផ្តើម</button>
-        </div>
-        <div id="gameArea" style="display:none;">
-            <h3>🂡 បៀរបស់អ្នក:</h3>
-            <div id="hand"></div>
-            <div id="table"><strong>បៀលើតុ:</strong> <span id="lastCard">-</span></div>
-            <button onclick="passTurn()">រំលង</button>
-            <button onclick="playSelected()">ចេញបៀ</button>
-        </div>
+
+<div class="container">
+
+    <h1>🃏 ទៀងឡេន Online</h1>
+
+    <div id="loginArea" class="panel">
+
+        <input type="text"
+               id="playerName"
+               placeholder="ឈ្មោះ">
+
+        <input type="text"
+               id="roomId"
+               placeholder="លេខបន្ទប់">
+
+        <input type="password"
+               id="password"
+               placeholder="Password">
+
+        <button onclick="createRoom()">
+            បង្កើតបន្ទប់
+        </button>
+
+        <button onclick="joinRoom()">
+            ចូលបន្ទប់
+        </button>
+
     </div>
-    <script src="/socket.io/socket.io.js"></script>
-    <script>
-        const socket = io();
-        let myId, currentRoom, myHand = [], selectedCard = null;
 
-        function createRoom() {
-            const roomId = document.getElementById('roomId').value.trim();
-            const playerName = document.getElementById('playerName').value.trim() || 'Player 1';
-            const password = document.getElementById('password').value;
-            if (!roomId) return alert('សូមបញ្ចូលលេខបន្ទប់!');
-            socket.emit('createRoom', { roomId, password, playerName });
+    <div id="lobbyArea" class="panel">
+
+        <h2>
+            បន្ទប់:
+            <span id="displayRoomId"></span>
+        </h2>
+
+        <br>
+
+        <div id="playersList"></div>
+
+        <button id="startBtn"
+                style="display:none"
+                onclick="startGame()">
+
+            🚀 Start Game
+        </button>
+
+    </div>
+
+    <div id="gameArea">
+
+        <div id="status">
+            រង់ចាំ...
+        </div>
+
+        <div id="table">
+
+            <h2>🃏 បៀលើតុ</h2>
+
+            <div id="lastCards"></div>
+
+        </div>
+
+        <div class="panel">
+
+            <h2>👥 អ្នកលេង</h2>
+
+            <div id="playersInGame"></div>
+
+        </div>
+
+        <div class="panel">
+
+            <h2>🂡 បៀរបស់អ្នក</h2>
+
+            <div id="hand"></div>
+
+            <br>
+
+            <button onclick="playSelected()">
+                🃏 ចេញបៀ
+            </button>
+
+            <button onclick="passTurn()">
+                ⏭️ Pass
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+
+const socket = io();
+
+let myId = null;
+
+let currentRoom = null;
+
+let myHand = [];
+
+let selectedCards = [];
+
+let currentTurnIndex = 0;
+
+let playersData = [];
+
+function createRoom(){
+
+    const roomId =
+        document.getElementById('roomId')
+        .value.trim();
+
+    const playerName =
+        document.getElementById('playerName')
+        .value.trim() || 'Player';
+
+    const password =
+        document.getElementById('password')
+        .value;
+
+    if(!roomId){
+
+        return alert('បញ្ចូលលេខបន្ទប់');
+    }
+
+    socket.emit('createRoom',{
+
+        roomId,
+        password,
+        playerName
+    });
+}
+
+function joinRoom(){
+
+    const roomId =
+        document.getElementById('roomId')
+        .value.trim();
+
+    const playerName =
+        document.getElementById('playerName')
+        .value.trim() || 'Player';
+
+    const password =
+        document.getElementById('password')
+        .value;
+
+    if(!roomId){
+
+        return alert('បញ្ចូលលេខបន្ទប់');
+    }
+
+    socket.emit('joinRoom',{
+
+        roomId,
+        password,
+        playerName
+    });
+}
+
+function startGame(){
+
+    socket.emit(
+        'startGame',
+        currentRoom
+    );
+}
+
+function passTurn(){
+
+    socket.emit(
+        'passTurn',
+        currentRoom
+    );
+}
+
+function playSelected(){
+
+    if(selectedCards.length === 0){
+
+        return alert('ជ្រើសបៀសិន');
+    }
+
+    socket.emit('playCard',{
+
+        roomId:currentRoom,
+
+        cards:selectedCards
+    });
+
+    selectedCards = [];
+}
+
+function renderPlayers(players){
+
+    playersData = players;
+
+    const div =
+        document.getElementById(
+            'playersList'
+        );
+
+    const gameDiv =
+        document.getElementById(
+            'playersInGame'
+        );
+
+    div.innerHTML = '';
+
+    gameDiv.innerHTML = '';
+
+    players.forEach((player,index)=>{
+
+        const el =
+            document.createElement('div');
+
+        el.innerHTML = `
+            👤 ${player.name}
+            ${player.cardCount !== undefined
+                ? `(${player.cardCount} បៀ)`
+                : ''
+            }
+        `;
+
+        if(index === currentTurnIndex){
+
+            el.classList.add('turn');
         }
 
-        function joinRoom() {
-            const roomId = document.getElementById('roomId').value.trim();
-            const playerName = document.getElementById('playerName').value.trim() || 'Player 1';
-            const password = document.getElementById('password').value;
-            if (!roomId) return alert('សូមបញ្ចូលលេខបន្ទប់!');
-            socket.emit('joinRoom', { roomId, password, playerName });
+        div.appendChild(el);
+
+        const el2 =
+            document.createElement('div');
+
+        el2.innerHTML = `
+            👤 ${player.name}
+            ${player.cardCount !== undefined
+                ? `(${player.cardCount} បៀ)`
+                : ''
+            }
+        `;
+
+        if(index === currentTurnIndex){
+
+            el2.classList.add('turn');
         }
 
-        function startGame() { socket.emit('startGame', currentRoom); }
-        function passTurn() { socket.emit('passTurn', currentRoom); }
-        
-        function playSelected() {
-            if (!selectedCard) return alert('សូមជ្រើសរើសបៀ!');
-            socket.emit('playCard', { roomId: currentRoom, card: selectedCard });
+        gameDiv.appendChild(el2);
+    });
+}
+
+function renderHand(cards){
+
+    const handDiv =
+        document.getElementById('hand');
+
+    handDiv.innerHTML = '';
+
+    cards.forEach(card=>{
+
+        const cardDiv =
+            document.createElement('div');
+
+        cardDiv.className = 'card';
+
+        if(
+            card.suit === '♥' ||
+            card.suit === '♦'
+        ){
+
+            cardDiv.classList.add('red');
         }
 
-        function renderHand(cards) {
-            const handDiv = document.getElementById('hand');
-            handDiv.innerHTML = '';
-            cards.forEach(card => {
-                const el = document.createElement('div');
-                el.className = 'card';
-                el.textContent = card.value + card.suit;
-                el.onclick = () => { selectedCard = card; };
-                handDiv.appendChild(el);
-            });
+        cardDiv.innerHTML =
+            `${card.value}${card.suit}`;
+
+        cardDiv.onclick = ()=>{
+
+            const exists =
+                selectedCards.find(c=>
+
+                    c.value === card.value &&
+                    c.suit === card.suit
+                );
+
+            if(exists){
+
+                selectedCards =
+                    selectedCards.filter(c=>!(
+
+                        c.value === card.value &&
+                        c.suit === card.suit
+                    ));
+
+                cardDiv.classList.remove(
+                    'selected'
+                );
+
+            }else{
+
+                selectedCards.push(card);
+
+                cardDiv.classList.add(
+                    'selected'
+                );
+            }
+        };
+
+        handDiv.appendChild(cardDiv);
+    });
+}
+
+function renderTable(cards){
+
+    const table =
+        document.getElementById(
+            'lastCards'
+        );
+
+    table.innerHTML = '';
+
+    cards.forEach(card=>{
+
+        const div =
+            document.createElement('div');
+
+        div.className = 'card';
+
+        if(
+            card.suit === '♥' ||
+            card.suit === '♦'
+        ){
+
+            div.classList.add('red');
         }
 
-        socket.on('roomCreated', ({ roomId, playerId }) => {
-            myId = playerId; currentRoom = roomId;
-            document.getElementById('loginArea').style.display = 'none';
-            document.getElementById('lobbyArea').style.display = 'block';
-            document.getElementById('displayRoomId').textContent = roomId;
-            document.getElementById('startBtn').style.display = 'inline-block';
-        });
+        div.innerHTML =
+            `${card.value}${card.suit}`;
 
-        socket.on('errorMsg', (msg) => alert(msg));
-        
-        socket.on('updatePlayers', (players) => {
-            document.getElementById('playersList').innerHTML = players.map(p => 
-                '<div>👤 ' + p.name + ' (' + p.cardCount + ' បៀ)</div>'
-            ).join('');
-        });
+        table.appendChild(div);
+    });
+}
 
-        socket.on('gameStarted', () => {
-            document.getElementById('lobbyArea').style.display = 'none';
-            document.getElementById('gameArea').style.display = 'block';
-        });
+socket.on('roomCreated',({
 
-        socket.on('dealCards', (hand) => { myHand = hand; renderHand(hand); });
-        
-        socket.on('cardPlayed', ({ card }) => {
-            document.getElementById('lastCard').textContent = card.value + card.suit;
-            myHand = myHand.filter(c => !(c.value === card.value && c.suit === card.suit));
-            renderHand(myHand);
-        });
+    roomId,
+    playerId
 
-        socket.on('gameWon', ({ winner }) => { alert('🎉 ' + winner + ' ឈ្នះ!'); location.reload(); });
-        socket.on('clearTable', () => { document.getElementById('lastCard').textContent = '-'; });
-    </script>
+})=>{
+
+    myId = playerId;
+
+    currentRoom = roomId;
+
+    document.getElementById(
+        'loginArea'
+    ).style.display = 'none';
+
+    document.getElementById(
+        'lobbyArea'
+    ).style.display = 'block';
+
+    document.getElementById(
+        'displayRoomId'
+    ).textContent = roomId;
+
+    document.getElementById(
+        'startBtn'
+    ).style.display = 'inline-block';
+});
+
+socket.on('roomJoined',({
+
+    roomId,
+    playerId
+
+})=>{
+
+    myId = playerId;
+
+    currentRoom = roomId;
+
+    document.getElementById(
+        'loginArea'
+    ).style.display = 'none';
+
+    document.getElementById(
+        'lobbyArea'
+    ).style.display = 'block';
+
+    document.getElementById(
+        'displayRoomId'
+    ).textContent = roomId;
+});
+
+socket.on('updatePlayers',(players)=>{
+
+    renderPlayers(players);
+});
+
+socket.on('gameStarted',({
+
+    players,
+    currentTurnIndex:turn
+
+})=>{
+
+    currentTurnIndex = turn;
+
+    renderPlayers(players);
+
+    document.getElementById(
+        'lobbyArea'
+    ).style.display = 'none';
+
+    document.getElementById(
+        'gameArea'
+    ).style.display = 'block';
+});
+
+socket.on('dealCards',({ hand })=>{
+
+    myHand = hand;
+
+    renderHand(myHand);
+});
+
+socket.on('cardPlayed',({
+
+    by,
+    cards,
+    currentTurnIndex:turn,
+    updatedHands
+
+})=>{
+
+    currentTurnIndex = turn;
+
+    renderPlayers(updatedHands);
+
+    renderTable(cards);
+
+    if(by){
+
+        document.getElementById(
+            'status'
+        ).innerHTML =
+            `🃏 ${by} បានចេញបៀ`;
+    }
+
+    myHand = myHand.filter(myCard=>{
+
+        return !cards.some(c=>
+
+            c.value === myCard.value &&
+            c.suit === myCard.suit
+        );
+    });
+
+    renderHand(myHand);
+});
+
+socket.on('turnChanged',({
+
+    currentTurnIndex:turn
+
+})=>{
+
+    currentTurnIndex = turn;
+
+    renderPlayers(playersData);
+});
+
+socket.on('clearTable',()=>{
+
+    document.getElementById(
+        'lastCards'
+    ).innerHTML = '';
+});
+
+socket.on('gameStatus',(msg)=>{
+
+    document.getElementById(
+        'status'
+    ).innerHTML = msg;
+});
+
+socket.on('gameWon',({ winner })=>{
+
+    alert(`🎉 ${winner} ឈ្នះ!`);
+
+    location.reload();
+});
+
+socket.on('errorMsg',(msg)=>{
+
+    alert(msg);
+});
+
+</script>
+
 </body>
 </html>
