@@ -54,7 +54,7 @@
 <div id="create-modal" class="modal">
     <div class="modal-content">
         <h3>បង្កើតបន្ទប់</h3>
-        <input type="text" id="c-room-id" placeholder="ឈ្មោះបន្ទប់">
+        <input type="text" id="c-room-id" placeholder="ឈ្ោះបន្ទប់">
         <input type="text" id="c-name" placeholder="ឈមោះអ្នក">
         <button class="btn btn-primary" onclick="createRoom()">បង្កើត</button>
         <button class="btn" onclick="closeModals()">បិទ</button>
@@ -64,8 +64,8 @@
 <div id="join-modal" class="modal">
     <div class="modal-content">
         <h3>ចូលបន្ទប់</h3>
-        <input type="text" id="j-room-id" placeholder="ឈ្មោះបន្ទប់">
-        <input type="text" id="j-name" placeholder="ឈមោះអ្នក">
+        <input type="text" id="j-room-id" placeholder="ឈ្ោះបន្ប់">
+        <input type="text" id="j-name" placeholder="ឈ្មោះអ្នក">
         <button class="btn btn-primary" onclick="joinRoom()">ចូល</button>
         <button class="btn" onclick="closeModals()">បិទ</button>
     </div>
@@ -91,7 +91,7 @@
     function createRoom() {
         const rId = document.getElementById('c-room-id').value;
         const name = document.getElementById('c-name').value;
-        if(!rId || !name) return alert('សូមបញ្ចូលឈ្មោះ!');
+        if(!rId || !name) return alert('សូមបញ្ចូលឈ្ោះ!');
         socket.emit('createRoom', { roomId: rId, playerName: name });
         closeModals();
     }
@@ -99,7 +99,7 @@
     function joinRoom() {
         const rId = document.getElementById('j-room-id').value;
         const name = document.getElementById('j-name').value;
-        if(!rId || !name) return alert('សូមបញ្ចូលឈ្មោះ!');
+        if(!rId || !name) return alert('សូមបញ្ចូលឈ្ោះ!');
         socket.emit('joinRoom', { roomId: rId, playerName: name });
         closeModals();
     }

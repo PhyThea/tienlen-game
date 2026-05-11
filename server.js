@@ -7,7 +7,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// ✅ Serve static files from root directory (where index.html is)
+// Serve static files from root directory
 app.use(express.static(__dirname));
 
 const rooms = {};

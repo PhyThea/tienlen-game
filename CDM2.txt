@@ -1,0 +1,6 @@
+cd C:\Users\PhyThea\Desktop\tienlen-game
+git init
+git remote add origin https://github.com/PhyThea/tienlen-game.git
+git add .
+git commit -m "initial commit with fixed code"
+git push -u origin master
