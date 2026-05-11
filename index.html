@@ -398,7 +398,7 @@ function renderPlayers(players) {
         // ១. ពិនិត្យថាជាវេនលេងបច្ចុប្បន្ន ឬអត់
         const isCurrentTurn = (index === currentTurnIndex && !p.isSpectator);
         if (isCurrentTurn) {
-            el.classList.add('turn');
+            el.classList.add('turn'); // ថែមស៊ុមពណ៌បៃតង
         }
 
         // ២. ពិនិត្យថាគាត់បានចុច Pass ឬនៅ
@@ -556,21 +556,26 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount }) => {
     }
 });
 
-// កែសម្រួលដើម្បីឱ្យធ្វើបច្ចុប្បន្នភាពកាត Pass ភ្លាមៗលើអេក្រង់
 socket.on('playerPassed', ({ name, id, message, nextTurn }) => {
+    // ១. ធ្វើបច្ចុប្បន្នភាព Index វេនរបស់អ្នកបន្ទាប់ភ្លាមៗ
     currentTurnIndex = nextTurn;
     
-    // ប្ដូរស្ថានភាពទៅជា Passed ក្នុងទិន្នន័យ Player
+    // ២. កំណត់ស្ថានភាព Passed ទៅឲ្យអ្នកលេងដែលបានចុច Pass នៅក្នុង playersData
     playersData.forEach(p => {
-        if (p.id === id) p.passed = true;
+        if (p.id === id) {
+            p.passed = true;
+        }
     });
     
+    // ៣. ហៅ renderPlayers ឡើងវិញដើម្បីឲ្យវាគូរ UI ថ្មី (ដកស៊ុមបៃតងពីអ្នកចាស់ ទៅដាក់ឲ្យអ្នកបន្ទាប់)
     renderPlayers(playersData);
     
+    // ៤. បង្ហាញស្ថានភាពនៅលើ Status Bar ឲ្យបានត្រឹមត្រូវ
     if (playersData[currentTurnIndex]) {
         document.getElementById('status').innerHTML = `⏭️ ${name} Pass! វេនបន្ទាប់៖ ${playersData[currentTurnIndex].name}`;
     }
 
+    // ៥. បង្ហាញ Bubble "Pass" ហោះនៅលើក្បាលកាតអ្នកលេងដែលបាន Pass
     const playerCard = document.getElementById(`player-card-${id}`);
     if (playerCard) {
         const oldBubble = playerCard.querySelector('.pass-bubble');
