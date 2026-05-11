@@ -134,35 +134,31 @@ button:hover {
     gap: 10px;
 }
 
-/* ======================================================= */
-/* 📱 កូដកែសម្រួលពិសេសសម្រាប់បង្ហាញបៀរមួយជួរលើទូរស័ព្ទដៃ */
-/* ======================================================= */
 #hand {
     display: flex;
-    flex-wrap: nowrap;          /* ការពារដាច់ខាតមិនឱ្យបៀរធ្លាក់ចុះជួរទីពីរ */
-    overflow-x: auto;           /* អនុញ្ញាតឱ្យអូសទៅឆ្វេងស្ដាំបាន (Horizontal Scroll) */
-    padding: 25px 10px;         /* បន្ថែមចន្លោះពីលើដើម្បីកុំឱ្យទើសពេលចុចជ្រើសរើសបៀររុញឡើងលើ */
-    gap: 8px;                   /* គម្លាតរវាងសន្លឹកបៀរនីមួយៗ */
-    justify-content: flex-start;/* តម្រៀបបៀរចាប់ផ្ដើមពីខាងឆ្វេងទៅ */
-    -webkit-overflow-scrolling: touch; /* អូសលើទូរស័ព្ទដៃកាន់តែរលូន */
+    flex-wrap: nowrap;          
+    overflow-x: auto;           
+    padding: 25px 10px;         
+    gap: 8px;                   
+    justify-content: flex-start;
+    -webkit-overflow-scrolling: touch; 
 }
 
-/* លាក់របារ Scrollbar ដើម្បីឱ្យមើលទៅស្អាត */
 #hand::-webkit-scrollbar {
     display: none; 
 }
 
 .card {
-    flex-shrink: 0;             /* ការពារកុំឱ្យសន្លឹកបៀររួមតូចទៅៗពេលមានបៀរច្រើនក្នុងដៃ */
-    width: 60px;                /* ទំហំទទឹងសន្លឹកបៀរល្មមស្អាតលើទូរស័ព្ទ */
-    height: 90px;               /* កម្ពស់សន្លឹកបៀរ */
+    flex-shrink: 0;             
+    width: 60px;                
+    height: 90px;               
     border-radius: 10px;
     background: white;
     color: black;
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 18px;            /* ទំហំអក្សរ និងផ្កាបៀរ */
+    font-size: 18px;            
     font-weight: bold;
     cursor: pointer;
     user-select: none;
@@ -174,9 +170,8 @@ button:hover {
     transform: translateY(-5px);
 }
 
-/* ពេលចុចជ្រើសរើសបៀរ */
 .selected {
-    transform: translateY(-15px) !important; /* រុញឡើងលើឱ្យច្បាស់ */
+    transform: translateY(-15px) !important; 
     background: #facc15 !important;
     border-color: #eab308;
 }
@@ -187,6 +182,17 @@ button:hover {
 
 #gameArea, #lobbyArea, #resultArea {
     display: none;
+}
+
+/* បញ្ជីបន្ទប់ */
+.room-list-item {
+    background: #334155;
+    padding: 15px;
+    border-radius: 10px;
+    margin-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 /* បង្ហាញបៀដែលសល់ពេលចប់ហ្គេម */
@@ -223,11 +229,14 @@ button:hover {
 
     <div id="loginArea" class="panel">
         <input type="text" id="playerName" placeholder="ឈ្មោះអ្នកលេង">
-        <input type="text" id="roomId" placeholder="លេខបន្ទប់">
+        <input type="text" id="roomId" placeholder="លេខបន្ទប់ចង់បង្កើត">
         <input type="password" id="password" placeholder="លេខកូដបន្ទប់ (បើគ្មាន មិនបាច់ដាក់)">
         
-        <button class="btn-green" onclick="createRoom()">Create Room</button>
-        <button class="btn-blue" onclick="joinRoom()">Join Room</button>
+        <button class="btn-green" onclick="createRoom()">➕ បង្កើតបន្ទប់ថ្មី (Create Room)</button>
+        
+        <hr style="margin: 20px 0; border-color: #475569;">
+        <h3 style="color: #3b82f6;">🚪 បន្ទប់កំពុងមានស្រាប់៖</h3>
+        <div id="activeRooms">កំពុងស្វែងរកបន្ទប់...</div>
     </div>
 
     <div id="lobbyArea" class="panel">
@@ -247,7 +256,7 @@ button:hover {
             <div id="lastPlayed"></div>
         </div>
 
-        <div class="panel">
+        <div class="panel" id="myHandPanel">
             <h2>🂡 បៀរបស់អ្នក</h2>
             <div id="hand"></div>
             <br>
@@ -277,27 +286,54 @@ let selectedCards = [];
 let playersData = [];
 let currentTurnIndex = 0;
 let isCreator = false; 
+let amISpectator = false; // បញ្ជាក់ថាយើងជា Spectator ឬអត់
+
+// ទទួលបញ្ជីបន្ទប់ពី Server មកបង្ហាញលើអេក្រង់ Login ភ្លាមៗ
+socket.on('roomList', (rooms) => {
+    const listDiv = document.getElementById('activeRooms');
+    if (rooms.length === 0) {
+        listDiv.innerHTML = '<p style="color: #94a3b8; margin-top: 10px;">មិនទាន់មានបន្ទប់ណាមួយត្រូវបានបង្កើតនៅឡើយទេ...</p>';
+        return;
+    }
+
+    listDiv.innerHTML = '';
+    rooms.forEach(r => {
+        const item = document.createElement('div');
+        item.className = 'room-list-item';
+        
+        let statusText = r.status === 'playing' ? '<span style="color: #ef4444;">កំពុងលេង (ចូលមើល)</span>' : '<span style="color: #22c55e;">កំពុងរង់ចាំ</span>';
+        let lockText = r.hasPassword ? '🔒 មានកូដ' : '🔓 គ្មានកូដ';
+        
+        item.innerHTML = `
+            <div>
+                <strong>បន្ទប់លេខ៖ ${r.roomId}</strong> (${r.playerCount}/4 នាក់) - ${statusText} | ${lockText}
+            </div>
+            <button class="btn-blue" onclick="clickToJoin('${r.roomId}', ${r.hasPassword})">ចូលលេង</button>
+        `;
+        listDiv.appendChild(item);
+    });
+});
+
+function clickToJoin(roomId, hasPassword) {
+    const name = document.getElementById('playerName').value.trim() || 'Player_' + Math.floor(Math.random()*1000);
+    let pass = "";
+    if (hasPassword) {
+        pass = prompt("បន្ទប់នេះមានលេខកូដសម្ងាត់ សូមវាយបញ្ចូល៖");
+        if (pass === null) return; // បោះបង់ការចូល
+    }
+    isCreator = false;
+    socket.emit('joinRoom', { roomId, password: pass, playerName: name });
+}
 
 function createRoom() {
     const roomId = document.getElementById('roomId').value.trim();
     const password = document.getElementById('password').value;
     const playerName = document.getElementById('playerName').value.trim() || 'Player';
 
-    if (!roomId) return alert('បញ្ចូល Room ID');
+    if (!roomId) return alert('សូមវាយបញ្ចូល Room ID មុននឹងបង្កើត!');
     
     isCreator = true; 
     socket.emit('createRoom', { roomId, password, playerName });
-}
-
-function joinRoom() {
-    const roomId = document.getElementById('roomId').value.trim();
-    const password = document.getElementById('password').value;
-    const playerName = document.getElementById('playerName').value.trim() || 'Player';
-
-    if (!roomId) return alert('បញ្ចូល Room ID');
-    
-    isCreator = false;
-    socket.emit('joinRoom', { roomId, password, playerName });
 }
 
 function startGame() {
@@ -331,20 +367,23 @@ function renderPlayers(players) {
     players.forEach((p, index) => {
         const el = document.createElement('div');
         el.className = 'player';
-        el.id = `player-card-${p.id}`; // ងាយស្រួលរកមើល Element ពេលចង់បង្ហាញពពុះពាក្យ (Pass Bubble)
-        if (index === currentTurnIndex) {
+        el.id = `player-card-${p.id}`; 
+        if (index === currentTurnIndex && !p.isSpectator) {
             el.classList.add('turn');
         }
+
+        let roleText = p.isSpectator ? '<span style="color: #ef4444;">(អ្នកមើល)</span>' : `🃏 ${p.hand ? p.hand.length : (p.cardCount || 0)} សន្លឹក`;
+
         el.innerHTML = `
             👤 ${p.name} ${p.id === myId ? '(ខ្ញុំ)' : ''}
             <br>
-            🃏 បៀសល់៖ ${p.hand ? p.hand.length : (p.cardCount || 0)} សន្លឹក
+            ${roleText}
         `;
         div.appendChild(el);
 
         const el2 = document.createElement('div');
         el2.className = 'player';
-        el2.innerHTML = `👤 ${p.name} ${p.id === myId ? '(ខ្ញុំ)' : ''}`;
+        el2.innerHTML = `👤 ${p.name} ${p.id === myId ? '(ខ្ញុំ)' : ''} ${p.isSpectator ? '<span style="color: #ef4444;">(អ្នកមើល)</span>' : ''}`;
         lobby.appendChild(el2);
     });
 
@@ -360,6 +399,14 @@ function renderHand(cards) {
     const hand = document.getElementById('hand');
     hand.innerHTML = '';
 
+    // ប្រសិនបើយើងជា Spectator គឺគ្មានបៀក្នុងដៃទេ
+    if (amISpectator) {
+        hand.innerHTML = '<p style="color: #ef4444; text-align: center; width: 100%;">អ្នកកំពុងមើលការប្រកួត... សូមរង់ចាំលេងជុំក្រោយ!</p>';
+        document.getElementById('myHandPanel').style.opacity = '0.7';
+        return;
+    }
+
+    document.getElementById('myHandPanel').style.opacity = '1';
     cards.forEach(card => {
         const div = document.createElement('div');
         div.className = 'card';
@@ -399,16 +446,28 @@ function renderTable(cards) {
 socket.on('roomCreated', ({ roomId, playerId }) => {
     myId = playerId;
     currentRoom = roomId;
+    amISpectator = false;
     document.getElementById('loginArea').style.display = 'none';
     document.getElementById('lobbyArea').style.display = 'block';
     document.getElementById('showRoom').innerHTML = roomId;
 });
 
-socket.on('roomJoined', ({ roomId, playerId }) => {
+socket.on('roomJoined', ({ roomId, playerId, isSpectator }) => {
     myId = playerId;
     currentRoom = roomId;
+    amISpectator = isSpectator;
+    
     document.getElementById('loginArea').style.display = 'none';
-    document.getElementById('lobbyArea').style.display = 'block';
+    
+    // បើជា Spectator ឱ្យចូលមកកាន់ GameArea ផ្ទាល់តែម្ដងដើម្បីមើលគេលេង
+    if (isSpectator) {
+        document.getElementById('lobbyArea').style.display = 'none';
+        document.getElementById('gameArea').style.display = 'block';
+        document.getElementById('status').innerHTML = 'អ្នកកំពុងមើលគេលេង (Spectator Mode)';
+        renderHand([]);
+    } else {
+        document.getElementById('lobbyArea').style.display = 'block';
+    }
     document.getElementById('showRoom').innerHTML = roomId;
 });
 
@@ -419,6 +478,7 @@ socket.on('updatePlayers', (players) => {
 socket.on('gameStarted', ({ currentTurnIndex: turn }) => {
     currentTurnIndex = turn;
     selectedCards = [];
+    amISpectator = false; // វគ្គថ្មីចាប់ផ្ដើម អ្នកមើលទាំងអស់នឹងបានចូលលេងវិញជានិច្ច
     document.getElementById('lastPlayed').innerHTML = '';
     document.getElementById('lobbyArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'none';
@@ -434,27 +494,31 @@ socket.on('dealCards', ({ hand }) => {
 socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount }) => {
     currentTurnIndex = nextTurn;
     renderTable(cards);
-    document.getElementById('status').innerHTML = `🎯 វេនរបស់៖ ${playersData[currentTurnIndex].name}`;
+    
+    if (playersData[currentTurnIndex]) {
+        document.getElementById('status').innerHTML = `🎯 វេនរបស់៖ ${playersData[currentTurnIndex].name}`;
+    }
     
     playersData.forEach(p => {
         if (p.name === by) p.cardCount = cardCount;
     });
     renderPlayers(playersData);
 
-    myHand = myHand.filter(myCard => !cards.some(c => c.value === myCard.value && c.suit === myCard.suit));
-    renderHand(myHand);
+    if (!amISpectator) {
+        myHand = myHand.filter(myCard => !cards.some(c => c.value === myCard.value && c.suit === myCard.suit));
+        renderHand(myHand);
+    }
 });
 
-// ពេលមានអ្នកលេងចុច Pass៖ បង្ហាញពាក្យ "តោះខ្ញុំអត់ស៊ីទេ" លើក្បាលអ្នកលេងនោះ
 socket.on('playerPassed', ({ name, id, message, nextTurn }) => {
     currentTurnIndex = nextTurn;
     renderPlayers(playersData);
-    document.getElementById('status').innerHTML = `⏭️ ${name} Pass! វេនបន្ទាប់៖ ${playersData[currentTurnIndex].name}`;
+    if (playersData[currentTurnIndex]) {
+        document.getElementById('status').innerHTML = `⏭️ ${name} Pass! វេនបន្ទាប់៖ ${playersData[currentTurnIndex].name}`;
+    }
 
-    // បង្កើត Bubble "តោះខ្ញុំអត់ស៊ីទេ" បង្ហាញលើ Card របស់អ្នកលេងដែល Pass
     const playerCard = document.getElementById(`player-card-${id}`);
     if (playerCard) {
-        // បើមាន Bubble ចាស់ ត្រូវលុបចេញមុនសិន
         const oldBubble = playerCard.querySelector('.pass-bubble');
         if (oldBubble) oldBubble.remove();
 
@@ -463,7 +527,6 @@ socket.on('playerPassed', ({ name, id, message, nextTurn }) => {
         bubble.innerText = message || '💬 តោះខ្ញុំអត់ស៊ីទេ';
         playerCard.appendChild(bubble);
 
-        // បាត់ទៅវិញក្នុងរយៈពេល ២.៥ វិនាទី
         setTimeout(() => {
             bubble.remove();
         }, 2500);
@@ -475,14 +538,12 @@ socket.on('clearTable', ({ nextPlayer }) => {
     document.getElementById('status').innerHTML = `🆕 ជុំថ្មី! វេនដំបូងគឺ៖ ${nextPlayer}`;
 });
 
-// កូដបង្ហាញលទ្ធផលឈ្នះ ឬចាញ់ផ្ទាល់ខ្លួន (ផ្ទៀងផ្ទាត់ជាមួយ ID)
 socket.on('gameWon', ({ winner, winnerId, allHands }) => {
     document.getElementById('gameArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'block';
 
     const resultTitle = document.getElementById('resultTitle');
     
-    // ១. ត្រួតពិនិត្យថាជា ID របស់យើងផ្ទាល់ ឬក៏អត់ ដើម្បីបង្ហាញសារឈ្នះ/ចាញ់
     if (socket.id === winnerId) {
         resultTitle.innerHTML = `<span style="color: #22c55e; font-size: 32px;">🎉 អ្នកឈ្នះហើយ! 🎉</span>`;
         document.getElementById('winnerName').innerHTML = `🏆 អបអរសាទរ! អ្នកជាម្ចាស់ជើងឯកនៅក្នុងជុំនេះ!`;
@@ -491,7 +552,6 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
         document.getElementById('winnerName').innerHTML = `🏆 អ្នកឈ្នះនៅក្នុងជុំនេះគឺ៖ <span style="color: #22c55e;">${winner}</span>`;
     }
 
-    // ២. បង្ហាញកាតបៀរដែលសល់របស់អ្នកលេងទាំងអស់
     const resultDiv = document.getElementById('allRemainingHands');
     resultDiv.innerHTML = '';
 
@@ -500,7 +560,9 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
         playerDiv.className = 'result-player';
         
         let cardsHTML = '';
-        if (!p.remaining || p.remaining.length === 0) {
+        if (p.isSpectator) {
+            cardsHTML = `<span style="color: #ef4444; font-weight: bold;">(អ្នកមើលការប្រកួតរង់ចាំលេងវគ្គបន្ទាប់)</span>`;
+        } else if (!p.remaining || p.remaining.length === 0) {
             cardsHTML = `<span style="color: #22c55e; font-weight: bold;">អស់បៀពីដៃ (ឈ្នះ)</span>`;
         } else {
             p.remaining.forEach(card => {
@@ -510,13 +572,12 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
         }
 
         playerDiv.innerHTML = `
-            <strong>👤 ${p.name}</strong> (នៅសល់ ${p.remaining ? p.remaining.length : 0} សន្លឹក)
+            <strong>👤 ${p.name}</strong> ${p.isSpectator ? '' : `(នៅសល់ ${p.remaining ? p.remaining.length : 0} សន្លឹក)`}
             <div class="result-cards">${cardsHTML}</div>
         `;
         resultDiv.appendChild(playerDiv);
     });
 
-    // ៣. បង្ហាញប៊ូតុងសម្រាប់ Host លេងម្ដងទៀត
     const playAgainBtn = document.getElementById('hostPlayAgainBtn');
     const waitText = document.getElementById('waitHostText');
     if (isCreator) {
