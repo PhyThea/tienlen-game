@@ -1,5 +1,5 @@
 // =================================================================
-// server.js (កំណែទម្រង់ពេញលេញ - គ្មានកំហុស Syntax និងដំណើរការត្រឹមត្រូវ)
+// server.js (កំណែទម្រង់ពេញលេញ - ដំណើរការត្រឹមត្រូវ ១០០%)
 // =================================================================
 
 const express = require('express');
@@ -44,7 +44,6 @@ function sortCards(cards) {
     return cards.sort((a, b) => getCardPower(a) - getCardPower(b));
 }
 
-// មុខងារពិនិត្យប្រភេទបៀ
 function getComboType(cards) {
     const len = cards.length;
     if (len === 0) return null;
@@ -98,7 +97,6 @@ function getComboType(cards) {
     return null;
 }
 
-// មុខងារប្រៀបធៀបបៀស៊ីគ្នា
 function comparePlay(newCards, oldCards) {
     if (!oldCards || oldCards.length === 0) return true;
     
@@ -123,7 +121,6 @@ function comparePlay(newCards, oldCards) {
     return false;
 }
 
-// ស្វែងរកវេនបន្ទាប់ដែលមិនទាន់ Pass និងជាអ្នកលេង
 function moveToNextTurn(room) {
     const activePlayers = room.players.filter(p => !p.isSpectator && p.hand.length > 0);
     if (activePlayers.length === 0) return;
@@ -147,7 +144,6 @@ function moveToNextTurn(room) {
     }
 }
 
-// ផ្ញើបញ្ជីបន្ទប់ទៅកាន់គ្រប់គ្នាដែលមិនទាន់ចូលលេង
 function broadcastRoomList() {
     const list = Object.keys(rooms).map(id => {
         return {
@@ -163,7 +159,6 @@ function broadcastRoomList() {
 io.on('connection', (socket) => {
     broadcastRoomList();
 
-    // បង្កើតបន្ទប់
     socket.on('createRoom', ({ roomId, password, playerName }) => {
         if (rooms[roomId]) {
             return socket.emit('errorMsg', 'បន្ទប់នេះមានរួចហើយ! សូមបង្កើតលេខបន្ទប់ផ្សេង។');
@@ -186,7 +181,6 @@ io.on('connection', (socket) => {
         broadcastRoomList();
     });
 
-    // ចូលរួមបន្ទប់
     socket.on('joinRoom', ({ roomId, password, playerName }) => {
         const room = rooms[roomId];
         if (!room) return socket.emit('errorMsg', 'រកមិនឃើញបន្ទប់នេះទេ!');
@@ -225,12 +219,10 @@ io.on('connection', (socket) => {
         broadcastRoomList();
     });
 
-    // ចាប់ផ្ដើមហ្គេម
     socket.on('startGame', (roomId) => {
         const room = rooms[roomId];
         if (!room || room.creatorId !== socket.id) return;
 
-        // ប្ដូរ Spectator ទាំងអស់ឱ្យមកជាអ្នកលេងវិញ
         room.players.forEach(p => {
             p.isSpectator = false;
             p.hand = [];
@@ -254,21 +246,17 @@ io.on('connection', (socket) => {
             io.to(p.id).emit('dealCards', { hand: p.hand });
         });
 
-        // 🎯 ឆែករកអ្នកចុះមុន៖
-        // បើមានអ្នកឈ្នះពីវគ្គមុន ឱ្យអ្នកឈ្នះនោះចុះមុនគេ
         let startingIndex = -1;
         if (room.lastWinnerId) {
             startingIndex = activePlayers.findIndex(p => p.id === room.lastWinnerId);
         }
 
-        // បើរកអ្នកឈ្នះវគ្គមុនមិនឃើញ ឬជាជុំដំបូងគេ ត្រូវរកអ្នកដែលមាន ៣ ប៊ិច (3♠)
         if (startingIndex === -1) {
             startingIndex = activePlayers.findIndex(p => 
                 p.hand.some(c => c.value === '3' && c.suit === '♠')
             );
         }
 
-        // បើនៅតែរកមិនឃើញទៀត ឱ្យ Host (Index 0) ចុះមុន
         if (startingIndex === -1) {
             startingIndex = 0;
         }
@@ -282,7 +270,6 @@ io.on('connection', (socket) => {
         broadcastRoomList();
     });
 
-    // ចុះបៀ (លុបផ្នែកជាន់គ្នា និងជួសជុល Syntax ស្អាតល្អ)
     socket.on('playCard', ({ roomId, cards }) => {
         const room = rooms[roomId];
         if (!room) return;
@@ -291,9 +278,9 @@ io.on('connection', (socket) => {
         if (!player || player.id !== socket.id) return socket.emit('errorMsg', 'មិនមែនវេនអ្នកទេ');
         if (player.isSpectator) return socket.emit('errorMsg', 'អ្នកជាអ្នកមើលរង់ចាំវគ្គក្រោយ មិនអាចចុះបៀបានទេ!');
 
-        // ពិនិត្យថាតើបៀដែលចុះត្រូវតាមក្បួន និងធំជាងបៀនៅលើតុដែរឬទេ
         if (getComboType(cards) && comparePlay(cards, room.playedCards)) {
-            // ដកបៀដែលបានលេងចេញពីដៃរបស់អ្នកលេង
+            const winningCards = [...cards]; 
+
             cards.forEach(c => {
                 const idx = player.hand.findIndex(pc => pc.value === c.value && pc.suit === c.suit);
                 if (idx !== -1) player.hand.splice(idx, 1);
@@ -303,19 +290,23 @@ io.on('connection', (socket) => {
             room.lastPlayerId = socket.id;
             player.passed = false; 
 
-            // ស្វែងរកអ្នកលេងដែលអស់បៀមុនគេ
             const activePlayers = room.players.filter(p => !p.isSpectator);
             const winner = activePlayers.find(p => p.hand.length === 0);
 
             if (winner) {
                 room.status = 'waiting'; 
-                room.lastWinnerId = winner.id; // 💾 កត់ត្រាទុក ID អ្នកឈ្នះ ដើម្បីឱ្យគាត់ចុះមុនគេនៅជុំបន្ទាប់
+                room.lastWinnerId = winner.id; 
 
-                const results = room.players.map(p => ({ 
-                    name: p.name, 
-                    remaining: p.hand,
-                    isSpectator: p.isSpectator 
-                }));
+                const results = room.players.map(p => {
+                    const isWinner = p.id === winner.id;
+                    return { 
+                        id: p.id,
+                        name: p.name, 
+                        remaining: isWinner ? winningCards : p.hand, 
+                        isSpectator: p.isSpectator,
+                        isWinner: isWinner
+                    };
+                });
                 
                 io.to(roomId).emit('gameWon', { 
                     winner: winner.name, 
@@ -324,7 +315,6 @@ io.on('connection', (socket) => {
                 });
                 broadcastRoomList();
             } else {
-                // ប្រសិនបើមិនទាន់មានអ្នកឈ្នះទេ ត្រូវប្ដូរវេនទៅអ្នកបន្ទាប់
                 moveToNextTurn(room);
                 io.to(roomId).emit('cardPlayed', { 
                     by: player.name, 
@@ -339,7 +329,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Pass វេន
     socket.on('passTurn', (roomId) => {
         const room = rooms[roomId];
         if (!room) return;
@@ -380,7 +369,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ចាកចេញពីបន្ទប់
     socket.on('leaveRoom', () => {
         for (const id in rooms) {
             const room = rooms[id];
@@ -389,7 +377,6 @@ io.on('connection', (socket) => {
             if (pIdx !== -1) {
                 const wasSpectator = room.players[pIdx].isSpectator;
                 room.players.splice(pIdx, 1);
-                
                 socket.leave(id); 
                 socket.emit('leftRoom'); 
                 
@@ -399,12 +386,10 @@ io.on('connection', (socket) => {
                     if (room.creatorId === socket.id) {
                         room.creatorId = room.players[0].id; 
                     }
-                    
                     if (room.status === 'playing' && !wasSpectator && room.currentTurnIndex === pIdx) {
                         moveToNextTurn(room);
                         io.to(id).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex });
                     }
-                    
                     io.to(id).emit('updatePlayers', room.players);
                 }
                 broadcastRoomList();
@@ -412,7 +397,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ឌីសខណិត (Disconnect)
     socket.on('disconnect', () => {
         for (const id in rooms) {
             const room = rooms[id];
@@ -428,12 +412,10 @@ io.on('connection', (socket) => {
                     if (room.creatorId === socket.id) {
                         room.creatorId = room.players[0].id;
                     }
-                    
                     if (room.status === 'playing' && !wasSpectator && room.currentTurnIndex === pIdx) {
                         moveToNextTurn(room);
                         io.to(id).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex });
                     }
-                    
                     io.to(id).emit('updatePlayers', room.players);
                 }
                 broadcastRoomList();
