@@ -5,14 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ទៀងឡេន Online</title>
     <style>
-        body { font-family: 'Khmer', sans-serif; background: #1e3c72; color: white; text-align: center; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; }
-        .btn { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 5px; border-radius: 5px; border: none; }
-        .btn-primary { background: #ffd700; color: #000; }
+        body { font-family: sans-serif; background: #1e3c72; color: white; text-align: center; padding: 20px; }
+        .btn { padding: 10px 20px; margin: 5px; cursor: pointer; border: none; border-radius: 5px; background: #ffd700; color: #000; }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; }
         .modal-content { background: white; color: black; padding: 20px; border-radius: 10px; width: 90%; max-width: 400px; }
         input { width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; }
-        .card { display: inline-block; width: 50px; height: 70px; background: white; color: black; border-radius: 5px; margin: 5px; line-height: 70px; font-weight: bold; cursor: pointer; user-select: none; }
+        .card { display: inline-block; width: 50px; height: 70px; background: white; color: black; border-radius: 5px; margin: 5px; line-height: 70px; font-weight: bold; cursor: pointer; }
         .card.red { color: red; }
         .player { background: rgba(255,255,255,0.1); padding: 10px; margin: 5px 0; border-radius: 5px; }
         .active { border: 2px solid yellow; }
@@ -20,29 +18,18 @@
     </style>
 </head>
 <body>
-
 <div class="container">
     <h1>🃏 ទៀងឡេន Online</h1>
-    
-    <!-- Menu -->
     <div id="main-menu">
-        <button class="btn btn-primary" onclick="showModal('create')">✨ បង្កើតបន្ទប់</button>
-        <button class="btn btn-primary" onclick="showModal('join')">🚪 ចូលបន្ទប់</button>
+        <button class="btn" onclick="showModal('create')">✨ បង្កើតបន្ទប់</button>
+        <button class="btn" onclick="showModal('join')">🚪 ចូលបន្ទប់</button>
     </div>
-
-    <!-- Game Room -->
     <div id="game-room">
         <h3>បន្ទប់: <span id="room-display"></span></h3>
         <div id="players-list"></div>
-        <button id="start-btn" class="btn btn-primary" style="display:none;" onclick="startGame()">🚀 ចាប់ផ្តើម</button>
-        
+        <button id="start-btn" class="btn" style="display:none;" onclick="startGame()">🚀 ចាប់ផ្តើម</button>
         <div id="status-msg" style="margin: 20px; font-weight: bold;"></div>
-        
-        <div id="last-card-area" style="height: 80px; margin-bottom: 20px;">
-            <p>បៀដែលចេញ:</p>
-            <div id="played-cards"></div>
-        </div>
-
+        <div id="played-cards" style="min-height: 80px;"></div>
         <div id="my-hand-area" style="display:none;">
             <h4>បៀរបស់អ្នក:</h4>
             <div id="my-hand"></div>
@@ -50,23 +37,21 @@
     </div>
 </div>
 
-<!-- Modals -->
 <div id="create-modal" class="modal">
     <div class="modal-content">
         <h3>បង្កើតបន្ទប់</h3>
-        <input type="text" id="c-room-id" placeholder="ឈ្ោះបន្ទប់">
-        <input type="text" id="c-name" placeholder="ឈមោះអ្នក">
-        <button class="btn btn-primary" onclick="createRoom()">បង្កើត</button>
+        <input type="text" id="c-room-id" placeholder="ឈ្មោះបន្ទប់">
+        <input type="text" id="c-name" placeholder="ឈ្មោះអ្នក">
+        <button class="btn" onclick="createRoom()">បង្កើត</button>
         <button class="btn" onclick="closeModals()">បិទ</button>
     </div>
 </div>
-
 <div id="join-modal" class="modal">
     <div class="modal-content">
         <h3>ចូលបន្ទប់</h3>
-        <input type="text" id="j-room-id" placeholder="ឈ្ោះបន្ប់">
+        <input type="text" id="j-room-id" placeholder="ឈ្មោះបន្ទប់">
         <input type="text" id="j-name" placeholder="ឈ្មោះអ្នក">
-        <button class="btn btn-primary" onclick="joinRoom()">ចូល</button>
+        <button class="btn" onclick="joinRoom()">ចូល</button>
         <button class="btn" onclick="closeModals()">បិទ</button>
     </div>
 </div>
@@ -74,122 +59,69 @@
 <script src="/socket.io/socket.io.js"></script>
 <script>
     const socket = io();
-    let roomId = null;
-    let playerId = null;
-    let isCreator = false;
-    let myHand = [];
+    let roomId = null, playerId = null, isCreator = false, myHand = [];
 
-    // UI Functions
-    function showModal(type) {
-        document.getElementById(type === 'create' ? 'create-modal' : 'join-modal').style.display = 'flex';
-    }
-    function closeModals() {
-        document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
-    }
+    function showModal(t) { document.getElementById(t==='create'?'create-modal':'join-modal').style.display='flex'; }
+    function closeModals() { document.querySelectorAll('.modal').forEach(m=>m.style.display='none'); }
 
-    // Socket Events
     function createRoom() {
-        const rId = document.getElementById('c-room-id').value;
-        const name = document.getElementById('c-name').value;
-        if(!rId || !name) return alert('សូមបញ្ចូលឈ្ោះ!');
-        socket.emit('createRoom', { roomId: rId, playerName: name });
-        closeModals();
+        const rId = document.getElementById('c-room-id').value, name = document.getElementById('c-name').value;
+        if(!rId||!name) return alert('សូមបញ្ចូលឈ្មោះ!');
+        socket.emit('createRoom', { roomId: rId, playerName: name }); closeModals();
     }
-
     function joinRoom() {
-        const rId = document.getElementById('j-room-id').value;
-        const name = document.getElementById('j-name').value;
-        if(!rId || !name) return alert('សូមបញ្ចូលឈ្ោះ!');
-        socket.emit('joinRoom', { roomId: rId, playerName: name });
-        closeModals();
+        const rId = document.getElementById('j-room-id').value, name = document.getElementById('j-name').value;
+        if(!rId||!name) return alert('សូមបញ្ចូលឈ្មោះ!');
+        socket.emit('joinRoom', { roomId: rId, playerName: name }); closeModals();
     }
+    function startGame() { socket.emit('startGame', roomId); }
+    function playCard(v,s) { socket.emit('playCard', { roomId, cardValue: v, cardSuit: s }); }
 
-    function startGame() {
-        socket.emit('startGame', roomId);
-    }
-
-    function playCard(val, suit) {
-        socket.emit('playCard', { roomId, cardValue: val, cardSuit: suit });
-    }
-
-    // Server Responses
-    socket.on('roomCreated', data => {
-        roomId = data.roomId;
-        playerId = data.playerId;
-        isCreator = true;
-        enterGame();
-    });
-
-    socket.on('roomJoined', data => {
-        roomId = data.roomId;
-        playerId = data.playerId;
-        isCreator = false;
-        enterGame();
-    });
+    socket.on('roomCreated', d => { roomId=d.roomId; playerId=d.playerId; isCreator=true; enterGame(); });
+    socket.on('roomJoined', d => { roomId=d.roomId; playerId=d.playerId; isCreator=false; enterGame(); });
 
     socket.on('updatePlayers', players => {
-        const list = document.getElementById('players-list');
-        list.innerHTML = players.map(p => 
-            `<div class="player ${p.id === playerId ? 'active' : ''}">${p.name} (${p.cardCount || 0})</div>`
+        document.getElementById('players-list').innerHTML = players.map(p=>
+            `<div class="player ${p.id===playerId?'active':''}">${p.name} (${p.cardCount||0})</div>`
         ).join('');
-        
-        if(isCreator && players.length >= 2) {
-            document.getElementById('start-btn').style.display = 'inline-block';
-        }
+        if(isCreator && players.length>=2) document.getElementById('start-btn').style.display='inline-block';
     });
 
-    socket.on('gameStarted', data => {
-        document.getElementById('start-btn').style.display = 'none';
-        document.getElementById('status-msg').innerText = `🎮 ចាប់ផ្តើម! វេន: ${data.players[data.currentTurnIndex].name}`;
+    socket.on('gameStarted', d => {
+        document.getElementById('start-btn').style.display='none';
+        document.getElementById('status-msg').innerText = `🎮 ចាប់ផ្តើម! វេន: ${d.players[d.currentTurnIndex].name}`;
     });
 
-    socket.on('dealCards', data => {
-        myHand = data.hand;
-        renderHand();
-        document.getElementById('my-hand-area').style.display = 'block';
-        if(data.isYourTurn) {
-            document.getElementById('status-msg').innerText = "✅ វេនរបស់អ្នក!";
-        } else {
-            document.getElementById('status-msg').innerText = "⏳ រង់ចាំ...";
-        }
+    socket.on('dealCards', d => {
+        myHand = d.hand; renderHand();
+        document.getElementById('my-hand-area').style.display='block';
+        document.getElementById('status-msg').innerText = d.isYourTurn ? "✅ វេនរបស់អ្នក!" : "⏳ រង់ចាំ...";
     });
 
-    socket.on('cardPlayed', data => {
-        document.getElementById('played-cards').innerHTML = 
-            `<div class="card ${['♥','♦'].includes(data.card.suit)?'red':''}">${data.card.value}${data.card.suit}</div>`;
-        
-        // Update player counts
-        const list = document.getElementById('players-list');
-        list.innerHTML = data.updatedHands.map(p => 
-            `<div class="player ${p.id === playerId ? 'active' : ''}">${p.name} (${p.cardCount})</div>`
+    socket.on('cardPlayed', d => {
+        document.getElementById('played-cards').innerHTML = `<div class="card ${['♥','♦'].includes(d.card.suit)?'red':''}">${d.card.value}${d.card.suit}</div>`;
+        document.getElementById('players-list').innerHTML = d.updatedHands.map(p=>
+            `<div class="player ${p.id===playerId?'active':''}">${p.name} (${p.cardCount})</div>`
         ).join('');
-
-        document.getElementById('status-msg').innerText = `🎯 វេន: ${data.updatedHands[data.currentTurnIndex].name}`;
+        document.getElementById('status-msg').innerText = `🎯 វេន: ${d.updatedHands[d.currentTurnIndex].name}`;
     });
 
-    socket.on('gameWon', data => {
-        alert(`🏆 អ្នកឈ្នះ: ${data.winner}`);
-        location.reload();
-    });
-
+    socket.on('gameWon', d => { alert(`🏆 អ្នកឈ្នះ: ${d.winner}`); location.reload(); });
     socket.on('errorMsg', msg => alert(msg));
 
-    // Helpers
     function enterGame() {
-        document.getElementById('main-menu').style.display = 'none';
-        document.getElementById('game-room').style.display = 'block';
+        document.getElementById('main-menu').style.display='none';
+        document.getElementById('game-room').style.display='block';
         document.getElementById('room-display').innerText = roomId;
     }
-
     function renderHand() {
-        const container = document.getElementById('my-hand');
-        container.innerHTML = '';
-        myHand.forEach(c => {
+        const c = document.getElementById('my-hand'); c.innerHTML='';
+        myHand.forEach(card => {
             const div = document.createElement('div');
-            div.className = `card ${['♥','♦'].includes(c.suit)?'red':''}`;
-            div.innerText = `${c.value}${c.suit}`;
-            div.onclick = () => playCard(c.value, c.suit);
-            container.appendChild(div);
+            div.className = `card ${['♥','♦'].includes(card.suit)?'red':''}`;
+            div.innerText = `${card.value}${card.suit}`;
+            div.onclick = () => playCard(card.value, card.suit);
+            c.appendChild(div);
         });
     }
 </script>
