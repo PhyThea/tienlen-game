@@ -1,5 +1,5 @@
 // =================================================================
-// server.js (កំណែទម្រង់ពេញលេញ - បង្ហាញចំនួនសន្លឹកបៀរយ៉ាងច្បាស់លាស់)
+// server.js (កំណែទម្រង់ពេញលេញ - គ្មានកំហុស Syntax និងដំណើរការត្រឹមត្រូវ)
 // =================================================================
 
 const express = require('express');
@@ -176,7 +176,8 @@ io.on('connection', (socket) => {
             password: password || "",
             currentTurnIndex: 0,
             playedCards: [],
-            lastPlayerId: null 
+            lastPlayerId: null,
+            lastWinnerId: null
         };
         
         socket.join(roomId);
@@ -229,6 +230,7 @@ io.on('connection', (socket) => {
         const room = rooms[roomId];
         if (!room || room.creatorId !== socket.id) return;
 
+        // ប្ដូរ Spectator ទាំងអស់ឱ្យមកជាអ្នកលេងវិញ
         room.players.forEach(p => {
             p.isSpectator = false;
             p.hand = [];
@@ -252,10 +254,26 @@ io.on('connection', (socket) => {
             io.to(p.id).emit('dealCards', { hand: p.hand });
         });
 
-        room.currentTurnIndex = activePlayers.findIndex(p => 
-            p.hand.some(c => c.value === '3' && c.suit === '♠')
-        );
-        if (room.currentTurnIndex === -1) room.currentTurnIndex = 0;
+        // 🎯 ឆែករកអ្នកចុះមុន៖
+        // បើមានអ្នកឈ្នះពីវគ្គមុន ឱ្យអ្នកឈ្នះនោះចុះមុនគេ
+        let startingIndex = -1;
+        if (room.lastWinnerId) {
+            startingIndex = activePlayers.findIndex(p => p.id === room.lastWinnerId);
+        }
+
+        // បើរកអ្នកឈ្នះវគ្គមុនមិនឃើញ ឬជាជុំដំបូងគេ ត្រូវរកអ្នកដែលមាន ៣ ប៊ិច (3♠)
+        if (startingIndex === -1) {
+            startingIndex = activePlayers.findIndex(p => 
+                p.hand.some(c => c.value === '3' && c.suit === '♠')
+            );
+        }
+
+        // បើនៅតែរកមិនឃើញទៀត ឱ្យ Host (Index 0) ចុះមុន
+        if (startingIndex === -1) {
+            startingIndex = 0;
+        }
+
+        room.currentTurnIndex = startingIndex;
 
         io.to(roomId).emit('gameStarted', { 
             players: room.players, 
@@ -264,7 +282,7 @@ io.on('connection', (socket) => {
         broadcastRoomList();
     });
 
-    // ចុះបៀ
+    // ចុះបៀ (លុបផ្នែកជាន់គ្នា និងជួសជុល Syntax ស្អាតល្អ)
     socket.on('playCard', ({ roomId, cards }) => {
         const room = rooms[roomId];
         if (!room) return;
@@ -273,7 +291,9 @@ io.on('connection', (socket) => {
         if (!player || player.id !== socket.id) return socket.emit('errorMsg', 'មិនមែនវេនអ្នកទេ');
         if (player.isSpectator) return socket.emit('errorMsg', 'អ្នកជាអ្នកមើលរង់ចាំវគ្គក្រោយ មិនអាចចុះបៀបានទេ!');
 
+        // ពិនិត្យថាតើបៀដែលចុះត្រូវតាមក្បួន និងធំជាងបៀនៅលើតុដែរឬទេ
         if (getComboType(cards) && comparePlay(cards, room.playedCards)) {
+            // ដកបៀដែលបានលេងចេញពីដៃរបស់អ្នកលេង
             cards.forEach(c => {
                 const idx = player.hand.findIndex(pc => pc.value === c.value && pc.suit === c.suit);
                 if (idx !== -1) player.hand.splice(idx, 1);
@@ -281,13 +301,16 @@ io.on('connection', (socket) => {
 
             room.playedCards = cards;
             room.lastPlayerId = socket.id;
-            player.passed = false;
+            player.passed = false; 
 
+            // ស្វែងរកអ្នកលេងដែលអស់បៀមុនគេ
             const activePlayers = room.players.filter(p => !p.isSpectator);
             const winner = activePlayers.find(p => p.hand.length === 0);
 
             if (winner) {
                 room.status = 'waiting'; 
+                room.lastWinnerId = winner.id; // 💾 កត់ត្រាទុក ID អ្នកឈ្នះ ដើម្បីឱ្យគាត់ចុះមុនគេនៅជុំបន្ទាប់
+
                 const results = room.players.map(p => ({ 
                     name: p.name, 
                     remaining: p.hand,
@@ -301,6 +324,7 @@ io.on('connection', (socket) => {
                 });
                 broadcastRoomList();
             } else {
+                // ប្រសិនបើមិនទាន់មានអ្នកឈ្នះទេ ត្រូវប្ដូរវេនទៅអ្នកបន្ទាប់
                 moveToNextTurn(room);
                 io.to(roomId).emit('cardPlayed', { 
                     by: player.name, 
