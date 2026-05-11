@@ -493,26 +493,29 @@ function renderPlayers(players) {
         el.className = 'player';
         el.id = `player-card-${p.id}`; 
         
-        const isCurrentTurn = (index === currentTurnIndex && !p.isSpectator);
+        const isCurrentTurn = (index === currentTurnIndex && !p.isSpectator && p.hand.length > 0);
         
         if (isCurrentTurn) {
             el.classList.add('active-turn'); 
         }
 
-        if (p.passed) {
+        if (p.passed && p.hand.length > 0) {
             el.classList.add('player-passed'); 
         }
 
         let roleText = '';
         if (p.isSpectator) {
             roleText = '<span style="color: #ef4444;">(អ្នកមើល)</span>';
+        } else if (p.rank !== null && p.rank > 0) {
+            // បង្ហាញស្ថានភាពសម្រាប់អ្នកដែលអស់បៀរមុន (កំពុងចាំមើលគេលេងបន្ត)
+            let rankBadge = p.rank === 1 ? '🎉 ប៉េ (លេខ ១)' : `🥈 ជាប់ទី ${p.rank}`;
+            roleText = `<div style="color: #22c55e; font-weight: bold; margin-top:8px;">${rankBadge}<br>⏱️ កំពុងចាំមើល...</div>`;
         } else {
-            // ទាញយកចំនួនបៀរដែលនៅសល់ជាក់ស្ដែងមកបង្ហាញ
             const count = p.hand ? p.hand.length : (p.cardCount !== undefined ? p.cardCount : 13);
             roleText = `<div class="card-counter">🃏 នៅសល់៖ ${count} សន្លឹក</div>`;
         }
 
-        if (p.passed && !p.isSpectator) {
+        if (p.passed && !p.isSpectator && p.hand.length > 0) {
             roleText += '<br><span style="color: #ef4444; font-weight: bold; font-size: 13px;">❌ Pass (រំលង)</span>';
         }
 
@@ -602,6 +605,8 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
         const found = playersData.find(oldP => oldP.id === p.id);
         if (found) {
             found.cardCount = p.hand ? p.hand.length : p.cardCount;
+            found.rank = p.rank; // បន្ថែមការរក្សាទុក Rank ដើម្បីឱ្យការ Render ពណ៌កាតបានត្រឹមត្រូវ
+            found.passed = p.passed; // បន្ថែមការរក្សាទុកស្ថានភាព Pass
         }
     });
 
@@ -621,9 +626,9 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
 
     const tableDiv = document.getElementById('table');
     tableDiv.innerHTML = '';
-    if (cards.length === 0) {
-        tableDiv.innerHTML = '<div style="color: #64748b;">មិនទាន់មានបៀរចុះឡើយ</div>';
-    } else {
+    
+    // បង្ហាញបៀរដែលទើបនឹងចុះនៅលើតុ (ទោះជាបៀរចុងក្រោយរបស់អ្នក ប៉េ ក៏បង្ហាញដែរ)
+    if (cards && cards.length > 0) {
         cards.forEach(card => {
             const el = document.createElement('div');
             const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
@@ -636,7 +641,10 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
             `;
             tableDiv.appendChild(el);
         });
+    } else {
+        tableDiv.innerHTML = '<div style="color: #64748b;">មិនទាន់មានបៀរចុះឡើយ</div>';
     }
+    
     selectedCards = [];
     renderMyCards();
 });
@@ -660,11 +668,20 @@ socket.on('errorMsg', (msg) => {
     alert("⚠️ " + msg);
 });
 
-socket.on('gameWon', ({ winner, winnerId, allHands }) => {
+socket.on('gameWon', ({ allHands }) => {
     document.getElementById('gameArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'block';
     
-    document.getElementById('winnerName').innerText = winner;
+    // តម្រៀបលំដាប់លទ្ធផលបង្ហាញពីលេខ ១ ដល់អ្នកលេខ ០ (អ្នកចាញ់)
+    allHands.sort((a, b) => {
+        if (a.rank === 0) return 1;
+        if (b.rank === 0) return -1;
+        return a.rank - b.rank;
+    });
+
+    // ស្វែងរកឈ្មោះអ្នកបានលេខ ១ (ប៉េ) ដើម្បីបង្ហាញលើ Header
+    const winnerObj = allHands.find(p => p.rank === 1);
+    document.getElementById('winnerName').innerText = winnerObj ? winnerObj.name : 'រកមិនឃើញ';
 
     const resultList = document.getElementById('resultList');
     resultList.innerHTML = '';
@@ -673,23 +690,37 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
         const playerDiv = document.createElement('div');
         playerDiv.className = 'result-player';
         
+        let rankText = '';
         let cardsHTML = '';
+
         if (p.isSpectator) {
-            cardsHTML = `<span style="color: #ef4444; font-weight: bold;">(អ្នកមើលការប្រកួតរង់ចាំលេងវគ្គបន្ទាប់)</span>`;
-        } else if (!p.remaining || p.remaining.length === 0) {
-            cardsHTML = `<span style="color: #22c55e; font-weight: bold;">អស់បៀពីដៃ (ឈ្នះ)</span>`;
+            rankText = `<span style="color: #94a3b8;">[អ្នកមើលការប្រកួត]</span>`;
+            cardsHTML = `<span style="color: #64748b; font-style: italic;">មិនបានចូលរួមលេងឡើយ</span>`;
         } else {
-            p.remaining.forEach(card => {
-                const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
-                cardsHTML += `<div class="result-card ${isRed}">${card.value}${card.suit}</div>`;
-            });
+            if (p.rank === 1) {
+                rankText = `<span style="color: #22c55e; font-weight: bold;">🥇 ឋានៈ៖ ប៉េ (លេខ ១)</span>`;
+                cardsHTML = `<span style="color: #22c55e; font-weight: bold;">🎉 អស់បៀរមុនគេបង្អស់!</span>`;
+            } else if (p.rank === 0) {
+                rankText = `<span style="color: #ef4444; font-weight: bold;">💀 ឋានៈ៖ ០ (ចាញ់ចុងក្រោយគេ)</span>`;
+                // បង្ហាញបៀរដែលនៅសល់ក្នុងដៃរបស់អ្នកចាញ់
+                p.remaining.forEach(card => {
+                    const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
+                    cardsHTML += `<div class="result-card ${isRed}">${card.value}${card.suit}</div>`;
+                });
+            } else {
+                rankText = `<span style="color: #f59e0b; font-weight: bold;">🥈 ឋានៈ៖ ទី${p.rank}</span>`;
+                cardsHTML = `<span style="color: #f59e0b;">បានរំលាយបៀរអស់រួចរាល់</span>`;
+            }
         }
 
         playerDiv.innerHTML = `
-            <strong>👤 ${p.name}</strong> ${p.isSpectator ? '' : `(នៅសល់ ${p.remaining ? p.remaining.length : 0} សន្លឹក)`}
-            <div class="result-cards">${cardsHTML}</div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <strong>👤 ${p.name}</strong>
+                ${rankText}
+            </div>
+            <div class="result-cards" style="margin-top: 10px;">${cardsHTML}</div>
         `;
-        resultList.appendChild(playerDiv);
+            resultList.appendChild(playerDiv);
     });
 
     const playAgainBtn = document.getElementById('hostPlayAgainBtn');
