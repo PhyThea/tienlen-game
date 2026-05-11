@@ -274,10 +274,15 @@ io.on('connection', (socket) => {
         player.passed = true;
         const activePlayers = room.players.filter(p => !p.passed && p.hand.length > 0);
         
+        // ប្រសិនបើរកឃើញថា សល់តែម្នាក់គត់ដែលមិនទាន់ Pass (អ្នកផ្សេងទៀត Pass អស់ហើយ)
         if (activePlayers.length <= 1) {
+            // សម្អាតបៀលើតុឱ្យទៅជាទទេស្អាត ដើម្បីឱ្យគាត់មានសិទ្ធិចុះបៀអ្វីក៏បាន (សេរី)
             room.playedCards = []; 
+            
+            // កំណត់ស្ថានភាព Passed របស់អ្នកលេងទាំងអស់ឱ្យមកជា False វិញ ដើម្បីត្រៀមលេងជុំថ្មី
             room.players.forEach(p => p.passed = false); 
             
+            // ស្វែងរក Index របស់អ្នកដែលត្រូវចុះបន្ទាប់ (គឺអ្នកដែលបានចុះបៀចុងក្រោយគេមុនគេ Pass អស់)
             let nextWinnerIndex = room.players.findIndex(p => p.id === room.lastPlayerId);
             if (nextWinnerIndex === -1 || room.players[nextWinnerIndex].hand.length === 0) {
                 nextWinnerIndex = room.players.findIndex(p => p.hand.length > 0);
@@ -286,9 +291,20 @@ io.on('connection', (socket) => {
             room.currentTurnIndex = nextWinnerIndex !== -1 ? nextWinnerIndex : 0;
             const nextPlayerName = room.players[room.currentTurnIndex].name;
             
+            // បញ្ជូនទិន្នន័យទៅ Client ឱ្យដឹងថា តុត្រូវបានសម្អាតហើយ ជុំថ្មីចាប់ផ្ដើម
             io.to(roomId).emit('clearTable', { nextPlayer: nextPlayerName });
-            io.to(roomId).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex });
+            
+            // សំខាន់បំផុត៖ ត្រូវបញ្ជូនព្រឹត្តិការណ៍ cardPlayed ជាមួយ cards ស្មើនឹង [] (ទទេ) 
+            // ដើម្បីឱ្យ Client របស់គ្រប់គ្នាដឹងថា គ្មានបៀនៅលើតុទៀតទេ និងអាចចុះសេរីបាន
+            io.to(roomId).emit('cardPlayed', { 
+                by: 'System', 
+                cards: [], // ដាក់បៀទទេ ដើម្បីសម្អាតលើ Client screen
+                nextTurn: room.currentTurnIndex,
+                cardCount: room.players[room.currentTurnIndex].hand.length,
+                updatedHands: room.players 
+            });
         } else {
+            // បើនៅមានគ្នាដេញស៊ីបន្តទៀត ត្រូវផ្ទេរវេនទៅអ្នកបន្ទាប់
             moveToNextTurn(room);
             io.to(roomId).emit('playerPassed', { name: player.name, nextTurn: room.currentTurnIndex });
         }
