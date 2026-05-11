@@ -668,20 +668,11 @@ socket.on('errorMsg', (msg) => {
     alert("⚠️ " + msg);
 });
 
-socket.on('gameWon', ({ allHands }) => {
+socket.on('gameWon', ({ winner, winnerId, allHands }) => {
     document.getElementById('gameArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'block';
     
-    // តម្រៀបលំដាប់លទ្ធផលបង្ហាញពីលេខ ១ ដល់អ្នកលេខ ០ (អ្នកចាញ់)
-    allHands.sort((a, b) => {
-        if (a.rank === 0) return 1;
-        if (b.rank === 0) return -1;
-        return a.rank - b.rank;
-    });
-
-    // ស្វែងរកឈ្មោះអ្នកបានលេខ ១ (ប៉េ) ដើម្បីបង្ហាញលើ Header
-    const winnerObj = allHands.find(p => p.rank === 1);
-    document.getElementById('winnerName').innerText = winnerObj ? winnerObj.name : 'រកមិនឃើញ';
+    document.getElementById('winnerName').innerText = winner;
 
     const resultList = document.getElementById('resultList');
     resultList.innerHTML = '';
@@ -690,37 +681,35 @@ socket.on('gameWon', ({ allHands }) => {
         const playerDiv = document.createElement('div');
         playerDiv.className = 'result-player';
         
-        let rankText = '';
         let cardsHTML = '';
-
         if (p.isSpectator) {
-            rankText = `<span style="color: #94a3b8;">[អ្នកមើលការប្រកួត]</span>`;
-            cardsHTML = `<span style="color: #64748b; font-style: italic;">មិនបានចូលរួមលេងឡើយ</span>`;
+            cardsHTML = `<span style="color: #ef4444; font-weight: bold;">👀 (អ្នកមើលការប្រកួត)</span>`;
+        } else if (p.id === winnerId || !p.remaining || p.remaining.length === 0) {
+            cardsHTML = `<span style="color: #22c55e; font-weight: bold;">🎉 អស់បៀរមុនគេបង្អស់ (ឈ្នះលេខ ១)</span>`;
         } else {
-            if (p.rank === 1) {
-                rankText = `<span style="color: #22c55e; font-weight: bold;">🥇 ឋានៈ៖ ប៉េ (លេខ ១)</span>`;
-                cardsHTML = `<span style="color: #22c55e; font-weight: bold;">🎉 អស់បៀរមុនគេបង្អស់!</span>`;
-            } else if (p.rank === 0) {
-                rankText = `<span style="color: #ef4444; font-weight: bold;">💀 ឋានៈ៖ ០ (ចាញ់ចុងក្រោយគេ)</span>`;
-                // បង្ហាញបៀរដែលនៅសល់ក្នុងដៃរបស់អ្នកចាញ់
-                p.remaining.forEach(card => {
-                    const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
-                    cardsHTML += `<div class="result-card ${isRed}">${card.value}${card.suit}</div>`;
-                });
-            } else {
-                rankText = `<span style="color: #f59e0b; font-weight: bold;">🥈 ឋានៈ៖ ទី${p.rank}</span>`;
-                cardsHTML = `<span style="color: #f59e0b;">បានរំលាយបៀរអស់រួចរាល់</span>`;
-            }
+            // បង្កើតជាសន្លឹកបៀរចេញមកឲ្យឃើញរៀងៗខ្លួន
+            p.remaining.forEach(card => {
+                const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
+                cardsHTML += `
+                    <div class="result-card ${isRed}" style="display: inline-flex; flex-direction: column; justify-content: space-between; width: 45px; height: 65px; background: white; color: black; border-radius: 5px; padding: 4px; font-size: 12px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); text-align: center;">
+                        <div>${card.value}</div>
+                        <div style="font-size: 16px; align-self: center;">${card.suit}</div>
+                    </div>
+                `;
+            });
         }
 
+        // កំណត់ការបង្ហាញឈ្មោះ និងចំនួនសន្លឹកបៀរដែលនៅសល់
+        const remainingCount = p.remaining ? p.remaining.length : 0;
+        const countText = (p.isSpectator || p.id === winnerId) ? '' : `<span style="color: #f59e0b;">(នៅសល់ ${remainingCount} សន្លឹក)</span>`;
+
         playerDiv.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <strong>👤 ${p.name}</strong>
-                ${rankText}
+            <div style="margin-bottom: 8px;">
+                <strong>👤 ${p.name} ${p.id === myId ? '(ខ្ញុំ)' : ''}</strong> ${countText}
             </div>
-            <div class="result-cards" style="margin-top: 10px;">${cardsHTML}</div>
+            <div class="result-cards" style="display: flex; gap: 6px; flex-wrap: wrap;">${cardsHTML}</div>
         `;
-            resultList.appendChild(playerDiv);
+        resultList.appendChild(playerDiv);
     });
 
     const playAgainBtn = document.getElementById('hostPlayAgainBtn');
