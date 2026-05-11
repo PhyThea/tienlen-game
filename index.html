@@ -111,24 +111,35 @@ button:hover {
     gap: 10px;
 }
 
+/* ======================================================= */
+/* 📱 កូដកែសម្រួលពិសេសសម្រាប់បង្ហាញបៀរមួយជួរលើទូរស័ព្ទដៃ */
+/* ======================================================= */
 #hand {
     display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 10px;
-    margin-top: 20px;
+    flex-wrap: nowrap;          /* ការពារដាច់ខាតមិនឱ្យបៀរធ្លាក់ចុះជួរទីពីរ */
+    overflow-x: auto;           /* អនុញ្ញាតឱ្យអូសទៅឆ្វេងស្ដាំបាន (Horizontal Scroll) */
+    padding: 25px 10px;         /* បន្ថែមចន្លោះពីលើដើម្បីកុំឱ្យទើសពេលចុចជ្រើសរើសបៀររុញឡើងលើ */
+    gap: 8px;                   /* គម្លាតរវាងសន្លឹកបៀរនីមួយៗ */
+    justify-content: flex-start;/* តម្រៀបបៀរចាប់ផ្ដើមពីខាងឆ្វេងទៅ */
+    -webkit-overflow-scrolling: touch; /* អូសលើទូរស័ព្ទដៃកាន់តែរលូន */
+}
+
+/* លាក់របារ Scrollbar ដើម្បីឱ្យមើលទៅស្អាត */
+#hand::-webkit-scrollbar {
+    display: none; 
 }
 
 .card {
-    width: 65px;
-    height: 95px;
-    border-radius: 12px;
+    flex-shrink: 0;             /* ការពារកុំឱ្យសន្លឹកបៀររួមតូចទៅៗពេលមានបៀរច្រើនក្នុងដៃ */
+    width: 60px;                /* ទំហំទទឹងសន្លឹកបៀរល្មមស្អាតលើទូរស័ព្ទ */
+    height: 90px;               /* កម្ពស់សន្លឹកបៀរ */
+    border-radius: 10px;
     background: white;
     color: black;
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 22px;
+    font-size: 18px;            /* ទំហំអក្សរ និងផ្កាបៀរ */
     font-weight: bold;
     cursor: pointer;
     user-select: none;
@@ -137,11 +148,12 @@ button:hover {
 }
 
 .card:hover {
-    transform: translateY(-10px);
+    transform: translateY(-5px);
 }
 
+/* ពេលចុចជ្រើសរើសបៀរ */
 .selected {
-    transform: translateY(-20px);
+    transform: translateY(-15px) !important; /* រុញឡើងលើឱ្យច្បាស់ */
     background: #facc15 !important;
     border-color: #eab308;
 }
@@ -241,7 +253,7 @@ let myHand = [];
 let selectedCards = [];
 let playersData = [];
 let currentTurnIndex = 0;
-let isCreator = false; // សម្គាល់ថាជា Host ឬអត់
+let isCreator = false; 
 
 function createRoom() {
     const roomId = document.getElementById('roomId').value.trim();
@@ -250,7 +262,7 @@ function createRoom() {
 
     if (!roomId) return alert('បញ្ចូល Room ID');
     
-    isCreator = true; // អ្នកបង្កើតបន្ទប់
+    isCreator = true; 
     socket.emit('createRoom', { roomId, password, playerName });
 }
 
@@ -294,7 +306,6 @@ function renderPlayers(players) {
     lobby.innerHTML = '';
 
     players.forEach((p, index) => {
-        // បង្ហាញក្នុងតុហ្គេម
         const el = document.createElement('div');
         el.className = 'player';
         if (index === currentTurnIndex) {
@@ -307,14 +318,12 @@ function renderPlayers(players) {
         `;
         div.appendChild(el);
 
-        // បង្ហាញក្នុង Lobby
         const el2 = document.createElement('div');
         el2.className = 'player';
         el2.innerHTML = `👤 ${p.name} ${p.id === myId ? '(ខ្ញុំ)' : ''}`;
         lobby.appendChild(el2);
     });
 
-    // បង្ហាញប៊ូតុង Start Game តែចំពោះ Host (Creator) ប៉ុណ្ណោះ
     const startBtn = document.getElementById('startBtn');
     if (isCreator) {
         startBtn.style.display = 'inline-block';
@@ -363,7 +372,6 @@ function renderTable(cards) {
     });
 }
 
-// ទទួលការឆ្លើយតបពេលបង្កើតបន្ទប់ជោគជ័យ
 socket.on('roomCreated', ({ roomId, playerId }) => {
     myId = playerId;
     currentRoom = roomId;
@@ -372,7 +380,6 @@ socket.on('roomCreated', ({ roomId, playerId }) => {
     document.getElementById('showRoom').innerHTML = roomId;
 });
 
-// ទទួលការឆ្លើយតបពេលចូលរួមបន្ទប់ជោគជ័យ
 socket.on('roomJoined', ({ roomId, playerId }) => {
     myId = playerId;
     currentRoom = roomId;
@@ -405,13 +412,11 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount }) => {
     renderTable(cards);
     document.getElementById('status').innerHTML = `🎯 វេនរបស់៖ ${playersData[currentTurnIndex].name}`;
     
-    // អាប់ដេតចំនួនបៀររបស់ Player នៅក្នុង UI
     playersData.forEach(p => {
         if (p.name === by) p.cardCount = cardCount;
     });
     renderPlayers(playersData);
 
-    // បើសិនជាបៀដែលចេញនោះ ជាបៀរបស់ខ្លួនឯង ត្រូវដកវាចេញពី UI ដៃរបស់យើង
     myHand = myHand.filter(myCard => !cards.some(c => c.value === myCard.value && c.suit === myCard.suit));
     renderHand(myHand);
 });
@@ -432,7 +437,6 @@ socket.on('gameWon', ({ winner, allHands }) => {
     document.getElementById('resultArea').style.display = 'block';
     document.getElementById('winnerName').innerHTML = `🏆 អ្នកឈ្នះគឺ៖ <span style="color: #22c55e;">${winner}</span>`;
 
-    // បង្ហាញបៀដែលនៅសល់ក្នុងដៃរបស់ម្នាក់ៗ (Show Remaining/High)
     const resultDiv = document.getElementById('allRemainingHands');
     resultDiv.innerHTML = '';
 
@@ -457,7 +461,6 @@ socket.on('gameWon', ({ winner, allHands }) => {
         resultDiv.appendChild(playerDiv);
     });
 
-    // គ្រប់គ្រងប៊ូតុង "Play Again" សម្រាប់តែ Host (Creator)
     const playAgainBtn = document.getElementById('hostPlayAgainBtn');
     const waitText = document.getElementById('waitHostText');
     if (isCreator) {
@@ -470,7 +473,7 @@ socket.on('gameWon', ({ winner, allHands }) => {
 });
 
 function backToLobbyOrRestart() {
-    socket.emit('startGame', currentRoom); // Host ចុចចាប់ផ្ដើមលេងម្ដងទៀតភ្លាមៗ
+    socket.emit('startGame', currentRoom); 
 }
 
 socket.on('errorMsg', (msg) => {
