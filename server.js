@@ -280,14 +280,18 @@ io.on('connection', (socket) => {
         broadcastRoomList();
     });
 
+// ចុះបៀ (លុបផ្នែកជាន់គ្នា និងជួសជុល Syntax ស្អាតល្អ)
     socket.on('playCard', ({ roomId, cards }) => {
         const room = rooms[roomId];
         if (!room) return;
         const player = room.players[room.currentTurnIndex];
         
         if (!player || player.id !== socket.id) return socket.emit('errorMsg', 'មិនមែនវេនអ្នកទេ');
+        if (player.isSpectator) return socket.emit('errorMsg', 'អ្នកជាអ្នកមើលរង់ចាំវគ្គក្រោយ មិនអាចចុះបៀបានទេ!');
 
+        // ពិនិត្យថាតើបៀដែលចុះត្រូវតាមក្បួន និងធំជាងបៀនៅលើតុដែរឬទេ
         if (getComboType(cards) && comparePlay(cards, room.playedCards)) {
+            // ដកបៀដែលបានលេងចេញពីដៃរបស់អ្នកលេង
             cards.forEach(c => {
                 const idx = player.hand.findIndex(pc => pc.value === c.value && pc.suit === c.suit);
                 if (idx !== -1) player.hand.splice(idx, 1);
@@ -297,33 +301,23 @@ io.on('connection', (socket) => {
             room.lastPlayerId = socket.id;
             player.passed = false; 
 
-            // ពិនិត្យមើលថាតើគាត់អស់បៀរ (ប៉េ) ឬនៅ?
-            if (player.hand.length === 0) {
-                player.rank = room.nextRank;
-                if (room.nextRank === 1) {
-                    room.lastWinnerId = player.id; 
-                }
-                room.nextRank++;
-                player.passed = true;
-            }
+            // ស្វែងរកអ្នកលេងដែលអស់បៀមុនគេ
+            const activePlayers = room.players.filter(p => !p.isSpectator);
+            const winner = activePlayers.find(p => p.hand.length === 0);
 
-            // គណនាចំនួនអ្នកលេងដែលនៅសល់បៀក្នុងដៃ
-            const remainingPlayers = room.players.filter(p => !p.isSpectator && p.hand.length > 0);
+            if (winner) {
+                room.status = 'waiting'; 
+                room.lastWinnerId = winner.id; // 💾 កត់ត្រាទុក ID អ្នកឈ្នះ ដើម្បីឱ្យគាត់ចុះមុនគេនៅជុំបន្ទាប់
 
-            // បើសល់តែម្នាក់គត់ មានន័យថាហ្គេមត្រូវបញ្ចប់ទាំងស្រុង
-            if (remainingPlayers.length === 1) {
-                const loser = remainingPlayers[0];
-                loser.rank = 0; // អ្នកចាញ់ចុងក្រោយគេបង្អស់
-
-                room.status = 'waiting';
+                // 🎯 ចាប់យកទិន្នន័យបៀដែលនៅសល់ក្នុងដៃរបស់គ្រប់គ្នាឱ្យបានច្បាស់លាស់ (ដំណោះស្រាយមិនឱ្យបាត់បៀ)
                 const results = room.players.map(p => ({ 
+                    id: p.id,
                     name: p.name, 
-                    remaining: p.hand,
-                    isSpectator: p.isSpectator,
-                    rank: p.rank
+                    remaining: [...p.hand], // ចម្លងសន្លឹកបៀដែលនៅសល់ពិតប្រាកដមកទុក
+                    isSpectator: p.isSpectator 
                 }));
-
-                // ផ្ញើបៀចុងក្រោយទៅតុឱ្យឃើញសិន
+                
+                // ផ្ញើព្រឹត្តិការណ៍ cardPlayed ទៅតុជុំចុងក្រោយសិន ដើម្បីឱ្យកាតចុងក្រោយលោតបង្ហាញលើតុ
                 io.to(roomId).emit('cardPlayed', { 
                     by: player.name, 
                     cards, 
@@ -332,13 +326,19 @@ io.on('connection', (socket) => {
                     updatedHands: room.players 
                 });
 
+                // រង់ចាំ ១.៥ វិនាទី ទើបបង្ហាញផ្ទាំងលទ្ធផលឈ្នះចាញ់ ដើម្បីកុំឱ្យដាច់អារម្មណ៍លឿនពេក
                 setTimeout(() => {
-                    io.to(roomId).emit('gameWon', { allHands: results });
+                    io.to(roomId).emit('gameWon', { 
+                        winner: winner.name, 
+                        winnerId: winner.id, 
+                        allHands: results 
+                    });
                     broadcastRoomList();
-                }, 1500); 
+                }, 1500);
 
             } else {
-                // បើសល់គ្នា ២ នាក់ឡើងទៅ ត្រូវលេងបន្តទៀត
+                // ប្រសិនបើមិនទាន់មានអ្នកឈ្នះទេ ត្រូវប្ដូរវេនទៅអ្នកបន្ទាប់
+                moveToNextTurn(room);
                 io.to(roomId).emit('cardPlayed', { 
                     by: player.name, 
                     cards, 
@@ -346,10 +346,6 @@ io.on('connection', (socket) => {
                     cardCount: player.hand.length,
                     updatedHands: room.players 
                 });
-
-                // រត់ Logic ប្ដូរវេន ឬលាងតុ
-                handleTurnAndRoundStatus(room);
-                io.to(roomId).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex });
             }
         } else {
             socket.emit('errorMsg', 'ចុះមិនត្រូវក្បួន ឬបៀតូចជាង!');
