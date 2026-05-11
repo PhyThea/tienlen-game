@@ -1,5 +1,5 @@
 // =================================================================
-// server.js (កំណែទម្រង់ជួសជុល Syntax Error និងដោះស្រាយគ្រប់បញ្ហាគាំង)
+// server.js (កំណែទម្រង់បន្ថែមការលេង ផែ ២ ជាន់ និងដោះស្រាយបញ្ហាគាំង)
 // =================================================================
 
 const express = require('express');
@@ -44,6 +44,7 @@ function sortCards(cards) {
     return cards.sort((a, b) => getCardPower(a) - getCardPower(b));
 }
 
+// មុខងារពិនិត្យប្រភេទបៀ
 function getComboType(cards) {
     const len = cards.length;
     if (len === 0) return null;
@@ -52,21 +53,40 @@ function getComboType(cards) {
     const sorted = sortCards([...cards]);
     const sameValue = cards.every(c => c.value === cards[0].value);
     
+    // ឆែក ផែ, បីសន្លឹកដូចគ្នា (សាម), បួនសន្លឹកដូចគ្នា (ការ៉េ)
     if (sameValue) {
         if (len === 2) return 'pair';
         if (len === 3) return 'triple'; 
         if (len === 4) return 'bomb';   
     }
 
+    // ឆែក ផែ ២ ជាប់គ្នា (២ ជាន់ - ៤ សន្លឹក) ឧទាហរណ៍៖ 3-3-4-4
+    if (len === 4) {
+        let is2Pair = true;
+        if (sorted[0].value !== sorted[1].value) is2Pair = false;
+        if (sorted[2].value !== sorted[3].value) is2Pair = false;
+        
+        const firstValIdx = CARD_ORDER.indexOf(sorted[0].value);
+        const secondValIdx = CARD_ORDER.indexOf(sorted[2].value);
+        
+        if (secondValIdx !== firstValIdx + 1) is2Pair = false;
+        if (sorted[2].value === '2') is2Pair = false; // លេខ ២ មិនអាចចូលផែជាន់បានទេ
+
+        if (is2Pair) return 'double_pair';
+    }
+
+    // ឆែក ៤ ផែជាប់គ្នា (៤ ជាន់ - ៨ សន្លឹក) 
     if (len === 8) {
         let is4Pair = true;
         for (let i = 0; i < 8; i += 2) {
             if (sorted[i].value !== sorted[i+1].value) is4Pair = false;
             if (i > 0 && CARD_ORDER.indexOf(sorted[i].value) !== CARD_ORDER.indexOf(sorted[i-2].value) + 1) is4Pair = false;
         }
+        if (sorted[6].value === '2') is4Pair = false; // លេខ ២ មិនអាចចូលបានទេ
         if (is4Pair) return 'quad_pair';
     }
 
+    // ឆែកស៊េរី (Straight)
     let isStr = true;
     for (let i = 1; i < len; i++) {
         if (CARD_ORDER.indexOf(sorted[i].value) !== CARD_ORDER.indexOf(sorted[i-1].value) + 1) isStr = false;
@@ -84,6 +104,7 @@ function getComboType(cards) {
     return null;
 }
 
+// មុខងារប្រៀបធៀបបៀស៊ីគ្នា
 function comparePlay(newCards, oldCards) {
     if (!oldCards || oldCards.length === 0) return true;
     
@@ -92,10 +113,24 @@ function comparePlay(newCards, oldCards) {
     const newMax = getCardPower(sortCards([...newCards]).pop());
     const oldMax = getCardPower(sortCards([...oldCards]).pop());
 
+    // --- ច្បាប់ពិសេសកាត់ស៊ី ---
+    
+    // ១. ករណីបៀលើតុជា លេខ ២ តែមួយសន្លឹក (Single "2")
     if (oldType === 'single' && oldCards[0].value === '2') {
+        // ផែ ២ ជាន់ (double_pair), ការ៉េ (bomb), ឬ ៤ ផែជាប់គ្នា (quad_pair) អាចស៊ីបានទាំងអស់
+        if (newType === 'double_pair' || newType === 'bomb' || newType === 'quad_pair') return true;
+    }
+
+    // ២. ករណីបៀលើតុជា ផែ ២ ជាន់ (Double Pair)
+    if (oldType === 'double_pair') {
+        // ផែ ២ ជាន់ដែលធំជាង អាចស៊ីបាន
+        if (newType === 'double_pair' && newMax > oldMax) return true;
+        // ការ៉េ (bomb) ឬ ៤ ផែជាប់គ្នា (quad_pair) ដែលជាបៀធំជាង ក៏អាចកាត់ស៊ី ផែ ២ ជាន់បានដែរ
         if (newType === 'bomb' || newType === 'quad_pair') return true;
     }
 
+    // --- ច្បាប់ទូទៅ ---
+    // ត្រូវតែជាប្រភេទបៀដូចគ្នា និងចំនួនសន្លឹកស្មើគ្នា ទើបវាស់គ្នាដោយយកសន្លឹកធំបំផុត
     if (newType === oldType && newCards.length === oldCards.length) {
         return newMax > oldMax;
     }
@@ -162,6 +197,15 @@ io.on('connection', (socket) => {
         const room = rooms[roomId];
         if (!room || room.creatorId !== socket.id) return;
 
+        // បន្ថែមលក្ខខណ្ឌត្រួតពិនិត្យចំនួនអ្នកលេង (ត្រូវតែចន្លោះពី ២ ទៅ ៤ នាក់)
+        const playerCount = room.players.length;
+        if (playerCount < 2) {
+            return socket.emit('errorMsg', 'មិនអាចចាប់ផ្ដើមហ្គេមបានទេ! ត្រូវការអ្នកលេងយ៉ាងតិច ២ នាក់។');
+        }
+        if (playerCount > 4) {
+            return socket.emit('errorMsg', 'មិនអាចចាប់ផ្ដើមហ្គេមបានទេ! ចំនួនអ្នកលេងអតិបរមាគឺ ៤ នាក់។');
+        }
+
         const deck = shuffleDeck(createDeck());
         room.status = 'playing'; 
         room.playedCards = [];
@@ -183,7 +227,6 @@ io.on('connection', (socket) => {
             currentTurnIndex: room.currentTurnIndex 
         });
     });
-
     // ចុះបៀ
     socket.on('playCard', ({ roomId, cards }) => {
         const room = rooms[roomId];
@@ -277,6 +320,6 @@ io.on('connection', (socket) => {
             }
         }
     });
-}); // <--- សញ្ញាបិទវង់ក្រចករបស់ io.on('connection') ដែលបាត់ពីមុន ត្រូវបានបន្ថែមវិញហើយ!
+});
 
 server.listen(3000, () => console.log('Server is running on port 3000'));
