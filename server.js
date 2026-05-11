@@ -339,7 +339,7 @@ io.on('connection', (socket) => {
         io.to(roomId).emit('playerPassed', { 
             name: player.name, 
             id: player.id,
-            message: "ตោះខ្ញុំអត់ស៊ីទេ" 
+            message: "តោះខ្ញុំអត់ស៊ីទេ" //  ប្រើអក្សរខ្មែរ "ត" ពិតប្រាកដ
         });
         
         if (activePlaying.length <= 1) {
