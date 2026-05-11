@@ -205,9 +205,7 @@ io.on('connection', (socket) => {
         };
 
         socket.emit('roomCreated', {
-
-            roomId,
-
+            roomId: roomId,
             playerId: socket.id
         });
 
@@ -277,9 +275,7 @@ io.on('connection', (socket) => {
         });
 
         socket.emit('roomJoined', {
-
-            roomId,
-
+            roomId: roomId,
             playerId: socket.id
         });
 
