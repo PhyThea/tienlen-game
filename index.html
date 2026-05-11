@@ -112,15 +112,14 @@ button:hover {
 }
 
 /* ======================================================= */
-/* 📱 កូដកែសម្រួលពិសេសសម្រាប់បង្ហាញបៀរមួយជួរលើទូរស័ព្ទដៃ */
+/* 📱 កូដកែសម្រួលពិសេសសម្រាប់បង្ហាញបៀរជិះគងលើគ្នា និងនៅចំកណ្ដាល */
 /* ======================================================= */
 #hand {
     display: flex;
     flex-wrap: nowrap;          /* ការពារដាច់ខាតមិនឱ្យបៀរធ្លាក់ចុះជួរទីពីរ */
-    overflow-x: auto;           /* អនុញ្ញាតឱ្យអូសទៅឆ្វេងស្ដាំបាន (Horizontal Scroll) */
-    padding: 25px 10px;         /* បន្ថែមចន្លោះពីលើដើម្បីកុំឱ្យទើសពេលចុចជ្រើសរើសបៀររុញឡើងលើ */
-    gap: 8px;                   /* គម្លាតរវាងសន្លឹកបៀរនីមួយៗ */
-    justify-content: flex-start;/* តម្រៀបបៀរចាប់ផ្ដើមពីខាងឆ្វេងទៅ */
+    overflow-x: auto;           /* អនុញ្ញាតឱ្យអូសទៅឆ្វេងស្ដាំបាន ប្រសិនបើបៀរច្រើនខ្លាំង */
+    padding: 30px 15px;         /* បន្ថែមចន្លោះពីលើដើម្បីកុំឱ្យទើសពេលចុចជ្រើសរើសបៀររុញឡើងលើ */
+    justify-content: center;    /* តម្រៀបបៀរឱ្យនៅចំកណ្តាលអេក្រង់ជានិច្ច */
     -webkit-overflow-scrolling: touch; /* អូសលើទូរស័ព្ទដៃកាន់តែរលូន */
 }
 
@@ -131,9 +130,9 @@ button:hover {
 
 .card {
     flex-shrink: 0;             /* ការពារកុំឱ្យសន្លឹកបៀររួមតូចទៅៗពេលមានបៀរច្រើនក្នុងដៃ */
-    width: 60px;                /* ទំហំទទឹងសន្លឹកបៀរល្មមស្អាតលើទូរស័ព្ទ */
-    height: 90px;               /* កម្ពស់សន្លឹកបៀរ */
-    border-radius: 10px;
+    width: 65px;                /* ទំហំទទឹងសន្លឹកបៀរល្មមស្អាតលើទូរស័ព្ទ */
+    height: 95px;               /* កម្ពស់សន្លឹកបៀរ */
+    border-radius: 8px;
     background: white;
     color: black;
     display: flex;
@@ -143,19 +142,33 @@ button:hover {
     font-weight: bold;
     cursor: pointer;
     user-select: none;
-    transition: .2s;
-    border: 2px solid #ccc;
+    border: 1.5px solid #bbb;
+    position: relative;
+    box-shadow: -2px 2px 5px rgba(0,0,0,0.2); /* ស្រមោលតិចៗនៅចំហៀងឱ្យមើលឃើញស្រទាប់បៀរច្បាស់ */
+    
+    /* 🔑 គន្លឹះសំខាន់៖ កំណត់គម្លាតអវិជ្ជមានដើម្បីឱ្យបៀរជិះគងលើគ្នាទៅខាងស្តាំ */
+    margin-right: -28px;        
+    transition: transform 0.2s ease, margin-top 0.2s ease, box-shadow 0.2s ease;
 }
 
+/* កំណត់ឱ្យសន្លឹកបៀរចុងក្រោយគេបង្អស់មិនចាំបាច់មាន margin អវិជ្ជមានទេ */
+.card:last-child {
+    margin-right: 0;
+}
+
+/* ពេលប៉ះលើបៀរ (លើកឡើងលើបន្តិច និងបង្ហាញនៅពីមុខគេ) */
 .card:hover {
-    transform: translateY(-5px);
+    transform: translateY(-8px);
+    z-index: 50 !important;
 }
 
-/* ពេលចុចជ្រើសរើសបៀរ */
+/* 🔑 ពេលចុចជ្រើសរើសបៀរ (រុញឡើងលើឱ្យខ្ពស់ និងឱ្យអណ្តែតនៅខាងមុខគេបង្អស់) */
 .selected {
-    transform: translateY(-15px) !important; /* រុញឡើងលើឱ្យច្បាស់ */
+    transform: translateY(-20px) !important; 
     background: #facc15 !important;
     border-color: #eab308;
+    z-index: 100 !important; /* តម្លៃខ្ពស់ជាងគេដើម្បីកុំឱ្យបៀរចំហៀងបាំង */
+    box-shadow: 0 10px 15px rgba(0, 0, 0, 0.4);
 }
 
 .red {
@@ -336,13 +349,16 @@ function renderHand(cards) {
     const hand = document.getElementById('hand');
     hand.innerHTML = '';
 
-    cards.forEach(card => {
+    cards.forEach((card, idx) => {
         const div = document.createElement('div');
         div.className = 'card';
         if (card.suit === '♥' || card.suit === '♦') {
             div.classList.add('red');
         }
         div.innerHTML = `${card.value}${card.suit}`;
+        
+        // កំណត់ z-index កើនឡើងតាមលំដាប់លំដោយសន្លឹកបៀពីឆ្វេងទៅស្តាំ (បៀស្តាំលើបៀឆ្វេង)
+        div.style.zIndex = idx + 1;
 
         div.onclick = () => {
             const exists = selectedCards.find(c => c.value === card.value && c.suit === card.suit);
@@ -361,13 +377,15 @@ function renderHand(cards) {
 function renderTable(cards) {
     const div = document.getElementById('lastPlayed');
     div.innerHTML = '';
-    cards.forEach(card => {
+    cards.forEach((card, idx) => {
         const el = document.createElement('div');
         el.className = 'card';
         if (card.suit === '♥' || card.suit === '♦') {
             el.classList.add('red');
         }
         el.innerHTML = `${card.value}${card.suit}`;
+        // បៀដែលចេញរួចលើតុក៏តម្រៀបជិះគ្នាបន្តិចឱ្យមើលទៅស្អាតដែរ
+        el.style.zIndex = idx + 1;
         div.appendChild(el);
     });
 }
@@ -448,10 +466,13 @@ socket.on('gameWon', ({ winner, allHands }) => {
         if (p.remaining.length === 0) {
             cardsHTML = `<span style="color: #22c55e; font-weight: bold;">អស់បៀពីដៃ (ឈ្នះ)</span>`;
         } else {
-            p.remaining.forEach(card => {
+            p.remaining.forEach((card, idx) => {
                 const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
-                cardsHTML += `<div class="result-card ${isRed}">${card.value}${card.suit}</div>`;
+                // បង្ហាញបៀរលទ្ធផលដោយជិះគ្នាបន្តិចដែរដើម្បីកុំឱ្យវែងពេក
+                cardsHTML += `<div class="result-card ${isRed}" style="z-index: ${idx + 1}; margin-right: -20px; flex-shrink: 0; position: relative;">${card.value}${card.suit}</div>`;
             });
+            // បន្ថែម container flex ពិសេសដើម្បីកុំឱ្យបុកជាមួយ div ផ្សេង
+            cardsHTML = `<div style="display: flex; flex-wrap: nowrap; overflow-x: auto; padding: 10px 0;">${cardsHTML}</div>`;
         }
 
         playerDiv.innerHTML = `
