@@ -660,41 +660,25 @@ socket.on('errorMsg', (msg) => {
     alert("⚠️ " + msg);
 });
 
-// === ស្វែងរក socket.on('gameWon', ...) នៅក្នុង index.html រួចជំនួសដោយកូដនេះ ===
 socket.on('gameWon', ({ winner, winnerId, allHands }) => {
-    document.getElementById('playScreen').style.display = 'none';
-    const resultScreen = document.getElementById('resultScreen');
-    resultScreen.style.display = 'block';
+    document.getElementById('gameArea').style.display = 'none';
+    document.getElementById('resultArea').style.display = 'block';
+    
+    document.getElementById('winnerName').innerText = winner;
 
-    document.getElementById('winnerName').innerText = `🏆 អ្នកឈ្នះគឺ៖ ${winner} 🏆`;
-
-    const resultDiv = document.getElementById('playersResult');
-    resultDiv.innerHTML = '';
+    const resultList = document.getElementById('resultList');
+    resultList.innerHTML = '';
 
     allHands.forEach(p => {
         const playerDiv = document.createElement('div');
         playerDiv.className = 'result-player';
         
-        // ស្ទីលបន្ថែមសម្រាប់ Highlight ឱ្យលេចធ្លោរ
-        if (p.isWinner) {
-            playerDiv.style.border = '2px solid #eab308';
-            playerDiv.style.background = '#3f3f46';
-        }
-
         let cardsHTML = '';
         if (p.isSpectator) {
             cardsHTML = `<span style="color: #ef4444; font-weight: bold;">(អ្នកមើលការប្រកួតរង់ចាំលេងវគ្គបន្ទាប់)</span>`;
-        } else if (p.isWinner) {
-            // បង្ហាញបៀដែលអ្នកឈ្នះបានចុះចុងក្រោយដើម្បីឈ្នះហ្គេម
-            cardsHTML = `<span style="color: #eab308; font-weight: bold; margin-right: 10px;">[បៀឈ្នះចុងក្រោយ]៖</span>`;
-            p.remaining.forEach(card => {
-                const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
-                cardsHTML += `<div class="result-card ${isRed}">${card.value}${card.suit}</div>`;
-            });
         } else if (!p.remaining || p.remaining.length === 0) {
-            cardsHTML = `<span style="color: #22c55e; font-weight: bold;">អស់បៀពីដៃ</span>`;
+            cardsHTML = `<span style="color: #22c55e; font-weight: bold;">អស់បៀពីដៃ (ឈ្នះ)</span>`;
         } else {
-            // បង្ហាញបៀដែលនៅសល់ក្នុងដៃរបស់អ្នកចាញ់
             p.remaining.forEach(card => {
                 const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
                 cardsHTML += `<div class="result-card ${isRed}">${card.value}${card.suit}</div>`;
@@ -702,11 +686,10 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
         }
 
         playerDiv.innerHTML = `
-            <strong>👤 ${p.name}</strong> 
-            ${p.isSpectator ? '' : (p.isWinner ? `<span style="color: #eab308; font-weight: bold;"> (👑 អ្នកឈ្នះ)</span>` : `(នៅសល់ ${p.remaining ? p.remaining.length : 0} សន្លឹក)`)}
-            <div class="result-cards" style="margin-top: 8px; display: flex; gap: 5px; flex-wrap: wrap;">${cardsHTML}</div>
+            <strong>👤 ${p.name}</strong> ${p.isSpectator ? '' : `(នៅសល់ ${p.remaining ? p.remaining.length : 0} សន្លឹក)`}
+            <div class="result-cards">${cardsHTML}</div>
         `;
-        resultDiv.appendChild(playerDiv);
+        resultList.appendChild(playerDiv);
     });
 
     const playAgainBtn = document.getElementById('hostPlayAgainBtn');
