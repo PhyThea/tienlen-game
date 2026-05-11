@@ -282,7 +282,7 @@ io.on('connection', (socket) => {
         broadcastRoomList();
     });
 
-// === កូដសម្រាប់ផ្នែកចុះបៀរ (playCard) នៅក្នុង server.js ===
+    // ចុះបៀ (លុបផ្នែកជាន់គ្នា និងជួសជុល Syntax ស្អាតល្អ)
     socket.on('playCard', ({ roomId, cards }) => {
         const room = rooms[roomId];
         if (!room) return;
@@ -293,10 +293,6 @@ io.on('connection', (socket) => {
 
         // ពិនិត្យថាតើបៀដែលចុះត្រូវតាមក្បួន និងធំជាងបៀនៅលើតុដែរឬទេ
         if (getComboType(cards) && comparePlay(cards, room.playedCards)) {
-            
-            // 🎯 រក្សាទុកបៀដែលលេងចុងក្រោយនេះ ក្រែងលោជាបៀឈ្នះហ្គេម
-            const winningCards = [...cards]; 
-
             // ដកបៀដែលបានលេងចេញពីដៃរបស់អ្នកលេង
             cards.forEach(c => {
                 const idx = player.hand.findIndex(pc => pc.value === c.value && pc.suit === c.suit);
@@ -313,20 +309,13 @@ io.on('connection', (socket) => {
 
             if (winner) {
                 room.status = 'waiting'; 
-                room.lastWinnerId = winner.id; // កត់ត្រាទុក ID អ្នកឈ្នះ ដើម្បីឱ្យគាត់ចុះមុនគេនៅជុំបន្ទាប់
+                room.lastWinnerId = winner.id; // 💾 កត់ត្រាទុក ID អ្នកឈ្នះ ដើម្បីឱ្យគាត់ចុះមុនគេនៅជុំបន្ទាប់
 
-                // រៀបចំលទ្ធផលផ្ញើទៅ Client
-                const results = room.players.map(p => {
-                    // ប្រសិនបើជាអ្នកឈ្នះ យើងផ្ញើបៀដែលគាត់ទើបតែចុះឈ្នះអម្បាញ់មិញ (winningCards) ទៅបង្ហាញ
-                    const isWinner = p.id === winner.id;
-                    return { 
-                        id: p.id,
-                        name: p.name, 
-                        remaining: isWinner ? winningCards : p.hand, 
-                        isSpectator: p.isSpectator,
-                        isWinner: isWinner
-                    };
-                });
+                const results = room.players.map(p => ({ 
+                    name: p.name, 
+                    remaining: p.hand,
+                    isSpectator: p.isSpectator 
+                }));
                 
                 io.to(roomId).emit('gameWon', { 
                     winner: winner.name, 
