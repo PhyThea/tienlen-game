@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>🃏 Tien Len Online</title>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: #0f172a;
+    color: white;
+    padding: 15px;
+}
+
+.container {
+    max-width: 1200px;
+    margin: auto;
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.panel {
+    background: #1e293b;
+    padding: 20px;
+    border-radius: 15px;
+    margin-bottom: 20px;
+}
+
+input {
+    width: 100%;
+    padding: 12px;
+    margin-top: 10px;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    background: #334155;
+    color: white;
+}
+
+button {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    margin-top: 10px;
+    margin-right: 10px;
+    font-size: 16px;
+    font-weight: bold;
+    transition: 0.2s;
+}
+
+button:hover {
+    opacity: 0.9;
+}
+
+.btn-green { background: #22c55e; color: white; }
+.btn-red { background: #ef4444; color: white; }
+.btn-blue { background: #3b82f6; color: white; }
+.btn-yellow { background: #eab308; color: black; }
+
+#status {
+    text-align: center;
+    font-size: 22px;
+    color: #facc15;
+    margin-bottom: 20px;
+    font-weight: bold;
+}
+
+#players {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.player {
+    background: #334155;
+    padding: 12px;
+    border-radius: 10px;
+    min-width: 160px;
+    position: relative;
+}
+
+.turn {
+    border: 3px solid #22c55e;
+    box-shadow: 0 0 10px #22c55e;
+}
+
+#table {
+    min-height: 150px;
+    background: #1e293b;
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+#lastPlayed {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+#hand {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.card {
+    width: 65px;
+    height: 95px;
+    border-radius: 12px;
+    background: white;
+    color: black;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 22px;
+    font-weight: bold;
+    cursor: pointer;
+    user-select: none;
+    transition: .2s;
+    border: 2px solid #ccc;
+}
+
+.card:hover {
+    transform: translateY(-10px);
+}
+
+.selected {
+    transform: translateY(-20px);
+    background: #facc15 !important;
+    border-color: #eab308;
+}
+
+.red {
+    color: red;
+}
+
+#gameArea, #lobbyArea, #resultArea {
+    display: none;
+}
+
+/* បង្ហាញបៀដែលសល់ពេលចប់ហ្គេម */
+.result-player {
+    background: #334155;
+    padding: 15px;
+    border-radius: 10px;
+    margin-top: 10px;
+}
+.result-cards {
+    display: flex;
+    gap: 5px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+.result-card {
+    width: 45px;
+    height: 65px;
+    font-size: 14px;
+    border-radius: 6px;
+    background: white;
+    color: black;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🃏 Tien Len Online</h1>
+
+    <div id="loginArea" class="panel">
+        <input type="text" id="playerName" placeholder="ឈ្មោះអ្នកលេង">
+        <input type="text" id="roomId" placeholder="លេខបន្ទប់">
+        <input type="password" id="password" placeholder="លេខកូដបន្ទប់ (បើគ្មាន មិនបាច់ដាក់)">
+        
+        <button class="btn-green" onclick="createRoom()">Create Room</button>
+        <button class="btn-blue" onclick="joinRoom()">Join Room</button>
+    </div>
+
+    <div id="lobbyArea" class="panel">
+        <h2>Room: <span id="showRoom" style="color: #3b82f6;"></span></h2>
+        <br>
+        <div id="lobbyPlayers"></div>
+        <button id="startBtn" class="btn-green" onclick="startGame()" style="display: none;">🚀 Start Game</button>
+    </div>
+
+    <div id="gameArea">
+        <div id="status">Waiting...</div>
+        <div id="players"></div>
+
+        <div id="table">
+            <h2 style="text-align:center">🃏 បៀលើតុ</h2>
+            <br>
+            <div id="lastPlayed"></div>
+        </div>
+
+        <div class="panel">
+            <h2>🂡 បៀរបស់អ្នក</h2>
+            <div id="hand"></div>
+            <br>
+            <button class="btn-green" onclick="playSelected()">🃏 ចេញបៀ</button>
+            <button class="btn-red" onclick="passTurn()">⏭️ Pass</button>
+        </div>
+    </div>
+
+    <div id="resultArea" class="panel">
+        <h2 style="color: #facc15; text-align: center;">🎉 លទ្ធផលប្រកួត 🎉</h2>
+        <h3 id="winnerName" style="text-align: center; margin-top: 10px;"></h3>
+        <hr style="margin: 15px 0; border-color: #334155;">
+        <div id="allRemainingHands"></div>
+        <br>
+        <button id="hostPlayAgainBtn" class="btn-green" onclick="backToLobbyOrRestart()" style="display: none; width: 100%;">លេងម្ដងទៀត (Play Again)</button>
+        <p id="waitHostText" style="text-align: center; color: #94a3b8; margin-top: 10px;">រង់ចាំ Host ចាប់ផ្ដើមហ្គេមសារជាថ្មី...</p>
+    </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+let myId = null;
+let currentRoom = null;
+let myHand = [];
+let selectedCards = [];
+let playersData = [];
+let currentTurnIndex = 0;
+let isCreator = false; // សម្គាល់ថាជា Host ឬអត់
+
+function createRoom() {
+    const roomId = document.getElementById('roomId').value.trim();
+    const password = document.getElementById('password').value;
+    const playerName = document.getElementById('playerName').value.trim() || 'Player';
+
+    if (!roomId) return alert('បញ្ចូល Room ID');
+    
+    isCreator = true; // អ្នកបង្កើតបន្ទប់
+    socket.emit('createRoom', { roomId, password, playerName });
+}
+
+function joinRoom() {
+    const roomId = document.getElementById('roomId').value.trim();
+    const password = document.getElementById('password').value;
+    const playerName = document.getElementById('playerName').value.trim() || 'Player';
+
+    if (!roomId) return alert('បញ្ចូល Room ID');
+    
+    isCreator = false;
+    socket.emit('joinRoom', { roomId, password, playerName });
+}
+
+function startGame() {
+    socket.emit('startGame', currentRoom);
+}
+
+function passTurn() {
+    selectedCards = [];
+    socket.emit('passTurn', currentRoom);
+    document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+}
+
+function playSelected() {
+    if (selectedCards.length === 0) return alert('ជ្រើសរើសបៀជាមុនសិន!');
+    
+    socket.emit('playCard', {
+        roomId: currentRoom,
+        cards: [...selectedCards]
+    });
+    selectedCards = [];
+}
+
+function renderPlayers(players) {
+    playersData = players;
+    const div = document.getElementById('players');
+    const lobby = document.getElementById('lobbyPlayers');
+
+    div.innerHTML = '';
+    lobby.innerHTML = '';
+
+    players.forEach((p, index) => {
+        // បង្ហាញក្នុងតុហ្គេម
+        const el = document.createElement('div');
+        el.className = 'player';
+        if (index === currentTurnIndex) {
+            el.classList.add('turn');
+        }
+        el.innerHTML = `
+            👤 ${p.name} ${p.id === myId ? '(ខ្ញុំ)' : ''}
+            <br>
+            🃏 បៀសល់៖ ${p.hand ? p.hand.length : (p.cardCount || 0)} សន្លឹក
+        `;
+        div.appendChild(el);
+
+        // បង្ហាញក្នុង Lobby
+        const el2 = document.createElement('div');
+        el2.className = 'player';
+        el2.innerHTML = `👤 ${p.name} ${p.id === myId ? '(ខ្ញុំ)' : ''}`;
+        lobby.appendChild(el2);
+    });
+
+    // បង្ហាញប៊ូតុង Start Game តែចំពោះ Host (Creator) ប៉ុណ្ណោះ
+    const startBtn = document.getElementById('startBtn');
+    if (isCreator) {
+        startBtn.style.display = 'inline-block';
+    } else {
+        startBtn.style.display = 'none';
+    }
+}
+
+function renderHand(cards) {
+    const hand = document.getElementById('hand');
+    hand.innerHTML = '';
+
+    cards.forEach(card => {
+        const div = document.createElement('div');
+        div.className = 'card';
+        if (card.suit === '♥' || card.suit === '♦') {
+            div.classList.add('red');
+        }
+        div.innerHTML = `${card.value}${card.suit}`;
+
+        div.onclick = () => {
+            const exists = selectedCards.find(c => c.value === card.value && c.suit === card.suit);
+            if (exists) {
+                selectedCards = selectedCards.filter(c => !(c.value === card.value && c.suit === card.suit));
+                div.classList.remove('selected');
+            } else {
+                selectedCards.push(card);
+                div.classList.add('selected');
+            }
+        };
+        hand.appendChild(div);
+    });
+}
+
+function renderTable(cards) {
+    const div = document.getElementById('lastPlayed');
+    div.innerHTML = '';
+    cards.forEach(card => {
+        const el = document.createElement('div');
+        el.className = 'card';
+        if (card.suit === '♥' || card.suit === '♦') {
+            el.classList.add('red');
+        }
+        el.innerHTML = `${card.value}${card.suit}`;
+        div.appendChild(el);
+    });
+}
+
+// ទទួលការឆ្លើយតបពេលបង្កើតបន្ទប់ជោគជ័យ
+socket.on('roomCreated', ({ roomId, playerId }) => {
+    myId = playerId;
+    currentRoom = roomId;
+    document.getElementById('loginArea').style.display = 'none';
+    document.getElementById('lobbyArea').style.display = 'block';
+    document.getElementById('showRoom').innerHTML = roomId;
+});
+
+// ទទួលការឆ្លើយតបពេលចូលរួមបន្ទប់ជោគជ័យ
+socket.on('roomJoined', ({ roomId, playerId }) => {
+    myId = playerId;
+    currentRoom = roomId;
+    document.getElementById('loginArea').style.display = 'none';
+    document.getElementById('lobbyArea').style.display = 'block';
+    document.getElementById('showRoom').innerHTML = roomId;
+});
+
+socket.on('updatePlayers', (players) => {
+    renderPlayers(players);
+});
+
+socket.on('gameStarted', ({ currentTurnIndex: turn }) => {
+    currentTurnIndex = turn;
+    selectedCards = [];
+    document.getElementById('lastPlayed').innerHTML = '';
+    document.getElementById('lobbyArea').style.display = 'none';
+    document.getElementById('resultArea').style.display = 'none';
+    document.getElementById('gameArea').style.display = 'block';
+    document.getElementById('status').innerHTML = 'ហ្គេមចាប់ផ្ដើមហើយ!';
+});
+
+socket.on('dealCards', ({ hand }) => {
+    myHand = hand;
+    renderHand(myHand);
+});
+
+socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount }) => {
+    currentTurnIndex = nextTurn;
+    renderTable(cards);
+    document.getElementById('status').innerHTML = `🎯 វេនរបស់៖ ${playersData[currentTurnIndex].name}`;
+    
+    // អាប់ដេតចំនួនបៀររបស់ Player នៅក្នុង UI
+    playersData.forEach(p => {
+        if (p.name === by) p.cardCount = cardCount;
+    });
+    renderPlayers(playersData);
+
+    // បើសិនជាបៀដែលចេញនោះ ជាបៀរបស់ខ្លួនឯង ត្រូវដកវាចេញពី UI ដៃរបស់យើង
+    myHand = myHand.filter(myCard => !cards.some(c => c.value === myCard.value && c.suit === myCard.suit));
+    renderHand(myHand);
+});
+
+socket.on('playerPassed', ({ name, nextTurn }) => {
+    currentTurnIndex = nextTurn;
+    renderPlayers(playersData);
+    document.getElementById('status').innerHTML = `⏭️ ${name} Pass! វេនបន្ទាប់៖ ${playersData[currentTurnIndex].name}`;
+});
+
+socket.on('clearTable', ({ nextPlayer }) => {
+    document.getElementById('lastPlayed').innerHTML = '';
+    document.getElementById('status').innerHTML = `🆕 ជុំថ្មី! វេនដំបូងគឺ៖ ${nextPlayer}`;
+});
+
+socket.on('gameWon', ({ winner, allHands }) => {
+    document.getElementById('gameArea').style.display = 'none';
+    document.getElementById('resultArea').style.display = 'block';
+    document.getElementById('winnerName').innerHTML = `🏆 អ្នកឈ្នះគឺ៖ <span style="color: #22c55e;">${winner}</span>`;
+
+    // បង្ហាញបៀដែលនៅសល់ក្នុងដៃរបស់ម្នាក់ៗ (Show Remaining/High)
+    const resultDiv = document.getElementById('allRemainingHands');
+    resultDiv.innerHTML = '';
+
+    allHands.forEach(p => {
+        const playerDiv = document.createElement('div');
+        playerDiv.className = 'result-player';
+        
+        let cardsHTML = '';
+        if (p.remaining.length === 0) {
+            cardsHTML = `<span style="color: #22c55e; font-weight: bold;">អស់បៀពីដៃ (ឈ្នះ)</span>`;
+        } else {
+            p.remaining.forEach(card => {
+                const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
+                cardsHTML += `<div class="result-card ${isRed}">${card.value}${card.suit}</div>`;
+            });
+        }
+
+        playerDiv.innerHTML = `
+            <strong>👤 ${p.name}</strong> (នៅសល់ ${p.remaining.length} សន្លឹក)
+            <div class="result-cards">${cardsHTML}</div>
+        `;
+        resultDiv.appendChild(playerDiv);
+    });
+
+    // គ្រប់គ្រងប៊ូតុង "Play Again" សម្រាប់តែ Host (Creator)
+    const playAgainBtn = document.getElementById('hostPlayAgainBtn');
+    const waitText = document.getElementById('waitHostText');
+    if (isCreator) {
+        playAgainBtn.style.display = 'block';
+        waitText.style.display = 'none';
+    } else {
+        playAgainBtn.style.display = 'none';
+        waitText.style.display = 'block';
+    }
+});
+
+function backToLobbyOrRestart() {
+    socket.emit('startGame', currentRoom); // Host ចុចចាប់ផ្ដើមលេងម្ដងទៀតភ្លាមៗ
+}
+
+socket.on('errorMsg', (msg) => {
+    alert(msg);
+});
+</script>
+</body>
+</html>
