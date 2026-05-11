@@ -96,6 +96,29 @@ button:hover {
     box-shadow: 0 0 10px #22c55e;
 }
 
+/* រចនាប័ទ្មសម្រាប់បង្ហាញសារអត់ស៊ីនៅលើក្បាលអ្នកលេង */
+.pass-bubble {
+    position: absolute;
+    top: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #ef4444;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: bold;
+    white-space: nowrap;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    animation: bounce 0.5s ease infinite alternate;
+    z-index: 10;
+}
+
+@keyframes bounce {
+    from { transform: translateX(-50%) translateY(0); }
+    to { transform: translateX(-50%) translateY(-5px); }
+}
+
 #table {
     min-height: 150px;
     background: #1e293b;
@@ -234,7 +257,7 @@ button:hover {
     </div>
 
     <div id="resultArea" class="panel">
-        <h2 style="color: #facc15; text-align: center;">🎉 លទ្ធផលប្រកួត 🎉</h2>
+        <h2 id="resultTitle" style="text-align: center; font-size: 28px; margin-bottom: 10px;">🎉 លទ្ធផលប្រកួត 🎉</h2>
         <h3 id="winnerName" style="text-align: center; margin-top: 10px;"></h3>
         <hr style="margin: 15px 0; border-color: #334155;">
         <div id="allRemainingHands"></div>
@@ -308,6 +331,7 @@ function renderPlayers(players) {
     players.forEach((p, index) => {
         const el = document.createElement('div');
         el.className = 'player';
+        el.id = `player-card-${p.id}`; // ងាយស្រួលរកមើល Element ពេលចង់បង្ហាញពពុះពាក្យ (Pass Bubble)
         if (index === currentTurnIndex) {
             el.classList.add('turn');
         }
@@ -421,10 +445,29 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount }) => {
     renderHand(myHand);
 });
 
-socket.on('playerPassed', ({ name, nextTurn }) => {
+// ពេលមានអ្នកលេងចុច Pass៖ បង្ហាញពាក្យ "តោះខ្ញុំអត់ស៊ីទេ" លើក្បាលអ្នកលេងនោះ
+socket.on('playerPassed', ({ name, id, message, nextTurn }) => {
     currentTurnIndex = nextTurn;
     renderPlayers(playersData);
     document.getElementById('status').innerHTML = `⏭️ ${name} Pass! វេនបន្ទាប់៖ ${playersData[currentTurnIndex].name}`;
+
+    // បង្កើត Bubble "តោះខ្ញុំអត់ស៊ីទេ" បង្ហាញលើ Card របស់អ្នកលេងដែល Pass
+    const playerCard = document.getElementById(`player-card-${id}`);
+    if (playerCard) {
+        // បើមាន Bubble ចាស់ ត្រូវលុបចេញមុនសិន
+        const oldBubble = playerCard.querySelector('.pass-bubble');
+        if (oldBubble) oldBubble.remove();
+
+        const bubble = document.createElement('div');
+        bubble.className = 'pass-bubble';
+        bubble.innerText = message || '💬 តោះខ្ញុំអត់ស៊ីទេ';
+        playerCard.appendChild(bubble);
+
+        // បាត់ទៅវិញក្នុងរយៈពេល ២.៥ វិនាទី
+        setTimeout(() => {
+            bubble.remove();
+        }, 2500);
+    }
 });
 
 socket.on('clearTable', ({ nextPlayer }) => {
@@ -432,11 +475,23 @@ socket.on('clearTable', ({ nextPlayer }) => {
     document.getElementById('status').innerHTML = `🆕 ជុំថ្មី! វេនដំបូងគឺ៖ ${nextPlayer}`;
 });
 
-socket.on('gameWon', ({ winner, allHands }) => {
+// កូដបង្ហាញលទ្ធផលឈ្នះ ឬចាញ់ផ្ទាល់ខ្លួន (ផ្ទៀងផ្ទាត់ជាមួយ ID)
+socket.on('gameWon', ({ winner, winnerId, allHands }) => {
     document.getElementById('gameArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'block';
-    document.getElementById('winnerName').innerHTML = `🏆 អ្នកឈ្នះគឺ៖ <span style="color: #22c55e;">${winner}</span>`;
 
+    const resultTitle = document.getElementById('resultTitle');
+    
+    // ១. ត្រួតពិនិត្យថាជា ID របស់យើងផ្ទាល់ ឬក៏អត់ ដើម្បីបង្ហាញសារឈ្នះ/ចាញ់
+    if (socket.id === winnerId) {
+        resultTitle.innerHTML = `<span style="color: #22c55e; font-size: 32px;">🎉 អ្នកឈ្នះហើយ! 🎉</span>`;
+        document.getElementById('winnerName').innerHTML = `🏆 អបអរសាទរ! អ្នកជាម្ចាស់ជើងឯកនៅក្នុងជុំនេះ!`;
+    } else {
+        resultTitle.innerHTML = `<span style="color: #ef4444; font-size: 32px;">😢 អ្នកចាញ់ហើយ! 😢</span>`;
+        document.getElementById('winnerName').innerHTML = `🏆 អ្នកឈ្នះនៅក្នុងជុំនេះគឺ៖ <span style="color: #22c55e;">${winner}</span>`;
+    }
+
+    // ២. បង្ហាញកាតបៀរដែលសល់របស់អ្នកលេងទាំងអស់
     const resultDiv = document.getElementById('allRemainingHands');
     resultDiv.innerHTML = '';
 
@@ -445,7 +500,7 @@ socket.on('gameWon', ({ winner, allHands }) => {
         playerDiv.className = 'result-player';
         
         let cardsHTML = '';
-        if (p.remaining.length === 0) {
+        if (!p.remaining || p.remaining.length === 0) {
             cardsHTML = `<span style="color: #22c55e; font-weight: bold;">អស់បៀពីដៃ (ឈ្នះ)</span>`;
         } else {
             p.remaining.forEach(card => {
@@ -455,12 +510,13 @@ socket.on('gameWon', ({ winner, allHands }) => {
         }
 
         playerDiv.innerHTML = `
-            <strong>👤 ${p.name}</strong> (នៅសល់ ${p.remaining.length} សន្លឹក)
+            <strong>👤 ${p.name}</strong> (នៅសល់ ${p.remaining ? p.remaining.length : 0} សន្លឹក)
             <div class="result-cards">${cardsHTML}</div>
         `;
         resultDiv.appendChild(playerDiv);
     });
 
+    // ៣. បង្ហាញប៊ូតុងសម្រាប់ Host លេងម្ដងទៀត
     const playAgainBtn = document.getElementById('hostPlayAgainBtn');
     const waitText = document.getElementById('waitHostText');
     if (isCreator) {
