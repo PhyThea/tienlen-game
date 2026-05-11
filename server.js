@@ -1,5 +1,5 @@
 // =================================================================
-// server.js (កំណែទម្រង់លេងរហូតដល់សល់ម្នាក់ចុងក្រោយ - រត់រលូនឥតខ្ចោះ)
+// server.js (កំណែទម្រង់រត់រលូនឥតខ្ចោះ - ជួសជុលការចុះបៀមិនបាន)
 // =================================================================
 
 const express = require('express');
@@ -121,24 +121,39 @@ function comparePlay(newCards, oldCards) {
     return false;
 }
 
+// មុខងារប្តូរវេនទៅអ្នកបន្ទាប់ធម្មតា (ជួសជុលកូដដែលបាត់)
+function moveToNextTurn(room) {
+    let originalIndex = room.currentTurnIndex;
+    let nextIndex = originalIndex;
+    let found = false;
+
+    for (let i = 1; i <= room.players.length; i++) {
+        let checkIndex = (originalIndex + i) % room.players.length;
+        let p = room.players[checkIndex];
+        if (p && !p.isSpectator && !p.passed && p.hand.length > 0) {
+            nextIndex = checkIndex;
+            found = true;
+            break;
+        }
+    }
+    if (found) {
+        room.currentTurnIndex = nextIndex;
+    }
+}
+
 // មុខងាររួមបញ្ចូលគ្នា៖ ប្ដូរវេន និងពិនិត្យមើលការលាងតុ
 function handleTurnAndRoundStatus(room) {
-    // គណនាចំនួនអ្នកលេងដែលនៅមានបៀក្នុងដៃ ហើយមិនទាន់ចុច Pass
     const stillPlayingAndNotPassed = room.players.filter(p => !p.isSpectator && p.hand.length > 0 && !p.passed);
     
-    // លក្ខខណ្ឌលាងតុ៖ បើសល់អ្នកអាចស៊ីបានតែម្នាក់គត់ ឬគ្មានសោះ
     if (stillPlayingAndNotPassed.length <= 1) {
         room.playedCards = [];
         
-        // ឱ្យអ្នកលេងដែលនៅសល់បៀទាំងអស់បាត់ជាប់ Pass ឡើងវិញ
         room.players.forEach(p => {
             if (p.hand.length > 0) p.passed = false;
         });
 
-        // ស្វែងរកអ្នកដែលបានចុះបៀចុងក្រោយគេបង្អស់ឱ្យឡើងមកកាន់តុថ្មី
         let nextWinnerIndex = room.players.findIndex(p => p.id === room.lastPlayerId);
         
-        // ប្រសិនបើអ្នកចុះចុងក្រោយគេនោះគាត់អស់បៀរល្មម (ឈ្នះដាច់ជុំ) ត្រូវផ្ទេរវេនទៅឱ្យអ្នកបន្ទាប់ដែលនៅសល់បៀរក្បែរគាត់
         if (nextWinnerIndex === -1 || room.players[nextWinnerIndex].hand.length === 0) {
             let originalIdx = room.currentTurnIndex;
             for (let i = 1; i <= room.players.length; i++) {
@@ -154,24 +169,7 @@ function handleTurnAndRoundStatus(room) {
         room.currentTurnIndex = nextWinnerIndex !== -1 ? nextWinnerIndex : 0;
         io.to(room.roomId).emit('clearTable', { nextPlayer: room.players[room.currentTurnIndex].name });
     } else {
-        // បើមិនទាន់លាងតុទេ ត្រូវរំលងវេនទៅអ្នកបន្ទាប់ដែលមិនទាន់ Pass និងនៅសល់បៀ
-        let originalIndex = room.currentTurnIndex;
-        let nextIndex = originalIndex;
-        let found = false;
-
-        for (let i = 1; i <= room.players.length; i++) {
-            let checkIndex = (originalIndex + i) % room.players.length;
-            let p = room.players[checkIndex];
-            if (p && !p.isSpectator && !p.passed && p.hand.length > 0) {
-                nextIndex = checkIndex;
-                found = true;
-                break;
-            }
-        }
-
-        if (found) {
-            room.currentTurnIndex = nextIndex;
-        }
+        moveToNextTurn(room);
     }
 }
 
@@ -280,7 +278,6 @@ io.on('connection', (socket) => {
         broadcastRoomList();
     });
 
-// ចុះបៀ (លុបផ្នែកជាន់គ្នា និងជួសជុល Syntax ស្អាតល្អ)
     socket.on('playCard', ({ roomId, cards }) => {
         const room = rooms[roomId];
         if (!room) return;
@@ -289,9 +286,7 @@ io.on('connection', (socket) => {
         if (!player || player.id !== socket.id) return socket.emit('errorMsg', 'មិនមែនវេនអ្នកទេ');
         if (player.isSpectator) return socket.emit('errorMsg', 'អ្នកជាអ្នកមើលរង់ចាំវគ្គក្រោយ មិនអាចចុះបៀបានទេ!');
 
-        // ពិនិត្យថាតើបៀដែលចុះត្រូវតាមក្បួន និងធំជាងបៀនៅលើតុដែរឬទេ
         if (getComboType(cards) && comparePlay(cards, room.playedCards)) {
-            // ដកបៀដែលបានលេងចេញពីដៃរបស់អ្នកលេង
             cards.forEach(c => {
                 const idx = player.hand.findIndex(pc => pc.value === c.value && pc.suit === c.suit);
                 if (idx !== -1) player.hand.splice(idx, 1);
@@ -301,23 +296,20 @@ io.on('connection', (socket) => {
             room.lastPlayerId = socket.id;
             player.passed = false; 
 
-            // ស្វែងរកអ្នកលេងដែលអស់បៀមុនគេ
             const activePlayers = room.players.filter(p => !p.isSpectator);
             const winner = activePlayers.find(p => p.hand.length === 0);
 
             if (winner) {
                 room.status = 'waiting'; 
-                room.lastWinnerId = winner.id; // 💾 កត់ត្រាទុក ID អ្នកឈ្នះ ដើម្បីឱ្យគាត់ចុះមុនគេនៅជុំបន្ទាប់
+                room.lastWinnerId = winner.id; 
 
-                // 🎯 ចាប់យកទិន្នន័យបៀដែលនៅសល់ក្នុងដៃរបស់គ្រប់គ្នាឱ្យបានច្បាស់លាស់ (ដំណោះស្រាយមិនឱ្យបាត់បៀ)
                 const results = room.players.map(p => ({ 
                     id: p.id,
                     name: p.name, 
-                    remaining: [...p.hand], // ចម្លងសន្លឹកបៀដែលនៅសល់ពិតប្រាកដមកទុក
+                    remaining: [...p.hand], 
                     isSpectator: p.isSpectator 
                 }));
                 
-                // ផ្ញើព្រឹត្តិការណ៍ cardPlayed ទៅតុជុំចុងក្រោយសិន ដើម្បីឱ្យកាតចុងក្រោយលោតបង្ហាញលើតុ
                 io.to(roomId).emit('cardPlayed', { 
                     by: player.name, 
                     cards, 
@@ -326,7 +318,6 @@ io.on('connection', (socket) => {
                     updatedHands: room.players 
                 });
 
-                // រង់ចាំ ១.៥ វិនាទី ទើបបង្ហាញផ្ទាំងលទ្ធផលឈ្នះចាញ់ ដើម្បីកុំឱ្យដាច់អារម្មណ៍លឿនពេក
                 setTimeout(() => {
                     io.to(roomId).emit('gameWon', { 
                         winner: winner.name, 
@@ -337,7 +328,6 @@ io.on('connection', (socket) => {
                 }, 1500);
 
             } else {
-                // ប្រសិនបើមិនទាន់មានអ្នកឈ្នះទេ ត្រូវប្ដូរវេនទៅអ្នកបន្ទាប់
                 moveToNextTurn(room);
                 io.to(roomId).emit('cardPlayed', { 
                     by: player.name, 
@@ -366,7 +356,6 @@ io.on('connection', (socket) => {
             message: "តោះខ្ញុំអត់ស៊ីទេ"
         });
         
-        // រត់ Logic ប្ដូរវេន ឬលាងតុ
         handleTurnAndRoundStatus(room);
         io.to(roomId).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex });
     });
