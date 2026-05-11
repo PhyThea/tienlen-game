@@ -1,5 +1,5 @@
 // =================================================================
-// server.js (កំណែទម្រង់បន្ថែមការលេង ផែ ២ ជាន់ និងដោះស្រាយបញ្ហាគាំង)
+// server.js (កំណែទម្រង់ពេញលេញ - ដោះស្រាយបញ្ហា Pass និងការកំណត់ឈ្នះចាញ់)
 // =================================================================
 
 const express = require('express');
@@ -117,20 +117,16 @@ function comparePlay(newCards, oldCards) {
     
     // ១. ករណីបៀលើតុជា លេខ ២ តែមួយសន្លឹក (Single "2")
     if (oldType === 'single' && oldCards[0].value === '2') {
-        // ផែ ២ ជាន់ (double_pair), ការ៉េ (bomb), ឬ ៤ ផែជាប់គ្នា (quad_pair) អាចស៊ីបានទាំងអស់
         if (newType === 'double_pair' || newType === 'bomb' || newType === 'quad_pair') return true;
     }
 
     // ២. ករណីបៀលើតុជា ផែ ២ ជាន់ (Double Pair)
     if (oldType === 'double_pair') {
-        // ផែ ២ ជាន់ដែលធំជាង អាចស៊ីបាន
         if (newType === 'double_pair' && newMax > oldMax) return true;
-        // ការ៉េ (bomb) ឬ ៤ ផែជាប់គ្នា (quad_pair) ដែលជាបៀធំជាង ក៏អាចកាត់ស៊ី ផែ ២ ជាន់បានដែរ
         if (newType === 'bomb' || newType === 'quad_pair') return true;
     }
 
     // --- ច្បាប់ទូទៅ ---
-    // ត្រូវតែជាប្រភេទបៀដូចគ្នា និងចំនួនសន្លឹកស្មើគ្នា ទើបវាស់គ្នាដោយយកសន្លឹកធំបំផុត
     if (newType === oldType && newCards.length === oldCards.length) {
         return newMax > oldMax;
     }
@@ -197,7 +193,6 @@ io.on('connection', (socket) => {
         const room = rooms[roomId];
         if (!room || room.creatorId !== socket.id) return;
 
-        // បន្ថែមលក្ខខណ្ឌត្រួតពិនិត្យចំនួនអ្នកលេង (ត្រូវតែចន្លោះពី ២ ទៅ ៤ នាក់)
         const playerCount = room.players.length;
         if (playerCount < 2) {
             return socket.emit('errorMsg', 'មិនអាចចាប់ផ្ដើមហ្គេមបានទេ! ត្រូវការអ្នកលេងយ៉ាងតិច ២ នាក់។');
@@ -227,6 +222,7 @@ io.on('connection', (socket) => {
             currentTurnIndex: room.currentTurnIndex 
         });
     });
+
     // ចុះបៀ
     socket.on('playCard', ({ roomId, cards }) => {
         const room = rooms[roomId];
@@ -248,7 +244,13 @@ io.on('connection', (socket) => {
             if (player.hand.length === 0) {
                 room.status = 'waiting'; 
                 const results = room.players.map(p => ({ name: p.name, remaining: p.hand }));
-                io.to(roomId).emit('gameWon', { winner: player.name, allHands: results });
+                
+                // កែប្រែ៖ បន្ថែម winnerId ទៅឱ្យ Client ងាយស្រួលផ្ទៀងផ្ទាត់ឈ្នះចាញ់ផ្ទាល់ខ្លួន
+                io.to(roomId).emit('gameWon', { 
+                    winner: player.name, 
+                    winnerId: player.id, 
+                    allHands: results 
+                });
             } else {
                 moveToNextTurn(room);
                 io.to(roomId).emit('cardPlayed', { 
@@ -264,7 +266,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Pass វេន
+    // Pass វេន (កែសម្រួលដើម្បីដោះស្រាយបញ្ហាចុះសេរីឡើងវិញពេលគេ Pass អស់)
     socket.on('passTurn', (roomId) => {
         const room = rooms[roomId];
         if (!room) return;
@@ -274,15 +276,18 @@ io.on('connection', (socket) => {
         player.passed = true;
         const activePlayers = room.players.filter(p => !p.passed && p.hand.length > 0);
         
-        // ប្រសិនបើរកឃើញថា សល់តែម្នាក់គត់ដែលមិនទាន់ Pass (អ្នកផ្សេងទៀត Pass អស់ហើយ)
+        // ផ្ញើសារប្រាប់គ្រប់គ្នាថាអ្នកលេងម្នាក់នេះបាន Pass ហើយ
+        io.to(roomId).emit('playerPassed', { 
+            name: player.name, 
+            id: player.id,
+            message: "តោះខ្ញុំអត់ស៊ីទេ" 
+        });
+        
         if (activePlayers.length <= 1) {
-            // សម្អាតបៀលើតុឱ្យទៅជាទទេស្អាត ដើម្បីឱ្យគាត់មានសិទ្ធិចុះបៀអ្វីក៏បាន (សេរី)
+            // សម្អាតបៀចាស់ចោលដើម្បីឱ្យចុះបៀរាយ ឬបៀរៀងក៏បាន (ចុះសេរី)
             room.playedCards = []; 
-            
-            // កំណត់ស្ថានភាព Passed របស់អ្នកលេងទាំងអស់ឱ្យមកជា False វិញ ដើម្បីត្រៀមលេងជុំថ្មី
             room.players.forEach(p => p.passed = false); 
             
-            // ស្វែងរក Index របស់អ្នកដែលត្រូវចុះបន្ទាប់ (គឺអ្នកដែលបានចុះបៀចុងក្រោយគេមុនគេ Pass អស់)
             let nextWinnerIndex = room.players.findIndex(p => p.id === room.lastPlayerId);
             if (nextWinnerIndex === -1 || room.players[nextWinnerIndex].hand.length === 0) {
                 nextWinnerIndex = room.players.findIndex(p => p.hand.length > 0);
@@ -291,22 +296,19 @@ io.on('connection', (socket) => {
             room.currentTurnIndex = nextWinnerIndex !== -1 ? nextWinnerIndex : 0;
             const nextPlayerName = room.players[room.currentTurnIndex].name;
             
-            // បញ្ជូនទិន្នន័យទៅ Client ឱ្យដឹងថា តុត្រូវបានសម្អាតហើយ ជុំថ្មីចាប់ផ្ដើម
             io.to(roomId).emit('clearTable', { nextPlayer: nextPlayerName });
             
-            // សំខាន់បំផុត៖ ត្រូវបញ្ជូនព្រឹត្តិការណ៍ cardPlayed ជាមួយ cards ស្មើនឹង [] (ទទេ) 
-            // ដើម្បីឱ្យ Client របស់គ្រប់គ្នាដឹងថា គ្មានបៀនៅលើតុទៀតទេ និងអាចចុះសេរីបាន
+            // បញ្ជូនកាតទទេ ទៅឱ្យ Client សម្អាតអេក្រង់ និងផ្ដើមសេរី
             io.to(roomId).emit('cardPlayed', { 
                 by: 'System', 
-                cards: [], // ដាក់បៀទទេ ដើម្បីសម្អាតលើ Client screen
+                cards: [], 
                 nextTurn: room.currentTurnIndex,
                 cardCount: room.players[room.currentTurnIndex].hand.length,
                 updatedHands: room.players 
             });
         } else {
-            // បើនៅមានគ្នាដេញស៊ីបន្តទៀត ត្រូវផ្ទេរវេនទៅអ្នកបន្ទាប់
             moveToNextTurn(room);
-            io.to(roomId).emit('playerPassed', { name: player.name, nextTurn: room.currentTurnIndex });
+            io.to(roomId).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex });
         }
     });
 
