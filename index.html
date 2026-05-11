@@ -78,22 +78,50 @@ button:hover {
 
 #players {
     display: flex;
-    gap: 10px;
+    gap: 15px;
     flex-wrap: wrap;
     margin-bottom: 20px;
+    justify-content: center;
 }
 
+/* រចនាប័ទ្មកាតអ្នកលេងទូទៅ */
 .player {
     background: #334155;
-    padding: 12px;
-    border-radius: 10px;
-    min-width: 160px;
+    padding: 15px;
+    border-radius: 12px;
+    min-width: 220px;
     position: relative;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
 }
 
+/* បន្លិចពណ៌បៃតងយ៉ាងច្បាស់សម្រាប់អ្នកដែលត្រូវលេងវេនបច្ចុប្បន្ន */
 .turn {
     border: 3px solid #22c55e;
-    box-shadow: 0 0 10px #22c55e;
+    box-shadow: 0 0 15px rgba(34, 197, 94, 0.6);
+    background: #1e293b;
+    transform: scale(1.03);
+}
+
+/* បន្លិចពណ៌ក្រហមស្រាលសម្រាប់អ្នកដែលបានចុច Pass (អត់ស៊ី) */
+.player-passed {
+    background: #451a1a !important;
+    border: 2px solid #ef4444 !important;
+    opacity: 0.6;
+}
+
+/* សញ្ញាចង្អុលវេនបច្ចុប្បន្ន */
+.turn-badge {
+    position: absolute;
+    top: -12px;
+    right: 10px;
+    background: #22c55e;
+    color: white;
+    font-size: 11px;
+    font-weight: bold;
+    padding: 2px 8px;
+    border-radius: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 
 /* រចនាប័ទ្មសម្រាប់បង្ហាញសារអត់ស៊ីនៅលើក្បាលអ្នកលេង */
@@ -184,7 +212,6 @@ button:hover {
     display: none;
 }
 
-/* បញ្ជីបន្ទប់ */
 .room-list-item {
     background: #334155;
     padding: 15px;
@@ -195,7 +222,6 @@ button:hover {
     align-items: center;
 }
 
-/* បង្ហាញបៀដែលសល់ពេលចប់ហ្គេម */
 .result-player {
     background: #334155;
     padding: 15px;
@@ -286,9 +312,8 @@ let selectedCards = [];
 let playersData = [];
 let currentTurnIndex = 0;
 let isCreator = false; 
-let amISpectator = false; // បញ្ជាក់ថាយើងជា Spectator ឬអត់
+let amISpectator = false;
 
-// ទទួលបញ្ជីបន្ទប់ពី Server មកបង្ហាញលើអេក្រង់ Login ភ្លាមៗ
 socket.on('roomList', (rooms) => {
     const listDiv = document.getElementById('activeRooms');
     if (rooms.length === 0) {
@@ -319,7 +344,7 @@ function clickToJoin(roomId, hasPassword) {
     let pass = "";
     if (hasPassword) {
         pass = prompt("បន្ទប់នេះមានលេខកូដសម្ងាត់ សូមវាយបញ្ចូល៖");
-        if (pass === null) return; // បោះបង់ការចូល
+        if (pass === null) return; 
     }
     isCreator = false;
     socket.emit('joinRoom', { roomId, password: pass, playerName: name });
@@ -356,6 +381,7 @@ function playSelected() {
     selectedCards = [];
 }
 
+// មុខងារ Render កាតអ្នកលេង (កែសម្រួលបន្ថែមសញ្ញាចង្អុលវេន និងស្ថានភាព Pass ឱ្យច្បាស់)
 function renderPlayers(players) {
     playersData = players;
     const div = document.getElementById('players');
@@ -368,16 +394,35 @@ function renderPlayers(players) {
         const el = document.createElement('div');
         el.className = 'player';
         el.id = `player-card-${p.id}`; 
-        if (index === currentTurnIndex && !p.isSpectator) {
+        
+        // ១. ពិនិត្យថាជាវេនលេងបច្ចុប្បន្ន ឬអត់
+        const isCurrentTurn = (index === currentTurnIndex && !p.isSpectator);
+        if (isCurrentTurn) {
             el.classList.add('turn');
         }
 
-        let roleText = p.isSpectator ? '<span style="color: #ef4444;">(អ្នកមើល)</span>' : `🃏 ${p.hand ? p.hand.length : (p.cardCount || 0)} សន្លឹក`;
+        // ២. ពិនិត្យថាគាត់បានចុច Pass ឬនៅ
+        if (p.passed) {
+            el.classList.add('player-passed');
+        }
+
+        let roleText = p.isSpectator 
+            ? '<span style="color: #ef4444;">(អ្នកមើល)</span>' 
+            : `🃏 បៀសល់៖ ${p.hand ? p.hand.length : (p.cardCount || 0)} សន្លឹក`;
+
+        // បើគាត់ Pass បន្ថែមអក្សរប្រាប់
+        if (p.passed && !p.isSpectator) {
+            roleText += ' <span style="color: #ef4444; font-weight: bold;"><br>❌ (អត់ស៊ី / Pass)</span>';
+        }
+
+        // ៣. បន្ថែម Badge សញ្ញាចង្អុល "👉 Current Turn" នៅកាតដែលត្រូវលេង
+        let turnBadgeHTML = isCurrentTurn ? '<div class="turn-badge">👉 វេនត្រូវលេង</div>' : '';
 
         el.innerHTML = `
-            👤 ${p.name} ${p.id === myId ? '(ខ្ញុំ)' : ''}
+            ${turnBadgeHTML}
+            <strong>👤 ${p.name} ${p.id === myId ? '(ខ្ញុំ)' : ''}</strong>
             <br>
-            ${roleText}
+            <div style="margin-top: 5px; font-size: 14px; color: #cbd5e1;">${roleText}</div>
         `;
         div.appendChild(el);
 
@@ -399,7 +444,6 @@ function renderHand(cards) {
     const hand = document.getElementById('hand');
     hand.innerHTML = '';
 
-    // ប្រសិនបើយើងជា Spectator គឺគ្មានបៀក្នុងដៃទេ
     if (amISpectator) {
         hand.innerHTML = '<p style="color: #ef4444; text-align: center; width: 100%;">អ្នកកំពុងមើលការប្រកួត... សូមរង់ចាំលេងជុំក្រោយ!</p>';
         document.getElementById('myHandPanel').style.opacity = '0.7';
@@ -459,7 +503,6 @@ socket.on('roomJoined', ({ roomId, playerId, isSpectator }) => {
     
     document.getElementById('loginArea').style.display = 'none';
     
-    // បើជា Spectator ឱ្យចូលមកកាន់ GameArea ផ្ទាល់តែម្ដងដើម្បីមើលគេលេង
     if (isSpectator) {
         document.getElementById('lobbyArea').style.display = 'none';
         document.getElementById('gameArea').style.display = 'block';
@@ -478,7 +521,7 @@ socket.on('updatePlayers', (players) => {
 socket.on('gameStarted', ({ currentTurnIndex: turn }) => {
     currentTurnIndex = turn;
     selectedCards = [];
-    amISpectator = false; // វគ្គថ្មីចាប់ផ្ដើម អ្នកមើលទាំងអស់នឹងបានចូលលេងវិញជានិច្ច
+    amISpectator = false; 
     document.getElementById('lastPlayed').innerHTML = '';
     document.getElementById('lobbyArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'none';
@@ -500,7 +543,10 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount }) => {
     }
     
     playersData.forEach(p => {
-        if (p.name === by) p.cardCount = cardCount;
+        if (p.name === by) {
+            p.cardCount = cardCount;
+            p.passed = false; // ប្រសិនបើគាត់ចុះបៀ គឺគាត់មិនមែន Pass ទេ
+        }
     });
     renderPlayers(playersData);
 
@@ -510,9 +556,17 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount }) => {
     }
 });
 
+// កែសម្រួលដើម្បីឱ្យធ្វើបច្ចុប្បន្នភាពកាត Pass ភ្លាមៗលើអេក្រង់
 socket.on('playerPassed', ({ name, id, message, nextTurn }) => {
     currentTurnIndex = nextTurn;
+    
+    // ប្ដូរស្ថានភាពទៅជា Passed ក្នុងទិន្នន័យ Player
+    playersData.forEach(p => {
+        if (p.id === id) p.passed = true;
+    });
+    
     renderPlayers(playersData);
+    
     if (playersData[currentTurnIndex]) {
         document.getElementById('status').innerHTML = `⏭️ ${name} Pass! វេនបន្ទាប់៖ ${playersData[currentTurnIndex].name}`;
     }
@@ -536,6 +590,10 @@ socket.on('playerPassed', ({ name, id, message, nextTurn }) => {
 socket.on('clearTable', ({ nextPlayer }) => {
     document.getElementById('lastPlayed').innerHTML = '';
     document.getElementById('status').innerHTML = `🆕 ជុំថ្មី! វេនដំបូងគឺ៖ ${nextPlayer}`;
+    
+    // ពេលជុំថ្មី ត្រូវសម្អាតស្ថានភាព Pass របស់គ្រប់គ្នាចេញវិញទាំងអស់
+    playersData.forEach(p => p.passed = false);
+    renderPlayers(playersData);
 });
 
 socket.on('gameWon', ({ winner, winnerId, allHands }) => {
