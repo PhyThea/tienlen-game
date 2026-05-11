@@ -381,10 +381,14 @@ function joinRoom(){
 
 function startGame(){
 
-    socket.emit(
-        'startGame',
-        currentRoom
-    );
+    if(!currentRoom){
+
+        return alert('Room មិនត្រឹមត្រូវ');
+    }
+
+    console.log('START ROOM:', currentRoom);
+
+    socket.emit('startGame', currentRoom);
 }
 
 function passTurn(){
@@ -569,6 +573,12 @@ socket.on('roomCreated',({
 
 })=>{
 
+    console.log(roomId);
+
+    myId = playerId;
+
+    currentRoom = roomId;
+
     myId = playerId;
 
     currentRoom = roomId;
@@ -597,10 +607,12 @@ socket.on('roomJoined',({
 
 })=>{
 
+    console.log(roomId);
+
     myId = playerId;
 
     currentRoom = roomId;
-
+    
     document.getElementById(
         'loginArea'
     ).style.display = 'none';
