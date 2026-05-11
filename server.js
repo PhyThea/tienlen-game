@@ -1,5 +1,5 @@
 // ===========================
-// server.js (UPDATED - Full Version)
+// server.js
 // ===========================
 
 const express = require('express');
@@ -16,10 +16,20 @@ app.use(express.static(__dirname));
 
 const rooms = {};
 
+// លំដាប់តម្លៃបៀពីតូចទៅធំ
 const CARD_ORDER = [
     '3','4','5','6','7',
     '8','9','10','J',
     'Q','K','A','2'
+];
+
+// លំដាប់ស៊ីត (Suit) ពីតូចទៅធំ (សម្រាប់ករណីតម្លៃដូចគ្នា)
+// ♠ (ខ្មៅ) < ♣ (ជួង) < ♦ (ក្រហម) < ♥ (ហឺត)
+const SUIT_ORDER = [
+    '♠',
+    '♣',
+    '♦',
+    '♥'
 ];
 
 function createDeck(){
@@ -66,17 +76,22 @@ function shuffleDeck(deck){
     return shuffled;
 }
 
-function getCardPower(card){
+// គណនាតម្លៃបៀ (Value ជាមុន ស៊ីតជាបន្ទាប់)
+function getCardRank(card){
 
-    return CARD_ORDER.indexOf(card.value);
+    const valIndex = CARD_ORDER.indexOf(card.value);
+
+    const suitIndex = SUIT_ORDER.indexOf(card.suit);
+
+    return valIndex * 10 + suitIndex;
 }
 
 function sortCards(cards){
 
     return cards.sort((a,b)=>
 
-        getCardPower(a) -
-        getCardPower(b)
+        getCardRank(a) -
+        getCardRank(b)
     );
 }
 
@@ -90,16 +105,16 @@ function isStraight(cards){
     const sorted =
         [...cards].sort((a,b)=>
 
-            getCardPower(a) -
-            getCardPower(b)
+            CARD_ORDER.indexOf(a.value) -
+            CARD_ORDER.indexOf(b.value)
         );
 
     for(let i = 1; i < sorted.length; i++){
 
         if(
 
-            getCardPower(sorted[i]) !==
-            getCardPower(sorted[i - 1]) + 1
+            CARD_ORDER.indexOf(sorted[i].value) !==
+            CARD_ORDER.indexOf(sorted[i - 1].value) + 1
 
         ){
 
@@ -110,7 +125,6 @@ function isStraight(cards){
     return true;
 }
 
-// === UPDATED: Add Four Pairs detection ===
 function getComboType(cards){
 
     if(cards.length === 1){
@@ -142,7 +156,7 @@ function getComboType(cards){
         }
     }
 
-    // === NEW: Check for Four Pairs (8 cards, 4 pairs) ===
+    // === 4 គូ (Four Pairs) ===
     if(cards.length === 8){
 
         const counts = {};
@@ -160,6 +174,7 @@ function getComboType(cards){
         }
     }
 
+    // === ហាយ (Straight) ===
     if(isStraight(cards)){
 
         return 'straight';
@@ -173,7 +188,7 @@ function isValidPlay(cards){
     return getComboType(cards) !== null;
 }
 
-// === UPDATED: Compare logic with special rules ===
+// ប្រៀបធៀបបៀថ្មី នឹង បៀលើតុ
 function comparePlay(newCards, oldCards){
 
     if(!oldCards || oldCards.length === 0){
@@ -187,19 +202,19 @@ function comparePlay(newCards, oldCards){
     const oldType =
         getComboType(oldCards);
 
-    // === SPECIAL RULE 1: Bomb beats Straight ===
+    // === ករណីពិសេស: ការ៉េ (Bomb) ស៊ីហាយ (Straight) ===
     if(newType === 'bomb' && oldType === 'straight'){
 
         return true;
     }
 
-    // === SPECIAL RULE 2: Four Pairs beats Straight ===
+    // === ករណីពិសេស: 4 គូ (Four Pairs) ស៊ីហាយ (Straight) ===
     if(newType === 'four_pairs' && oldType === 'straight'){
 
         return true;
     }
 
-    // Normal comparison: must be same type and same length
+    // ករណីធម្មតា: ត្រូវតែជាប្រភេទដូចគ្នា និងចំនួនបៀស្មើគ្នា
     if(newType !== oldType){
 
         return false;
@@ -213,14 +228,14 @@ function comparePlay(newCards, oldCards){
     const newMax =
         Math.max(
             ...newCards.map(c=>
-                getCardPower(c)
+                getCardRank(c)
             )
         );
 
     const oldMax =
         Math.max(
             ...oldCards.map(c=>
-                getCardPower(c)
+                getCardRank(c)
             )
         );
 
@@ -253,7 +268,7 @@ function nextTurn(room){
     );
 }
 
-// === NEW: Function to start a new round (for auto-restart) ===
+// === មុខងារចាប់ផ្តើមជុំថ្មី (Auto Restart) ===
 function startNewRound(room){
 
     room.status = 'playing';
@@ -262,7 +277,7 @@ function startNewRound(room){
 
     room.playedCards = [];
 
-    room.isFirstMoveOfGame = true; // Reset flag for 3♣ rule
+    room.isFirstMoveOfGame = true; // Reset flag 3 ជួង (3♣)
 
     const deck =
         shuffleDeck(
@@ -284,13 +299,13 @@ function startNewRound(room){
         player.passed = false;
     });
 
-    // Find player with 3 of Clubs to start
+    // រកអ្នកដែលមាន 3 ជួង (3♣) ដើម្បីចាប់ផ្តើម
     room.currentTurnIndex =
         room.players.findIndex(player=>
 
             player.hand.some(card=>
 
-                card.value === '3' &&
+                card.value === '3'  &&
                 card.suit === '♣'
             )
         );
@@ -338,7 +353,7 @@ function startNewRound(room){
             room.players[
                 room.currentTurnIndex
             ].name
-        } (មាន 3 កឺ)`
+        } (មាន 3♣)`
     );
 }
 
@@ -384,7 +399,7 @@ io.on('connection',(socket)=>{
                 passed:false
             }],
 
-            creatorId:socket.id, // === Store creator as Host ===
+            creatorId:socket.id, // === កំណត់ Host ===
 
             password:
                 password || null,
@@ -399,7 +414,7 @@ io.on('connection',(socket)=>{
 
             winner:null,
 
-            isFirstMoveOfGame:false // === NEW: Flag for 3♣ rule ===
+            isFirstMoveOfGame:false // === Flag ត្រួតពិនិត្យ 3♣ ===
         };
 
         socket.emit(
@@ -468,7 +483,7 @@ io.on('connection',(socket)=>{
 
             return socket.emit(
                 'errorMsg',
-                'ហ្គេមចាប់ផ្តើមហើយ'
+                'ហ្គេមកំពុងដំណើរការ'
             );
         }
 
@@ -503,7 +518,7 @@ io.on('connection',(socket)=>{
         );
     });
 
-    // START GAME - === Only Host can start ===
+    // START GAME (មានតែ Host ទេដែលអាចចុចបាន)
 
     socket.on(
         'startGame',
@@ -513,12 +528,12 @@ io.on('connection',(socket)=>{
 
         if(!room) return;
 
-        // === CHECK: Only creator can start ===
+        // === ត្រួតពិនិត្យសិទ្ធិ Host ===
         if(room.creatorId !== socket.id){
 
             return socket.emit(
                 'errorMsg',
-                'មានតែ Host ទេដែលអាចចាប់ផ្តើមហ្គេមបាន'
+                'មានតែអ្នកបង្កើតបន្ទប់ទេដែលអាចចាប់ផ្តើមហ្គេមបាន'
             );
         }
 
@@ -526,15 +541,15 @@ io.on('connection',(socket)=>{
 
             return socket.emit(
                 'errorMsg',
-                'ត្រូវការ 2 នាក់ឡើង'
+                'ត្រូវការយ៉ាងតិច 2 នាក់'
             );
         }
 
-        // === Start new round with all logic ===
+        // === ចាប់ផ្តើមជុំថ្មីភ្លាម ===
         startNewRound(room);
     });
 
-    // PLAY CARD - === With 3♣ validation ===
+    // PLAY CARD
 
     socket.on(
         'playCard',
@@ -581,7 +596,7 @@ io.on('connection',(socket)=>{
             );
         }
 
-        // Validate cards are in hand
+        // ត្រួតពិនិត្យបៀនៅក្នុងដៃ
         for(const card of cards){
 
             const found =
@@ -600,7 +615,7 @@ io.on('connection',(socket)=>{
             }
         }
 
-        // === NEW: 3♣ First Move Rule ===
+        // === ក្បួន 3 ជួង (3♣) វេនដំបូង ===
         if(room.isFirstMoveOfGame){
 
             const has3Clubs =
@@ -617,7 +632,7 @@ io.on('connection',(socket)=>{
 
                 return socket.emit(
                     'errorMsg',
-                    'អ្នកមាន 3 កឺ ត្រូវតែចេញ 3 កឺមុនគេ!'
+                    'អ្នកមាន 3 ជួង (3♣) ត្រូវតែចេញវាមុនគេ!'
                 );
             }
         }
@@ -641,11 +656,11 @@ io.on('connection',(socket)=>{
 
             return socket.emit(
                 'errorMsg',
-                'បៀតូចជាង ឬខុសក្បួន'
+                'បៀតូចជាង ឬខុសប្រភេទ'
             );
         }
 
-        // Remove played cards from hand
+        // ដកបៀចេញពីដៃ
         cards.forEach(card=>{
 
             const idx =
@@ -666,13 +681,13 @@ io.on('connection',(socket)=>{
 
         room.playedCards = cards;
 
-        // Reset passed status when someone plays
+        // Reset Pass អ្នកដទៃពេលមានអ្នកចេញបៀ
         room.players.forEach(p=>{
 
             if(p.id !== socket.id) p.passed = false;
         });
 
-        // Check for winner
+        // ត្រួតពិនិត្យអ្នកឈ្នះ
         if(player.hand.length === 0){
 
             room.winner = player.name;
@@ -685,17 +700,17 @@ io.on('connection',(socket)=>{
                 }
             );
 
-            // === AUTO RESTART: Start new round after 3 seconds ===
+            // === Auto Restart: ចាប់ផ្តើមជុំថ្មីរយៈពេល 4 វិនាទីក្រោយ ===
             setTimeout(()=>{
 
                 startNewRound(room);
 
-            }, 3000);
+            }, 4000);
 
             return;
         }
 
-        // Mark that first move is done
+        // បិទ Flag 3♣ បន្ទាប់ពីចេញបៀដំបូងរួច
         if(room.isFirstMoveOfGame){
 
             room.isFirstMoveOfGame = false;
@@ -766,7 +781,7 @@ io.on('connection',(socket)=>{
             return;
         }
 
-        // Cannot pass on first move of a round
+        // មិនអាច Pass នៅវេនដំបូងនៃជុំបានទេ
         if(!room.playedCards || room.playedCards.length === 0){
 
             return socket.emit(
@@ -784,7 +799,7 @@ io.on('connection',(socket)=>{
                 p=>!p.passed
             );
 
-        // If only 1 player left active, clear table for new round
+        // បើសល់តែ 1 នាក់ ឬគ្មាននាក់ណាសល់ -> បោសតុចាប់ផ្តើមជុំថ្មី
         if(activePlayers.length <= 1){
 
             room.playedCards = [];
@@ -800,8 +815,10 @@ io.on('connection',(socket)=>{
 
             io.to(roomId).emit(
                 'gameStatus',
-                '🔄 ជុំថ្មី! វេន ' +
-                room.players[room.currentTurnIndex].name
+
+                `🔄 ជុំថ្មី! វេន ${
+                    room.players[room.currentTurnIndex].name
+                }`
             );
         }
 
