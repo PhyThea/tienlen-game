@@ -1,22 +1,21 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require("socket.io");
-
+const path = require('path');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Serve static files from root directory
 app.use(express.static(__dirname));
 
 const rooms = {};
 
 function createDeck() {
-    const suits = ['♠', '♥', '♦', '♣'];
+    const suits = ['♠', '♣', '♦', '♥']; // រៀបតាមលំដាប់ខ្លាំង: ប៊ិច ជួង ការ៉ូ មូល
     const values = ['3','4','5','6','7','8','9','10','J','Q','K','A','2'];
     let deck = [];
-    for (let s of suits) {
-        for (let v of values) {
+    for (let v of values) {
+        for (let s of suits) {
             deck.push({ suit: s, value: v });
         }
     }
@@ -24,116 +23,115 @@ function createDeck() {
 }
 
 function shuffleDeck(deck) {
-    const shuffled = [...deck];
-    for (let i = shuffled.length - 1; i > 0; i--) {
+    for (let i = deck.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        [deck[i], deck[j]] = [deck[j], deck[i]];
     }
-    return shuffled;
+    return deck;
 }
 
 io.on('connection', (socket) => {
-    console.log('✅ Connected:', socket.id);
-    
     socket.on('createRoom', ({ roomId, password, playerName }) => {
-        if (rooms[roomId]) {
-            return socket.emit('errorMsg', 'បន្ទប់នេះមានស្រាប់!');
-        }
+        if (rooms[roomId]) return socket.emit('errorMsg', 'បន្ទប់នេះមានរួចហើយ!');
+        
         socket.join(roomId);
         rooms[roomId] = {
-            players: [{ id: socket.id, name: playerName || 'Player 1', hand: [] }],
-            maxPlayers: 4,
-            password: password || null,
+            id: roomId,
+            players: [{ id: socket.id, name: playerName || 'Player 1', hand: [], active: true }],
             creatorId: socket.id,
             status: 'waiting',
             currentTurnIndex: 0,
             lastPlayed: null,
-            playedCards: [],
-            winner: null
+            passCount: 0
         };
+        
         socket.emit('roomCreated', { roomId, playerId: socket.id });
-        io.to(roomId).emit('updatePlayers', rooms[roomId].players);
+        io.to(roomId).emit('updatePlayers', rooms[roomId].players.map(p => ({name: p.name, id: p.id, cardCount: 0})));
     });
 
     socket.on('joinRoom', ({ roomId, password, playerName }) => {
         const room = rooms[roomId];
-        if (!room) return socket.emit('errorMsg', 'បន្ទប់នេះមិនមានទេ!');
-        if (room.password && room.password !== password) return socket.emit('errorMsg', 'Password មិនត្រឹមត្រូវ!');
-        if (room.players.length >= room.maxPlayers) return socket.emit('errorMsg', 'បន្ទប់ពេញហើយ!');
-        if (room.status !== 'waiting') return socket.emit('errorMsg', 'ហ្គេមកំពុងដំណើរការ!');
+        if (!room) return socket.emit('errorMsg', 'មិនមានបន្ទប់នេះទេ!');
+        if (room.players.length >= 4) return socket.emit('errorMsg', 'បន្ទប់ពេញ!');
         
         socket.join(roomId);
-        const newPlayer = { id: socket.id, name: playerName || `Player ${room.players.length + 1}`, hand: [] };
+        const newPlayer = { id: socket.id, name: playerName || `Player ${room.players.length + 1}`, hand: [], active: true };
         room.players.push(newPlayer);
-        socket.emit('roomJoined', { roomId, playerId: socket.id });
-        io.to(roomId).emit('updatePlayers', room.players);
+        
+        io.to(roomId).emit('updatePlayers', room.players.map(p => ({name: p.name, id: p.id, cardCount: 0})));
     });
 
     socket.on('startGame', (roomId) => {
         const room = rooms[roomId];
-        if (!room) return;
-        if (room.creatorId !== socket.id) return socket.emit('errorMsg', 'តែអ្នកបង្កើតប៉ុណ្ណោះអាច Start!');
-        if (room.status !== 'waiting') return socket.emit('errorMsg', 'ហ្គេមចាប់ផ្តើមហើយ!');
-        if (room.players.length < 2) return socket.emit('errorMsg', 'ត្រូវការយ៉ាងហោច ២ នាក់!');
+        if (!room || room.creatorId !== socket.id) return;
         
         room.status = 'playing';
         const deck = shuffleDeck(createDeck());
-        room.players.forEach((p, i) => { p.hand = deck.slice(i * 13, (i + 1) * 13); });
         
-        room.currentTurnIndex = room.players.findIndex(p => p.hand.some(c => c.value === '3' && c.suit === '♣'));
-        if (room.currentTurnIndex === -1) room.currentTurnIndex = 0;
-
-        io.to(roomId).emit('gameStarted', { 
-            players: room.players.map(p => ({ id: p.id, name: p.name, cardCount: p.hand.length })), 
-            currentTurnIndex: room.currentTurnIndex 
+        // ចែកបៀ
+        room.players.forEach((p, i) => {
+            p.hand = deck.slice(i * 13, (i + 1) * 13);
         });
-        
+
+        // រកអ្នកមាន ៣ ជួង (3♣) ដើម្បីឱ្យចេញមុនគេ
+        room.currentTurnIndex = room.players.findIndex(p => 
+            p.hand.some(c => c.value === '3' && c.suit === '♣')
+        );
+        if(room.currentTurnIndex === -1) room.currentTurnIndex = 0;
+
+        io.to(roomId).emit('gameStarted', {
+            currentTurnIndex: room.currentTurnIndex,
+            players: room.players.map(p => ({ id: p.id, name: p.name, cardCount: 13 }))
+        });
+
         room.players.forEach(p => {
-            io.to(p.id).emit('dealCards', { 
-                hand: p.hand, 
-                isYourTurn: room.players.indexOf(p) === room.currentTurnIndex 
-            });
+            io.to(p.id).emit('dealCards', p.hand);
         });
     });
 
-    socket.on('playCard', ({ roomId, cardValue, cardSuit }) => {
+    socket.on('playCard', ({ roomId, card }) => {
         const room = rooms[roomId];
-        if (!room || room.status !== 'playing') return;
-        const player = room.players.find(p => p.id === socket.id);
-        if (!player || room.players.indexOf(player) !== room.currentTurnIndex) return;
+        if (!room) return;
         
-        const cardIdx = player.hand.findIndex(c => c.value === cardValue && c.suit === cardSuit);
-        if (cardIdx === -1) return;
-        
-        const playedCard = player.hand.splice(cardIdx, 1)[0];
+        const player = room.players[room.currentTurnIndex];
+        if (player.id !== socket.id) return;
+
+        // ដកបៀរចេញពីដៃ
+        player.hand = player.hand.filter(c => !(c.value === card.value && c.suit === card.suit));
+        room.lastPlayed = card;
+        room.passCount = 0; // Reset pass count ពេលមានអ្នកចេញបៀ
+
         if (player.hand.length === 0) {
-            room.winner = player.name;
             io.to(roomId).emit('gameWon', { winner: player.name });
+            delete rooms[roomId];
             return;
         }
-        
+
         room.currentTurnIndex = (room.currentTurnIndex + 1) % room.players.length;
-        io.to(roomId).emit('cardPlayed', { 
-            card: { value: playedCard.value, suit: playedCard.suit }, 
-            currentTurnIndex: room.currentTurnIndex, 
-            updatedHands: room.players.map(p => ({ id: p.id, name: p.name, cardCount: p.hand.length })) 
+        
+        io.to(roomId).emit('cardPlayed', {
+            card: card,
+            nextTurn: room.currentTurnIndex,
+            updatedPlayers: room.players.map(p => ({ id: p.id, cardCount: p.hand.length }))
         });
     });
 
-    socket.on('disconnect', () => {
-        for (let id in rooms) {
-            const room = rooms[id];
-            const pIdx = room.players.findIndex(p => p.id === socket.id);
-            if (pIdx !== -1) {
-                room.players.splice(pIdx, 1);
-                io.to(id).emit('updatePlayers', room.players);
-                break;
-            }
+    socket.on('passTurn', (roomId) => {
+        const room = rooms[roomId];
+        if (!room) return;
+        
+        room.passCount++;
+        room.currentTurnIndex = (room.currentTurnIndex + 1) % room.players.length;
+        
+        // បើគ្រប់គ្នា Pass អស់ សម្អាតបៀលើតុ
+        if (room.passCount >= room.players.length - 1) {
+            room.lastPlayed = null;
+            room.passCount = 0;
+            io.to(roomId).emit('clearTable', { nextTurn: room.currentTurnIndex });
+        } else {
+            io.to(roomId).emit('turnPassed', { nextTurn: room.currentTurnIndex });
         }
     });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`✅ Server running on port ${PORT}`);
-});
+server.listen(3000, () => console.log('🚀 Server running on http://localhost:3000'));

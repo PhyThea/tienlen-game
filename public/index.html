@@ -3,127 +3,247 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ទៀងឡេន Online</title>
+    <title>ទៀងឡេន Online - Full Version</title>
     <style>
-        body { font-family: sans-serif; background: #1e3c72; color: white; text-align: center; padding: 20px; }
-        .btn { padding: 10px 20px; margin: 5px; cursor: pointer; border: none; border-radius: 5px; background: #ffd700; color: #000; }
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; }
-        .modal-content { background: white; color: black; padding: 20px; border-radius: 10px; width: 90%; max-width: 400px; }
-        input { width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; }
-        .card { display: inline-block; width: 50px; height: 70px; background: white; color: black; border-radius: 5px; margin: 5px; line-height: 70px; font-weight: bold; cursor: pointer; }
-        .card.red { color: red; }
-        .player { background: rgba(255,255,255,0.1); padding: 10px; margin: 5px 0; border-radius: 5px; }
-        .active { border: 2px solid yellow; }
-        #game-room { display: none; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Khmer OS Battambang', 'Arial', sans-serif; }
+        body { 
+            background: linear-gradient(135deg, #134e5e, #71b280);
+            min-height: 100vh;
+            color: white;
+            padding: 20px;
+        }
+        .container { max-width: 1000px; margin: 0 auto; }
+        h1 { text-align: center; margin-bottom: 20px; text-shadow: 2px 2px 5px rgba(0,0,0,0.5); }
+
+        /* Setup Section */
+        .setup-box { background: rgba(0,0,0,0.3); padding: 30px; border-radius: 15px; text-align: center; }
+        .input-group { margin-bottom: 15px; text-align: left; max-width: 400px; margin-left: auto; margin-right: auto; }
+        input { width: 100%; padding: 12px; border-radius: 8px; border: none; margin-top: 5px; }
+        .btn { padding: 12px 25px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-main { background: #f1c40f; color: #2c3e50; margin: 5px; }
+        .btn-pass { background: #e74c3c; color: white; margin-top: 10px; }
+        .btn:hover { transform: scale(1.05); opacity: 0.9; }
+
+        /* Game Room */
+        .game-area { display: none; }
+        .status-bar { background: rgba(255,255,255,0.2); padding: 10px; border-radius: 10px; text-align: center; margin-bottom: 20px; }
+        
+        .players-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .player-card { background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; text-align: center; border: 3px solid transparent; }
+        .player-card.active-turn { border-color: #f1c40f; background: rgba(241, 196, 15, 0.2); box-shadow: 0 0 15px #f1c40f; }
+
+        /* Table (Played Cards) */
+        .table-surface { 
+            height: 200px; 
+            background: rgba(0,0,0,0.2); 
+            border-radius: 50%; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            margin-bottom: 30px;
+            border: 2px dashed rgba(255,255,255,0.3);
+            position: relative;
+        }
+
+        /* Card Style */
+        .card { 
+            width: 70px; 
+            height: 100px; 
+            background: white; 
+            color: black; 
+            border-radius: 8px; 
+            display: inline-flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            font-size: 1.5rem; 
+            font-weight: bold;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+            cursor: pointer;
+            user-select: none;
+        }
+        .card.red { color: #d32f2f; }
+        .my-hand { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; padding: 20px; background: rgba(0,0,0,0.3); border-radius: 15px; }
+        
+        .hidden { display: none; }
     </style>
 </head>
 <body>
-<div class="container">
-    <h1>🃏 ទៀងឡេន Online</h1>
-    <div id="main-menu">
-        <button class="btn" onclick="showModal('create')">✨ បង្កើតបន្ទប់</button>
-        <button class="btn" onclick="showModal('join')">🚪 ចូលបន្ទប់</button>
-    </div>
-    <div id="game-room">
-        <h3>បន្ទប់: <span id="room-display"></span></h3>
-        <div id="players-list"></div>
-        <button id="start-btn" class="btn" style="display:none;" onclick="startGame()">🚀 ចាប់ផ្តើម</button>
-        <div id="status-msg" style="margin: 20px; font-weight: bold;"></div>
-        <div id="played-cards" style="min-height: 80px;"></div>
-        <div id="my-hand-area" style="display:none;">
-            <h4>បៀរបស់អ្នក:</h4>
-            <div id="my-hand"></div>
+
+    <div class="container">
+        <h1>🃏 ទៀងឡេន Online</h1>
+
+        <div id="setup-section" class="setup-box">
+            <div class="input-group">
+                <label>ឈ្មោះរបស់អ្នក:</label>
+                <input type="text" id="player-name" placeholder="បញ្ជាក់ឈ្មោះ...">
+            </div>
+            <div class="input-group">
+                <label>លេខបន្ទប់ (Room ID):</label>
+                <input type="text" id="room-id" placeholder="ឧទាហរណ៍: 1234">
+            </div>
+            <button class="btn btn-main" onclick="joinOrCreate('create')">បង្កើតបន្ទប់</button>
+            <button class="btn btn-main" onclick="joinOrCreate('join')">ចូលរួម</button>
+        </div>
+
+        <div id="game-section" class="game-area">
+            <div class="status-bar">
+                <span id="display-room">បន្ទប់: -</span> | 
+                <span id="game-msg">រង់ចាំម្ចាស់បន្ទប់ចាប់ផ្តើម...</span>
+            </div>
+
+            <div id="players-list" class="players-grid">
+                </div>
+
+            <button id="start-btn" class="btn btn-main hidden" onclick="sendStart()">🚀 ចាប់ផ្តើមហ្គេម</button>
+
+            <div class="table-surface" id="table">
+                <div id="last-played-container">
+                    </div>
+            </div>
+
+            <div id="hand-container" class="hidden">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3>🂡 បៀរបស់អ្នក:</h3>
+                    <button id="pass-btn" class="btn btn-pass" onclick="sendPass()">រំលង (Pass)</button>
+                </div>
+                <div id="my-hand" class="my-hand">
+                    </div>
+            </div>
         </div>
     </div>
-</div>
 
-<div id="create-modal" class="modal">
-    <div class="modal-content">
-        <h3>បង្កើតបន្ទប់</h3>
-        <input type="text" id="c-room-id" placeholder="ឈ្មោះបន្ទប់">
-        <input type="text" id="c-name" placeholder="ឈ្មោះអ្នក">
-        <button class="btn" onclick="createRoom()">បង្កើត</button>
-        <button class="btn" onclick="closeModals()">បិទ</button>
-    </div>
-</div>
-<div id="join-modal" class="modal">
-    <div class="modal-content">
-        <h3>ចូលបន្ទប់</h3>
-        <input type="text" id="j-room-id" placeholder="ឈ្មោះបន្ទប់">
-        <input type="text" id="j-name" placeholder="ឈ្មោះអ្នក">
-        <button class="btn" onclick="joinRoom()">ចូល</button>
-        <button class="btn" onclick="closeModals()">បិទ</button>
-    </div>
-</div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let currentRoom = null;
+        let myId = null;
 
-<script src="/socket.io/socket.io.js"></script>
-<script>
-    const socket = io();
-    let roomId = null, playerId = null, isCreator = false, myHand = [];
+        // ១. ចូល ឬ បង្កើតបន្ទប់
+        function joinOrCreate(type) {
+            const playerName = document.getElementById('player-name').value;
+            const roomId = document.getElementById('room-id').value;
+            
+            if(!playerName || !roomId) return alert("សូមបំពេញឈ្មោះ និងលេខបន្ទប់");
 
-    function showModal(t) { document.getElementById(t==='create'?'create-modal':'join-modal').style.display='flex'; }
-    function closeModals() { document.querySelectorAll('.modal').forEach(m=>m.style.display='none'); }
+            currentRoom = roomId;
+            if(type === 'create') {
+                socket.emit('createRoom', { roomId, playerName });
+            } else {
+                socket.emit('joinRoom', { roomId, playerName });
+            }
+        }
 
-    function createRoom() {
-        const rId = document.getElementById('c-room-id').value, name = document.getElementById('c-name').value;
-        if(!rId||!name) return alert('សូមបញ្ចូលឈ្មោះ!');
-        socket.emit('createRoom', { roomId: rId, playerName: name }); closeModals();
-    }
-    function joinRoom() {
-        const rId = document.getElementById('j-room-id').value, name = document.getElementById('j-name').value;
-        if(!rId||!name) return alert('សូមបញ្ចូលឈ្មោះ!');
-        socket.emit('joinRoom', { roomId: rId, playerName: name }); closeModals();
-    }
-    function startGame() { socket.emit('startGame', roomId); }
-    function playCard(v,s) { socket.emit('playCard', { roomId, cardValue: v, cardSuit: s }); }
+        // ២. ចាប់ផ្តើមហ្គេម
+        function sendStart() {
+            socket.emit('startGame', currentRoom);
+        }
 
-    socket.on('roomCreated', d => { roomId=d.roomId; playerId=d.playerId; isCreator=true; enterGame(); });
-    socket.on('roomJoined', d => { roomId=d.roomId; playerId=d.playerId; isCreator=false; enterGame(); });
+        // ៣. ចេញបៀ
+        function playCard(value, suit) {
+            socket.emit('playCard', { roomId: currentRoom, card: { value, suit } });
+        }
 
-    socket.on('updatePlayers', players => {
-        document.getElementById('players-list').innerHTML = players.map(p=>
-            `<div class="player ${p.id===playerId?'active':''}">${p.name} (${p.cardCount||0})</div>`
-        ).join('');
-        if(isCreator && players.length>=2) document.getElementById('start-btn').style.display='inline-block';
-    });
+        // ៤. ចុច Pass
+        function sendPass() {
+            socket.emit('passTurn', currentRoom);
+        }
 
-    socket.on('gameStarted', d => {
-        document.getElementById('start-btn').style.display='none';
-        document.getElementById('status-msg').innerText = `🎮 ចាប់ផ្តើម! វេន: ${d.players[d.currentTurnIndex].name}`;
-    });
+        // --- ទទួល Event ពី Server ---
 
-    socket.on('dealCards', d => {
-        myHand = d.hand; renderHand();
-        document.getElementById('my-hand-area').style.display='block';
-        document.getElementById('status-msg').innerText = d.isYourTurn ? "✅ វេនរបស់អ្នក!" : "⏳ រង់ចាំ...";
-    });
-
-    socket.on('cardPlayed', d => {
-        document.getElementById('played-cards').innerHTML = `<div class="card ${['♥','♦'].includes(d.card.suit)?'red':''}">${d.card.value}${d.card.suit}</div>`;
-        document.getElementById('players-list').innerHTML = d.updatedHands.map(p=>
-            `<div class="player ${p.id===playerId?'active':''}">${p.name} (${p.cardCount})</div>`
-        ).join('');
-        document.getElementById('status-msg').innerText = `🎯 វេន: ${d.updatedHands[d.currentTurnIndex].name}`;
-    });
-
-    socket.on('gameWon', d => { alert(`🏆 អ្នកឈ្នះ: ${d.winner}`); location.reload(); });
-    socket.on('errorMsg', msg => alert(msg));
-
-    function enterGame() {
-        document.getElementById('main-menu').style.display='none';
-        document.getElementById('game-room').style.display='block';
-        document.getElementById('room-display').innerText = roomId;
-    }
-    function renderHand() {
-        const c = document.getElementById('my-hand'); c.innerHTML='';
-        myHand.forEach(card => {
-            const div = document.createElement('div');
-            div.className = `card ${['♥','♦'].includes(card.suit)?'red':''}`;
-            div.innerText = `${card.value}${card.suit}`;
-            div.onclick = () => playCard(card.value, card.suit);
-            c.appendChild(div);
+        socket.on('roomCreated', (data) => {
+            myId = data.playerId;
+            showGameUI(true);
         });
-    }
-</script>
+
+        socket.on('updatePlayers', (players) => {
+            showGameUI();
+            const list = document.getElementById('players-list');
+            list.innerHTML = '';
+            players.forEach(p => {
+                const isMe = p.id === socket.id;
+                list.innerHTML += `
+                    <div class="player-card" id="player-${p.id}">
+                        <strong>${p.name} ${isMe ? '(អ្នក)' : ''}</strong>
+                        <p>🃏 <span class="card-count">${p.cardCount || 0}</span> សន្លឹក</p>
+                    </div>
+                `;
+            });
+        });
+
+        socket.on('gameStarted', (data) => {
+            document.getElementById('start-btn').classList.add('hidden');
+            document.getElementById('hand-container').classList.remove('hidden');
+            updateTurnUI(data.currentTurnIndex);
+        });
+
+        socket.on('dealCards', (hand) => {
+            const handDiv = document.getElementById('my-hand');
+            handDiv.innerHTML = '';
+            // Sort បៀមុនបង្ហាញ (Logic សាមញ្ញ)
+            hand.forEach(card => {
+                const isRed = card.suit === '♥' || card.suit === '♦';
+                const div = document.createElement('div');
+                div.className = `card ${isRed ? 'red' : ''}`;
+                div.innerHTML = `<span>${card.value}</span><span>${card.suit}</span>`;
+                div.onclick = () => playCard(card.value, card.suit);
+                handDiv.appendChild(div);
+            });
+        });
+
+        socket.on('cardPlayed', (data) => {
+            renderTableCard(data.card);
+            updateTurnUI(data.nextTurn, data.updatedPlayers);
+            document.getElementById('game-msg').textContent = "បៀត្រូវបានទម្លាក់!";
+        });
+
+        socket.on('turnPassed', (data) => {
+            updateTurnUI(data.nextTurn);
+            document.getElementById('game-msg').textContent = "មានអ្នករំលង (Pass)";
+        });
+
+        socket.on('clearTable', (data) => {
+            document.getElementById('last-played-container').innerHTML = '<small>ដាច់ទឹក / សម្អាតតុ</small>';
+            updateTurnUI(data.nextTurn);
+        });
+
+        socket.on('gameWon', (data) => {
+            alert("អបអរសាទរ! អ្នកឈ្នះគឺ: " + data.winner);
+            location.reload();
+        });
+
+        socket.on('errorMsg', (msg) => alert(msg));
+
+        // --- Helper Functions ---
+
+        function showGameUI(isCreator = false) {
+            document.getElementById('setup-section').classList.add('hidden');
+            document.getElementById('game-section').classList.remove('hidden');
+            document.getElementById('display-room').textContent = "បន្ទប់: " + currentRoom;
+            if(isCreator) document.getElementById('start-btn').classList.remove('hidden');
+        }
+
+        function updateTurnUI(nextIndex, playersData = null) {
+            const playerDivs = document.querySelectorAll('.player-card');
+            playerDivs.forEach((div, idx) => {
+                div.classList.remove('active-turn');
+                if(idx === nextIndex) div.classList.add('active-turn');
+                
+                if(playersData) {
+                    div.querySelector('.card-count').textContent = playersData[idx].cardCount;
+                }
+            });
+        }
+
+        function renderTableCard(card) {
+            const container = document.getElementById('last-played-container');
+            const isRed = card.suit === '♥' || card.suit === '♦';
+            container.innerHTML = `
+                <div class="card ${isRed ? 'red' : ''}" style="transform: scale(1.2);">
+                    <span>${card.value}</span><span>${card.suit}</span>
+                </div>
+            `;
+        }
+    </script>
 </body>
 </html>
