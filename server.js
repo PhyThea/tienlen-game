@@ -1,5 +1,5 @@
 // ===========================
-// server.js (Fixed & Updated)
+// server.js - FIXED VERSION
 // ===========================
 
 const express = require('express');
@@ -11,27 +11,19 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 app.use(express.static(__dirname));
-
 const rooms = {};
 
-// លំដាប់តម្លៃបៀ (Value)
-const CARD_VALUES = [
-    '3', '4', '5', '6', '7',
-    '8', '9', '10', 'J',
-    'Q', 'K', 'A', '2'
-];
+// លំដាប់តម្លៃបៀ
+const CARD_VALUES = ['3','4','5','6','7','8','9','10','J','Q','K','A','2'];
 
-// លំដាប់ស៊ីត (Suit) - សម្រាប់ករណីតម្លៃដូចគ្នា
-// ♠ (ខ្មៅ) < ♣ (ជួង) < ♦ (ក្រហម) < ♥ (ហឺត)
-const SUIT_ORDER = ['♠', '♣', '♦', '♥'];
+// លំដាប់ស៊ីត: ♠ < ♣ < ♦ < ♥
+const SUIT_ORDER = ['♠','♣','♦','♥'];
 
 function createDeck() {
-    const suits = ['♠', '♥', '♦', '♣'];
-    const values = CARD_VALUES;
+    const suits = ['♠','♥','♦','♣'];
     const deck = [];
-
     for (const suit of suits) {
-        for (const value of values) {
+        for (const value of CARD_VALUES) {
             deck.push({ suit, value });
         }
     }
@@ -47,112 +39,69 @@ function shuffleDeck(deck) {
     return shuffled;
 }
 
-// គណនាពិន្ទុបៀ (សម្រាប់តម្រៀប និងប្រៀបធៀប)
 function getCardRank(card) {
-    const valIndex = CARD_VALUES.indexOf(card.value);
-    const suitIndex = SUIT_ORDER.indexOf(card.suit);
-    // គុណនឹង 10 ដើម្បីអោយ Value ធំជាង Suit
-    return valIndex * 10 + suitIndex;
+    return CARD_VALUES.indexOf(card.value) * 10 + SUIT_ORDER.indexOf(card.suit);
 }
 
 function sortCards(cards) {
     return cards.sort((a, b) => getCardRank(a) - getCardRank(b));
 }
 
-// ពិនិត្យមើលថាតើជាហាយ (Straight) ឬអត់
 function isStraight(cards) {
     if (cards.length < 3) return false;
-    
-    // តម្រៀបតាម Value
-    const sorted = [...cards].sort((a, b) => 
-        CARD_VALUES.indexOf(a.value) - CARD_VALUES.indexOf(b.value)
-    );
-
+    const sorted = [...cards].sort((a, b) => CARD_VALUES.indexOf(a.value) - CARD_VALUES.indexOf(b.value));
     for (let i = 1; i < sorted.length; i++) {
-        const currIdx = CARD_VALUES.indexOf(sorted[i].value);
-        const prevIdx = CARD_VALUES.indexOf(sorted[i - 1].value);
-        
-        if (currIdx !== prevIdx + 1) {
+        if (CARD_VALUES.indexOf(sorted[i].value) !== CARD_VALUES.indexOf(sorted[i-1].value) + 1) {
             return false;
         }
     }
     return true;
 }
 
-// កំណត់ប្រភេទបៀ (Combo Type)
 function getComboType(cards) {
     if (!cards || cards.length === 0) return null;
-
-    // 1. Single
     if (cards.length === 1) return 'single';
-
-    // 2. Same Value Checks (Pair, Triple, Bomb)
+    
     const sameValue = cards.every(c => c.value === cards[0].value);
     if (sameValue) {
         if (cards.length === 2) return 'pair';
         if (cards.length === 3) return 'triple';
-        if (cards.length === 4) return 'bomb'; // ការ៉េ
+        if (cards.length === 4) return 'bomb';
     }
-
-    // 3. Four Pairs (4 គូ) - ត្រូវការ 8 បៀ
+    
     if (cards.length === 8) {
         const counts = {};
-        cards.forEach(c => {
-            counts[c.value] = (counts[c.value] || 0) + 1;
-        });
+        cards.forEach(c => counts[c.value] = (counts[c.value] || 0) + 1);
         const values = Object.values(counts);
-        // ត្រូវតែមាន 4 តម្លៃផ្សេងគ្នា ហើយមួយៗមាន 2 បៀ
         if (values.length === 4 && values.every(v => v === 2)) {
             return 'four_pairs';
         }
     }
-
-    // 4. Straight (ហាយ)
-    if (isStraight(cards)) {
-        return 'straight';
-    }
-
-    return null; // Invalid
+    
+    if (isStraight(cards)) return 'straight';
+    return null;
 }
 
 function isValidPlay(cards) {
     return getComboType(cards) !== null;
 }
 
-// ប្រៀបធៀបបៀថ្មី នឹង បៀលើតុ
 function comparePlay(newCards, oldCards) {
-    // បើគ្មានបៀលើតុ (វេនដំបូងនៃជុំ) -> ចេញបានជានិច្ច
-    if (!oldCards || oldCards.length === 0) {
-        return true;
-    }
-
+    if (!oldCards || oldCards.length === 0) return true;
+    
     const newType = getComboType(newCards);
     const oldType = getComboType(oldCards);
-
-    // === SPECIAL RULES ===
-    // 1. Bomb (ការ៉េ) ស៊ី Straight (ហាយ)
-    if (newType === 'bomb' && oldType === 'straight') {
-        return true;
-    }
-    // 2. Four Pairs (4 គូ) ស៊ី Straight (ហាយ)
-    if (newType === 'four_pairs' && oldType === 'straight') {
-        return true;
-    }
-
-    // === NORMAL RULES ===
-    // ត្រូវតែជាប្រភេទដូចគ្នា
-    if (newType !== oldType) {
-        return false;
-    }
-    // ត្រូវតែមានចំនួនបៀស្មើគ្នា
-    if (newCards.length !== oldCards.length) {
-        return false;
-    }
-
-    // ប្រៀបធៀបតម្លៃធំបំផុត
+    
+    // Special: Bomb beats Straight
+    if (newType === 'bomb' && oldType === 'straight') return true;
+    // Special: Four Pairs beats Straight
+    if (newType === 'four_pairs' && oldType === 'straight') return true;
+    
+    if (newType !== oldType) return false;
+    if (newCards.length !== oldCards.length) return false;
+    
     const newMax = Math.max(...newCards.map(c => getCardRank(c)));
     const oldMax = Math.max(...oldCards.map(c => getCardRank(c)));
-
     return newMax > oldMax;
 }
 
@@ -164,68 +113,46 @@ function nextTurn(room) {
     } while (room.players[room.currentTurnIndex].passed && tries < room.players.length);
 }
 
-// === FUNCTION: Start New Round (Auto Restart Logic) ===
 function startNewRound(room) {
     room.status = 'playing';
     room.winner = null;
     room.playedCards = [];
-    room.isFirstMoveOfGame = true; // Flag សម្រាប់ 3♣
-
+    room.isFirstMoveOfGame = true;
+    
     const deck = shuffleDeck(createDeck());
-
-    // ចែកបៀ
+    
     room.players.forEach((player, index) => {
         player.hand = sortCards(deck.slice(index * 13, (index + 1) * 13));
         player.passed = false;
     });
-
-    // រកអ្នកមាន 3 ជួង (3♣)
-    room.currentTurnIndex = room.players.findIndex(player =>
-        player.hand.some(card => card.value === '3' && card.suit === '♣')
+    
+    room.currentTurnIndex = room.players.findIndex(p =>
+        p.hand.some(card => card.value === '3' && card.suit === '♣')
     );
-
-    // បើគ្មាន 3♣ (ករណីកម្រ) យក Player 0
-    if (room.currentTurnIndex === -1) {
-        room.currentTurnIndex = 0;
-    }
-
-    // ផ្ញើទិន្នន័យទៅ Client
+    if (room.currentTurnIndex === -1) room.currentTurnIndex = 0;
+    
     io.to(room.id).emit('gameStarted', {
-        players: room.players.map(p => ({
-            id: p.id,
-            name: p.name,
-            cardCount: p.hand.length
-        })),
+        players: room.players.map(p => ({ id: p.id, name: p.name, cardCount: p.hand.length })),
         currentTurnIndex: room.currentTurnIndex
     });
-
-    // ផ្ញើបៀជូន từng player (Private)
+    
     room.players.forEach(player => {
         io.to(player.id).emit('dealCards', { hand: player.hand });
     });
-
+    
     io.to(room.id).emit('gameStatus', `🎯 វេន ${room.players[room.currentTurnIndex].name} (មាន 3♣)`);
 }
 
 io.on('connection', (socket) => {
     console.log('Connected:', socket.id);
 
-    // --- CREATE ROOM ---
     socket.on('createRoom', ({ roomId, password, playerName }) => {
-        if (rooms[roomId]) {
-            return socket.emit('errorMsg', 'បន្ទប់នេះមានស្រាប់');
-        }
-
+        if (rooms[roomId]) return socket.emit('errorMsg', 'បន្ទប់នេះមានស្រាប់');
+        
         socket.join(roomId);
-
         rooms[roomId] = {
-            players: [{
-                id: socket.id,
-                name: playerName || 'Player 1',
-                hand: [],
-                passed: false
-            }],
-            creatorId: socket.id, // Host ID
+            players: [{ id: socket.id, name: playerName || 'Player 1', hand: [], passed: false }],
+            creatorId: socket.id,
             password: password || null,
             maxPlayers: 4,
             status: 'waiting',
@@ -234,204 +161,130 @@ io.on('connection', (socket) => {
             winner: null,
             isFirstMoveOfGame: false
         };
-
+        
         socket.emit('roomCreated', { roomId, playerId: socket.id });
         io.to(roomId).emit('updatePlayers', rooms[roomId].players);
     });
 
-    // --- JOIN ROOM ---
     socket.on('joinRoom', ({ roomId, password, playerName }) => {
         const room = rooms[roomId];
-        if (!room) {
-            return socket.emit('errorMsg', 'បន្ទប់មិនមាន');
-        }
-        if (room.password && room.password !== password) {
-            return socket.emit('errorMsg', 'Password ខុស');
-        }
-        if (room.players.length >= room.maxPlayers) {
-            return socket.emit('errorMsg', 'បន្ទប់ពេញ');
-        }
-        if (room.status !== 'waiting') {
-            return socket.emit('errorMsg', 'ហ្គេមកំពុងដំណើរការ');
-        }
-
+        if (!room) return socket.emit('errorMsg', 'បន្ទប់មិនមាន');
+        if (room.password && room.password !== password) return socket.emit('errorMsg', 'Password ខុស');
+        if (room.players.length >= room.maxPlayers) return socket.emit('errorMsg', 'បន្ទប់ពេញ');
+        if (room.status !== 'waiting') return socket.emit('errorMsg', 'ហ្គេមកំពុងដំណើរការ');
+        
         socket.join(roomId);
-        room.players.push({
-            id: socket.id,
-            name: playerName || `Player ${room.players.length + 1}`,
-            hand: [],
-            passed: false
-        });
-
+        room.players.push({ id: socket.id, name: playerName || `Player ${room.players.length + 1}`, hand: [], passed: false });
+        
         socket.emit('roomJoined', { roomId, playerId: socket.id });
         io.to(roomId).emit('updatePlayers', room.players);
     });
 
-    // --- START GAME (Host Only) ---
     socket.on('startGame', (roomId) => {
         const room = rooms[roomId];
         if (!room) return;
-
-        // ត្រួតពិនិត្យថាតើជា Host ឬអត់
+        
+        // Only Host can start
         if (room.creatorId !== socket.id) {
             return socket.emit('errorMsg', 'មានតែអ្នកបង្កើតបន្ទប់ (Host) ទេដែលអាចចាប់ផ្តើមហ្គេមបាន');
         }
-
-        if (room.players.length < 2) {
-            return socket.emit('errorMsg', 'ត្រូវការយ៉ាងតិច 2 នាក់');
-        }
-
-        // ចាប់ផ្តើមជុំថ្មី
+        if (room.players.length < 2) return socket.emit('errorMsg', 'ត្រូវការយ៉ាងតិច 2 នាក់');
+        
         startNewRound(room);
     });
 
-    // --- PLAY CARD ---
     socket.on('playCard', ({ roomId, cards }) => {
         const room = rooms[roomId];
         if (!room || room.status !== 'playing') return;
-
+        
         const player = room.players.find(p => p.id === socket.id);
         if (!player) return;
-
-        // 1. Check Turn
+        
         if (room.players[room.currentTurnIndex].id !== socket.id) {
             return socket.emit('errorMsg', 'មិនមែនវេនអ្នក');
         }
-
-        if (!cards || cards.length === 0) {
-            return socket.emit('errorMsg', 'ជ្រើសបៀសិន');
-        }
-
-        // 2. Check Cards in Hand
+        if (!cards || cards.length === 0) return socket.emit('errorMsg', 'ជ្រើសបៀសិន');
+        
+        // Check cards in hand
         for (const card of cards) {
-            const found = player.hand.find(c => c.value === card.value && c.suit === card.suit);
-            if (!found) {
-                return socket.emit('errorMsg', 'បៀមិនត្រឹមត្រូវ (មិនមានក្នុងដៃ)');
+            if (!player.hand.find(c => c.value === card.value && c.suit === card.suit)) {
+                return socket.emit('errorMsg', 'បៀមិនត្រឹមត្រូវ');
             }
         }
-
-        // 3. Check 3♣ Rule (First Move of Game)
+        
+        // 3♣ First Move Rule
         if (room.isFirstMoveOfGame) {
             const has3Clubs = player.hand.some(c => c.value === '3' && c.suit === '♣');
             const plays3Clubs = cards.some(c => c.value === '3' && c.suit === '♣');
-
             if (has3Clubs && !plays3Clubs) {
                 return socket.emit('errorMsg', 'អ្នកមាន 3 ជួង (3♣) ត្រូវតែចេញវាមុនគេ!');
             }
         }
-
-        // 4. Check Valid Combo
-        if (!isValidPlay(cards)) {
-            return socket.emit('errorMsg', 'ចុះមិនត្រូវក្បួន');
-        }
-
-        // 5. Compare with Table
-        if (!comparePlay(cards, room.playedCards)) {
-            return socket.emit('errorMsg', 'បៀតូចជាង ឬខុសប្រភេទ');
-        }
-
-        // --- VALID MOVE ---
         
-        // Remove cards from hand
+        if (!isValidPlay(cards)) return socket.emit('errorMsg', 'ចុះមិនត្រូវក្បួន');
+        if (!comparePlay(cards, room.playedCards)) return socket.emit('errorMsg', 'បៀតូចជាង ឬខុសប្រភេទ');
+        
+        // Play valid
         cards.forEach(card => {
             const idx = player.hand.findIndex(c => c.value === card.value && c.suit === card.suit);
-            if (idx !== -1) {
-                player.hand.splice(idx, 1);
-            }
+            if (idx !== -1) player.hand.splice(idx, 1);
         });
-
+        
         room.playedCards = cards;
-
-        // Reset pass status for others when someone plays
-        room.players.forEach(p => {
-            if (p.id !== socket.id) p.passed = false;
-        });
-
-        // Check Winner
+        room.players.forEach(p => { if (p.id !== socket.id) p.passed = false; });
+        
         if (player.hand.length === 0) {
             room.winner = player.name;
             io.to(roomId).emit('gameWon', { winner: player.name });
-
-            // AUTO RESTART after 4 seconds
-            setTimeout(() => {
-                startNewRound(room);
-            }, 4000);
-            
+            setTimeout(() => startNewRound(room), 4000);
             return;
         }
-
-        // Mark first move as done
-        if (room.isFirstMoveOfGame) {
-            room.isFirstMoveOfGame = false;
-        }
-
+        
+        if (room.isFirstMoveOfGame) room.isFirstMoveOfGame = false;
         nextTurn(room);
-
+        
         io.to(roomId).emit('cardPlayed', {
-            by: player.name,
-            cards,
-            currentTurnIndex: room.currentTurnIndex,
-            updatedHands: room.players.map(p => ({
-                id: p.id,
-                name: p.name,
-                cardCount: p.hand.length
-            }))
+            by: player.name, cards, currentTurnIndex: room.currentTurnIndex,
+            updatedHands: room.players.map(p => ({ id: p.id, name: p.name, cardCount: p.hand.length }))
         });
-
         io.to(roomId).emit('gameStatus', `🎯 វេន ${room.players[room.currentTurnIndex].name}`);
     });
 
-    // --- PASS TURN ---
     socket.on('passTurn', (roomId) => {
         const room = rooms[roomId];
         if (!room) return;
-
         const player = room.players.find(p => p.id === socket.id);
         if (!player) return;
-
-        if (room.players[room.currentTurnIndex].id !== socket.id) {
-            return;
-        }
-
-        // Cannot pass on first move of a round
+        if (room.players[room.currentTurnIndex].id !== socket.id) return;
         if (!room.playedCards || room.playedCards.length === 0) {
             return socket.emit('errorMsg', 'មិនអាច Pass នៅវេនដំបូងបានទេ');
         }
-
+        
         player.passed = true;
         nextTurn(room);
-
+        
         const activePlayers = room.players.filter(p => !p.passed);
-
-        // If only 1 player left active, clear table
         if (activePlayers.length <= 1) {
             room.playedCards = [];
             room.players.forEach(p => p.passed = false);
-            
             io.to(roomId).emit('clearTable');
             io.to(roomId).emit('gameStatus', `🔄 ជុំថ្មី! វេន ${room.players[room.currentTurnIndex].name}`);
         }
-
+        
         io.to(roomId).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex });
         io.to(roomId).emit('gameStatus', `⏭️ ${player.name} pass`);
     });
 
-    // --- DISCONNECT ---
     socket.on('disconnect', () => {
         for (const roomId in rooms) {
             const room = rooms[roomId];
-            const playerIndex = room.players.findIndex(p => p.id === socket.id);
-
-            if (playerIndex !== -1) {
-                const leftPlayer = room.players[playerIndex];
-                room.players.splice(playerIndex, 1);
-                
+            const idx = room.players.findIndex(p => p.id === socket.id);
+            if (idx !== -1) {
+                const left = room.players[idx];
+                room.players.splice(idx, 1);
                 io.to(roomId).emit('updatePlayers', room.players);
-                io.to(roomId).emit('gameStatus', `❌ ${leftPlayer.name} left`);
-
-                if (room.players.length === 0) {
-                    delete rooms[roomId];
-                }
+                io.to(roomId).emit('gameStatus', `❌ ${left.name} left`);
+                if (room.players.length === 0) delete rooms[roomId];
                 break;
             }
         }
