@@ -85,8 +85,8 @@ button {
 #players {
     display: flex;
     gap: 10px;
-    flex-wrap: nowrap;          /* រត់ជាជួរដេក មិនធ្លាក់ចុះក្រោម */
-    overflow-x: auto;           /* អាចអូសទៅឆ្វេងស្ដាំបានលើទូរស័ព្ទ */
+    flex-wrap: nowrap;          
+    overflow-x: auto;           
     padding: 10px 5px;
     justify-content: flex-start;
     -webkit-overflow-scrolling: touch; 
@@ -94,23 +94,23 @@ button {
 }
 
 #players::-webkit-scrollbar {
-    display: none; /* លាក់របារអូស */
+    display: none; 
 }
 
 /* កាតអ្នកលេងទូទៅ */
 .player {
     background: #334155;
-    padding: 10px 12px;
+    padding: 12px 14px;
     border-radius: 12px;
-    min-width: 140px;           /* ទំហំសមល្មមសម្រាប់អេក្រង់ទូរស័ព្ទ */
+    min-width: 145px;           
     flex-shrink: 0;
     position: relative;
-    border: 3px solid transparent; /* លាក់ស៊ុមទុកជាមុន */
+    border: 3px solid transparent; 
     transition: all 0.3s ease;
     text-align: center;
 }
 
-/* បន្លិចពណ៌បៃតងយ៉ាងច្បាស់ "តែអ្នកដល់វេនលេងបច្ចុប្បន្នប៉ុណ្ណោះ" */
+/* បន្លិចពណ៌បៃតងយ៉ាងច្បាស់ចំតែអ្នកលេងដល់វេន */
 .player.active-turn {
     border: 3px solid #22c55e !important;
     box-shadow: 0 0 15px rgba(34, 197, 94, 0.8) !important;
@@ -118,7 +118,7 @@ button {
     transform: scale(1.03);
 }
 
-/* ពណ៌ក្រហមសម្រាប់អ្នក Pass (អត់ស៊ី) */
+/* ពណ៌ក្រហមសម្រាប់អ្នក Pass */
 .player-passed {
     background: #451a1a !important;
     border: 3px solid #ef4444 !important;
@@ -139,6 +139,19 @@ button {
     border-radius: 20px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.3);
     white-space: nowrap;
+}
+
+/* ស្លាកបង្ហាញចំនួនសន្លឹកបៀរដែលនៅសល់ (ធំ ច្បាស់ ងាយស្រួលមើល) */
+.card-counter {
+    margin-top: 8px;
+    background: #1e293b;
+    border-radius: 8px;
+    padding: 4px 6px;
+    font-weight: bold;
+    font-size: 13px;
+    color: #f59e0b; /* ពណ៌លឿងទុំច្បាស់ល្អ */
+    border: 1px solid #475569;
+    display: inline-block;
 }
 
 /* តុចុះបៀរ */
@@ -200,7 +213,7 @@ button {
     gap: 15px;
 }
 
-/* អក្សរអណ្ដែត "Pass" ពេលចុចរំលង */
+/* សារអណ្ដែត "Pass" ពេលចុចរំលង */
 .bubble-msg {
     position: absolute;
     top: -30px;
@@ -332,12 +345,10 @@ let currentTurnIndex = 0;
 let playersData = [];
 let amISpectator = false;
 
-// ទទូចទាញយកឈ្មោះពី LocalStorage បើមានស្រាប់
 if (localStorage.getItem('tienlen_name')) {
     document.getElementById('playerName').value = localStorage.getItem('tienlen_name');
 }
 
-// ទទួលបញ្ជីបន្ទប់ពី Server
 socket.on('roomList', (rooms) => {
     const div = document.getElementById('roomList');
     div.innerHTML = '';
@@ -381,7 +392,6 @@ function getPlayerName() {
     return name;
 }
 
-// បង្កើតបន្ទប់
 function createRoom() {
     const playerName = getPlayerName();
     if (!playerName) return;
@@ -392,7 +402,6 @@ function createRoom() {
     socket.emit('createRoom', { roomId, password, playerName });
 }
 
-// ចូលរួមបន្ទប់
 function joinRoom() {
     const playerName = getPlayerName();
     if (!playerName) return;
@@ -426,7 +435,6 @@ function showLobby(roomId) {
     document.getElementById('showRoom').innerText = roomId;
 }
 
-// ធ្វើបច្ចុប្បន្នភាពបញ្ជីអ្នកលេង
 socket.on('updatePlayers', (players) => {
     playersData = players;
     const me = players.find(p => p.id === myId);
@@ -437,7 +445,6 @@ socket.on('updatePlayers', (players) => {
     renderPlayers(players);
 });
 
-// ចាប់ផ្ដើមហ្គេម
 function startGame() {
     socket.emit('startGame', currentRoom);
 }
@@ -466,14 +473,13 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn }) => {
     }
 });
 
-// ចែកបៀរ
 socket.on('dealCards', ({ hand }) => {
     myHand = hand;
     selectedCards = [];
     renderMyCards();
 });
 
-// បង្ហាញកាតអ្នកលេង (បន្លិចពណ៌បៃតងយ៉ាងត្រឹមត្រូវ)
+// បង្ហាញកាតអ្នកលេង (ដករាប់ចំនួនសន្លឹកបៀរដែលនៅសល់ក្នុងដៃយ៉ាងច្បាស់)
 function renderPlayers(players) {
     playersData = players;
     const div = document.getElementById('players');
@@ -487,37 +493,39 @@ function renderPlayers(players) {
         el.className = 'player';
         el.id = `player-card-${p.id}`; 
         
-        // ពិនិត្យថាជាវេនលេងបច្ចុប្បន្នពិតប្រាកដ ឬអត់
         const isCurrentTurn = (index === currentTurnIndex && !p.isSpectator);
         
         if (isCurrentTurn) {
-            el.classList.add('active-turn'); // ថែម Class ពណ៌បៃតង
+            el.classList.add('active-turn'); 
         }
 
         if (p.passed) {
-            el.classList.add('player-passed'); // ថែម Class ពណ៌ក្រហមបើ Pass
+            el.classList.add('player-passed'); 
         }
 
-        let roleText = p.isSpectator 
-            ? '<span style="color: #ef4444;">(អ្នកមើល)</span>' 
-            : `🃏 សល់៖ ${p.hand ? p.hand.length : (p.cardCount || 0)} សន្លឹក`;
+        let roleText = '';
+        if (p.isSpectator) {
+            roleText = '<span style="color: #ef4444;">(អ្នកមើល)</span>';
+        } else {
+            // ទាញយកចំនួនបៀរដែលនៅសល់ជាក់ស្ដែងមកបង្ហាញ
+            const count = p.hand ? p.hand.length : (p.cardCount !== undefined ? p.cardCount : 13);
+            roleText = `<div class="card-counter">🃏 នៅសល់៖ ${count} សន្លឹក</div>`;
+        }
 
         if (p.passed && !p.isSpectator) {
-            roleText += ' <span style="color: #ef4444; font-weight: bold;"><br>❌ Pass</span>';
+            roleText += '<br><span style="color: #ef4444; font-weight: bold; font-size: 13px;">❌ Pass (រំលង)</span>';
         }
 
-        // បង្ហាញ Badge ពណ៌បៃតងនៅលើក្បាលកាតអ្នកលេងដែលដល់វេន
         let turnBadgeHTML = isCurrentTurn ? '<div class="turn-badge">🟢 វេនអ្នក</div>' : '';
 
         el.innerHTML = `
             ${turnBadgeHTML}
             <strong>👤 ${p.name} ${p.id === myId ? '(ខ្ញុំ)' : ''}</strong>
             <br>
-            <div style="margin-top: 5px; font-size: 13px; color: #cbd5e1;">${roleText}</div>
+            ${roleText}
         `;
         div.appendChild(el);
 
-        // បង្ហាញក្នុង Lobby
         const el2 = document.createElement('div');
         el2.className = 'player';
         el2.style.marginBottom = '10px';
@@ -533,7 +541,6 @@ function renderPlayers(players) {
     }
 }
 
-// បង្ហាញបៀរក្នុងដៃរបស់យើង
 function renderMyCards() {
     const div = document.getElementById('myCards');
     div.innerHTML = '';
@@ -570,18 +577,15 @@ function toggleCard(card) {
     renderMyCards();
 }
 
-// ចុះបៀដែលបានជ្រើសរើស
 function playSelectedCards() {
     if (selectedCards.length === 0) return alert("សូមជ្រើសរើសសន្លឹកបៀរមុននឹងចុះ!");
     socket.emit('playCard', { roomId: currentRoom, cards: selectedCards });
 }
 
-// រំលង (Pass)
 function passTurn() {
     socket.emit('passTurn', currentRoom);
 }
 
-// ទទួលការផ្ដាច់វេន / ប្ដូរវេនលេង
 socket.on('turnChanged', ({ currentTurnIndex: turn }) => {
     currentTurnIndex = turn;
     if (playersData[currentTurnIndex]) {
@@ -590,12 +594,19 @@ socket.on('turnChanged', ({ currentTurnIndex: turn }) => {
     renderPlayers(playersData);
 });
 
-// ទទួលទិន្នន័យបៀរដែលបានចុះនៅលើតុ
 socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
     currentTurnIndex = nextTurn;
+    
+    // ធ្វើបច្ចុប្បន្នភាពកាត និងចំនួនសន្លឹកបៀររបស់អ្នកលេងទាំងអស់ភ្លាមៗ
+    updatedHands.forEach(p => {
+        const found = playersData.find(oldP => oldP.id === p.id);
+        if (found) {
+            found.cardCount = p.hand ? p.hand.length : p.cardCount;
+        }
+    });
+
     playersData = updatedHands;
     
-    // ធ្វើបច្ចុប្បន្នភាពចំនួនសន្លឹកបៀរបស់អ្នកលេងដទៃ ឬខ្លួនឯង
     const me = updatedHands.find(p => p.id === myId);
     if (me && me.hand) {
         myHand = me.hand;
@@ -608,7 +619,6 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
         document.getElementById('status').innerHTML = `🎯 វេនរបស់៖ ${playersData[currentTurnIndex].name}`;
     }
 
-    // បង្ហាញបៀលើតុ
     const tableDiv = document.getElementById('table');
     tableDiv.innerHTML = '';
     if (cards.length === 0) {
@@ -631,7 +641,6 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
     renderMyCards();
 });
 
-// ពេលមានអ្នកលេងចុច Pass (រំលង)
 socket.on('playerPassed', ({ name, id, message }) => {
     const playerCard = document.getElementById(`player-card-${id}`);
     if (playerCard) {
@@ -643,17 +652,14 @@ socket.on('playerPassed', ({ name, id, message }) => {
     }
 });
 
-// សម្អាតតុលេងឡើងវិញ (Clear Table) ពេលគ្រប់គ្នា Pass អស់
 socket.on('clearTable', ({ nextPlayer }) => {
     document.getElementById('table').innerHTML = '<div style="color: #64748b;">តុត្រូវបានសម្អាត! ចាប់ផ្ដើមជុំថ្មី...</div>';
 });
 
-// ទទួលសារកំហុសផ្សេងៗពី Server
 socket.on('errorMsg', (msg) => {
     alert("⚠️ " + msg);
 });
 
-// ពេលមានអ្នកឈ្នះ (ចប់ហ្គេម)
 socket.on('gameWon', ({ winner, winnerId, allHands }) => {
     document.getElementById('gameArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'block';
@@ -697,14 +703,12 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
     }
 });
 
-// === មុខងារចាកចេញពីបន្ទប់ ===
 function leaveRoom() {
     if (confirm("តើអ្នកពិតជាចង់ចាកចេញពីបន្ទប់នេះមែនទេ?")) {
         socket.emit('leaveRoom');
     }
 }
 
-// ទទួលការឆ្លើយតបពី Server ពេលចាកចេញជោគជ័យ រួចត្រឡប់ទៅទំព័រដើមវិញ
 socket.on('leftRoom', () => {
     currentRoom = null;
     myHand = [];
@@ -712,7 +716,6 @@ socket.on('leftRoom', () => {
     playersData = [];
     amISpectator = false;
     
-    // បង្ហាញអេក្រង់ចូលលេងឡើងវិញ
     document.getElementById('loginArea').style.display = 'block';
     document.getElementById('lobbyArea').style.display = 'none';
     document.getElementById('gameArea').style.display = 'none';
