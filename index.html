@@ -219,8 +219,8 @@ button:disabled {
     display: flex;
     justify-content: center;
     align-items: center;
-    flex-wrap: nowrap; /* ការពារកុំឱ្យធ្លាក់ជួរ */
-    overflow-x: auto;  /* បើបៀរច្រើនអាចអូសបាន */
+    flex-wrap: nowrap;
+    overflow-x: auto;
     gap: 6px;
     padding: 10px;
     position: relative;
@@ -260,7 +260,7 @@ button:disabled {
     cursor: pointer;
     user-select: none;
     box-shadow: -2px 3px 5px rgba(0,0,0,0.3);
-    transition: transform 0.15s ease;
+    transition: transform 0.15s ease, opacity 0.15s ease;
     flex-shrink: 0;
     margin-right: -12px; 
 }
@@ -281,7 +281,7 @@ button:disabled {
 }
 
 .card.disabled-card {
-    opacity: 0.6;
+    opacity: 0.5;
     cursor: not-allowed;
     box-shadow: none;
 }
@@ -359,7 +359,7 @@ button:disabled {
 }
 
 /* ========================================== */
-/* បន្ថែមគំនូរជីវចលសម្រាប់បៀរហោះចេញមកលើតុ */
+/* គំនូរជីវចលសម្រាប់បៀរហោះចេញមកលើតុ */
 /* ========================================== */
 .animate-play-card {
     animation: popInCard 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
@@ -584,15 +584,16 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn }) => {
     }
 });
 
+/* កែសម្រួលចំណុច dealCards ដើម្បីឱ្យ update វេន និង render បៀរឱ្យភ្លឺច្បាស់ភ្លាមៗ */
 socket.on('dealCards', ({ hand }) => {
     myHand = hand;
     selectedCards = [];
-    renderMyCards();
-    updateControlsState();
+    updateControlsState(); // update ប៊ូតុង និងវេនជាមុនសិន
+    renderMyCards();       // ទើប render សន្លឹកបៀរតាមក្រោយ (ធានាថាភ្លឺច្បាស់ មិនព្រៀល)
 });
 
 function isMyTurn() {
-    if (amISpectator || currentTurnIndex === null) return false;
+    if (amISpectator || currentTurnIndex === null || currentTurnIndex === undefined) return false;
     const activePlayer = playersData[currentTurnIndex];
     return activePlayer && activePlayer.id === myId;
 }
@@ -742,7 +743,6 @@ socket.on('turnChanged', ({ currentTurnIndex: turn }) => {
     renderMyCards(); 
 });
 
-/* កែប្រែព្រឹត្តិការណ៍ cardPlayed ដើម្បីបន្ថែម Class គំនូរជីវចលហោះចេញមក ដោយមិនប៉ះពាល់ដល់ល្បឿនហ្គេម */
 socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
     currentTurnIndex = nextTurn;
     
@@ -770,7 +770,6 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
         document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
     }
 
-    // ជម្រះ និងបង្ហាញតែសន្លឹកបៀររបស់អ្នកចុះចុងក្រោយបង្អស់ប៉ុណ្ណោះ
     const tableDiv = document.getElementById('table');
     tableDiv.innerHTML = '';
     
@@ -779,10 +778,7 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
             const el = document.createElement('div');
             const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
             
-            // បន្ថែម Class animate-play-card ដើម្បឱ្យមានចលនា
             el.className = `table-card ${isRed} animate-play-card`;
-            
-            // បង្កើតចលនាហោះចេញមកមួយៗតាមលំដាប់ (Stagger Effect)
             el.style.animationDelay = `${index * 0.05}s`;
             
             el.innerHTML = `
