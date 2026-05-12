@@ -303,6 +303,7 @@ button:disabled {
     cursor: not-allowed;
     box-shadow: none !important;
     border: none !important;
+    pointer-events: none;
 }
 
 .table-card {
@@ -753,8 +754,12 @@ function renderMyCards() {
             <div style="align-self: flex-end; transform: rotate(180deg);">${card.value}</div>
         `;
         
-        el.onclick = () => {
-            if (!isMyTurn()) return; 
+        el.onclick = (e) => {
+            if (!isMyTurn()) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false; 
+            }
             toggleCard(card);
         };
         div.appendChild(el);
@@ -773,16 +778,16 @@ function triggerSayMessage(playerId, msg) {
 }
 
 function toggleCard(card) {
-    if (currentGameMode === 'catte') {
-        // កាតេជ្រើសរើសបានតែ ១ សន្លឹកប៉ុណ្ណោះ
-        selectedCards = [card];
+    if (!isMyTurn()) {
+        selectedCards = []; 
+        return; 
+    }
+
+    const idx = selectedCards.findIndex(c => c.value === card.value && c.suit === card.suit);
+    if (idx === -1) {
+        selectedCards.push(card);
     } else {
-        const idx = selectedCards.findIndex(c => c.value === card.value && c.suit === card.suit);
-        if (idx === -1) {
-            selectedCards.push(card);
-        } else {
-            selectedCards.splice(idx, 1);
-        }
+        selectedCards.splice(idx, 1);
     }
     renderMyCards();
 }
@@ -791,7 +796,6 @@ function playSelectedCards() {
     if (!isMyTurn()) return alert("មិនទាន់ដល់វេនរបស់អ្នកឡើយ!");
     if (selectedCards.length === 0) return alert("សូមជ្រើសរើសសន្លឹកបៀរមុននឹងចុះ!");
     
-    // បើសល់ ២ សន្លឹកហើយវាយចេញ (សល់បៀរ ១ ក្នុងដៃ) នឹងលោតពាក្យ "នេះនែ គប់ទេ"
     if (myHand.length === 2 && selectedCards.length === 1) {
         triggerSayMessage(myId, "នេះនែ គប់ទេ 💥");
     }
@@ -831,7 +835,6 @@ socket.on('playerBurned', ({ name, id, cardCount, updatedHands }) => {
     renderPlayers(updatedHands);
     updateControlsState();
     
-    // បង្ហាញសន្លឹកបៀរផ្កាប់នៅលើតុ ដោយមិនបាំងបៀរវាយឡើយ
     const tableDiv = document.getElementById('table');
     const burnEl = document.createElement('div');
     burnEl.className = 'table-card card-back animate-play-card';
@@ -870,7 +873,6 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
     }
 
     const tableDiv = document.getElementById('table');
-    // បើជាទៀនឡេន សម្អាតតុរាល់ពេលចុះថ្មី បើកាតេទុកបៀរផ្កាប់ និងបៀរងើបចូលគ្នា
     if (currentGameMode === 'tienlen') {
         tableDiv.innerHTML = '';
     }
@@ -914,6 +916,28 @@ socket.on('errorMsg', (msg) => {
     renderMyCards();
 });
 
+function leaveRoom() {
+    if (confirm("តើអ្នកពិតជាចង់ចាកចេញពីបន្ទប់នេះមែនទេ?")) {
+        socket.emit('leaveRoom');
+    }
+}
+
+socket.on('leftRoom', () => {
+    document.body.classList.remove('in-game');
+    currentRoom = null;
+    myHand = [];
+    selectedCards = [];
+    playersData = [];
+    amISpectator = false;
+    lastRoundWinnerId = null; 
+    
+    document.getElementById('loginArea').style.display = 'block';
+    document.getElementById('lobbyArea').style.display = 'none';
+    document.getElementById('gameArea').style.display = 'none';
+    document.getElementById('resultArea').style.display = 'none';
+});
+
+// 🛠️ ផ្នែកបំពេញបន្ថែមដែលដាច់ពីមុន (Event gameWon)
 socket.on('gameWon', ({ winner, winnerId, allHands }) => {
     lastRoundWinnerId = winnerId;
 
