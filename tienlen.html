@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🃏 ហ្គេមទៀនឡេន Online</title>
+<script src="/socket.io/socket.io.js"></script>
+
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { font-family: Arial, sans-serif; background: #0f172a; color: white; overflow-x: hidden; padding: 15px; }
+    .game-container { max-width: 1000px; margin: auto; }
+    
+    /* ស្ថានភាពតុ និងព័ត៌មានជុំ */
+    .table-panel { background: #1e293b; padding: 20px; border-radius: 15px; margin-bottom: 20px; text-align: center; border: 2px solid #334155; }
+    .status-bar { font-size: 18px; color: #38bdf8; font-weight: bold; margin-bottom: 15px; }
+    
+    /* បៀរនៅលើតុ */
+    .played-area { min-height: 140px; background: #020617; border-radius: 10px; display: flex; justify-content: center; align-items: center; flex-wrap: wrap; padding: 15px; margin-bottom: 15px; box-shadow: inset 0 2px 8px rgba(0,0,0,0.5); }
+    
+    /* បញ្ជីអ្នកលេង */
+    .players-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 20px; }
+    .player-card { background: #334155; padding: 10px 15px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; min-width: 120px; }
+    .player-card.active-turn { background: #16a34a; box-shadow: 0 0 12px #22c55e; }
+    .player-card.passed { background: #64748b; opacity: 0.6; }
+
+    /* សន្លឹកបៀរ */
+    .card-display { width: 55px; height: 80px; background: white; color: black; border-radius: 6px; display: inline-flex; flex-direction: column; justify-content: space-between; padding: 5px; margin: 3px; font-weight: bold; font-size: 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); position: relative; user-select: none; }
+    .card-display.red { color: #dc2626; }
+    .card-display.black { color: #000000; }
+    
+    /* បៀរក្នុងដៃ */
+    .hand-area { background: #1e293b; padding: 20px; border-radius: 15px; text-align: center; }
+    .cards-flex { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 20px; }
+    .cards-flex .card-display { cursor: pointer; transition: transform 0.2s; }
+    .cards-flex .card-display.selected { transform: translateY(-15px); border: 3px solid #eab308; }
+    
+    /* ប៊ូតុងបញ្ជា */
+    .btn-group { display: flex; justify-content: center; gap: 15px; }
+    button { padding: 12px 25px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; color: white; transition: background 0.2s; }
+    .btn-play { background: #2563eb; }
+    .btn-play:hover { background: #1d4ed8; }
+    .btn-pass { background: #dc2626; }
+    .btn-pass:hover { background: #b91c1c; }
+    
+    /* ផ្ទាំងលទ្ធផលពេលចប់ហ្គេម */
+    .popup-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 100; }
+    .popup-content { background: #1e293b; padding: 30px; border-radius: 15px; max-width: 500px; width: 90%; text-align: center; }
+    .result-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #334155; }
+</style>
+</head>
+<body>
+
+<div class="game-container">
+    <div class="table-panel">
+        <div class="status-bar" id="gameStatus">កំពុងរង់ចាំសមាជិក...</div>
+        <div class="players-grid" id="playersList"></div>
+        
+        <p style="margin-bottom: 5px; color: #94a3b8; font-size: 14px;">បៀរនៅលើតុ៖</p>
+        <div class="played-area" id="playedCardsArea">
+            <span style="color: #475569;">មិនទាន់មានបៀរចុះទេ</span>
+        </div>
+    </div>
+
+    <div class="hand-area">
+        <h3 style="margin-bottom: 15px; color: #e2e8f0;">🃏 បៀររបស់អ្នក</h3>
+        <div class="cards-flex" id="myHandArea"></div>
+        
+        <div class="btn-group">
+            <button class="btn-pass" onclick="passTurn()">❌ រំលង (Pass)</button>
+            <button class="btn-play" onclick="playCards()">✔️ ចុះបៀរ (Play)</button>
+        </div>
+    </div>
+</div>
+
+<div class="popup-overlay" id="resultPopup">
+    <div class="popup-content">
+        <h2 style="color: #eab308; margin-bottom: 15px;">🏆 លទ្ធផលការប្រកួត 🏆</h2>
+        <div id="resultListArea"></div>
+        <br>
+        <button class="btn-play" style="width: 100%;" onclick="backToLobby()">ត្រឡប់ទៅបន្ទប់រង់ចាំ (Lobby)</button>
+    </div>
+</div>
+
+<script>
+    const socket = io();
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomId = urlParams.get('room');
+    
+    let myId = null;
+    let myHand = [];
+    let selectedCards = [];
+
+    // ភ្ជាប់ទៅកាន់ Room តាមរយៈ URL Room ID ភ្លាមៗពេលបើកទំព័រ
+    if (roomId) {
+        // ទាញយកទិន្នន័យឈ្មោះអ្នកលេងបណ្តោះអាសន្ន ឬឱ្យឈ្មោះថា Player
+        const playerName = localStorage.getItem('playerName') || 'Player';
+        socket.emit('joinRoom', { roomId, playerName });
+    } else {
+        alert("រកមិនឃើញលេខបន្ទប់ទេ!");
+        window.location.href = "/";
+    }
+
+    socket.on('connect', () => {
+        myId = socket.id;
+    });
+
+    // ទទួលបៀរដែលបានចែកពី Server
+    socket.on('dealCards', ({ hand }) => {
+        myHand = hand;
+        selectedCards = [];
+        renderHand();
+    });
+
+    // បង្ហាញបៀរនៅក្នុងដៃ
+    function renderHand() {
+        const area = document.getElementById('myHandArea');
+        if (myHand.length === 0) {
+            area.innerHTML = `<span style="color:#64748b;">អស់បៀរពីដៃហើយ!</span>`;
+            return;
+        }
+        
+        area.innerHTML = myHand.map((card, idx) => {
+            const isRed = card.suit === '♦' || card.suit === '♥';
+            const isSelected = selectedCards.includes(idx);
+            return `
+                <div class="card-display ${isRed ? 'red' : 'black'} ${isSelected ? 'selected' : ''}" onclick="toggleSelectCard(${idx})">
+                    <div>${card.value}</div>
+                    <div style="align-self: flex-end; font-size: 22px; margin-top: -10px;">${card.suit}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // ចុចជ្រើសរើស ឬដកការជ្រើសរើសសន្លឹកបៀរ
+    function toggleSelectCard(idx) {
+        if (selectedCards.includes(idx)) {
+            selectedCards = selectedCards.filter(i => i !== idx);
+        } else {
+            selectedCards.push(idx);
+        }
+        renderHand();
+    }
+
+    // ធ្វើបច្ចុប្បន្នភាពស្ថានភាពតុ បន្ទាប់ពីមានអ្នកចុះបៀរ
+    socket.on('cardPlayed', ({ by, cards, nextTurn, updatedHands }) => {
+        // បង្ហាញបៀរនៅលើតុ
+        const playedArea = document.getElementById('playedCardsArea');
+        playedArea.innerHTML = cards.map(card => {
+            const isRed = card.suit === '♦' || card.suit === '♥';
+            return `
+                <div class="card-display ${isRed ? 'red' : 'black'}">
+                    <div>${card.value}</div>
+                    <div style="align-self: flex-end; font-size: 22px; margin-top: -10px;">${card.suit}</div>
+                </div>
+            `;
+        }).join('');
+
+        // ធ្វើបច្ចុប្បន្នភាពបញ្ជីអ្នកលេង និងវេនលេង
+        updatePlayersList(updatedHands, nextTurn);
+    </script>
+    
+    <script>
+        // មុខងារជំនួយសម្រាប់បង្កើតបញ្ជីឈ្មោះអ្នកលេងនៅលើតុ
+        function updatePlayersList(players, currentTurnIndex) {
+            const listArea = document.getElementById('playersList');
+            listArea.innerHTML = players.map((p, idx) => {
+                const isHisTurn = idx === currentTurnIndex;
+                const hasPassed = p.passed;
+                let statusClass = 'player-card';
+                if (isHisTurn) statusClass += ' active-turn';
+                if (hasPassed) statusClass += ' passed';
+
+                return `
+                    <div class="${statusClass}">
+                        <span style="font-weight:bold;">${p.name}</span>
+                        <span style="font-size:13px; color:#cbd5e1;">បៀរ៖ ${p.hand.length} សន្លឹក</span>
+                        ${hasPassed ? '<span style="font-size:11px; color:#f87171;">(រំលង)</span>' : ''}
+                    </div>
+                `;
+            }).join('');
+
+            // បង្ហាញព័ត៌មាននៅលើ Status Bar
+            const activePlayer = players[currentTurnIndex];
+            if (activePlayer) {
+                document.getElementById('gameStatus').innerText = `វេនរបស់៖ ${activePlayer.name}`;
+            }
+        }
+
+        // ចុចប៊ូតុង ចុះបៀរ
+        function playCards() {
+            if (selectedCards.length === 0) return alert("សូមជ្រើសរើសសន្លឹកបៀរមុននឹងចុះ!");
+            
+            // ប្រមូលយកទិន្នន័យសន្លឹកបៀរដែលបានរើស
+            const cardsToPlay = selectedCards.map(idx => myHand[idx]);
+            socket.emit('playCard', { roomId, cards: cardsToPlay });
+        }
+
+        // ចុចប៊ូតុង រំលង (Pass)
+        function passTurn() {
+            socket.emit('passTurn', roomId);
+        }
+
+        // ទទួលដំណឹងពីការឆ្លងវេន ឬមានអ្នក Pass
+        socket.on('playerPassed', ({ name }) => {
+            // អាចបន្ថែមសំឡេង ឬអក្សររត់បើចង់បាន
+        });
+
+        socket.on('turnChanged', ({ currentTurnIndex }) => {
+            // គ្រប់គ្រងការផ្លាស់ប្តូរវេនករណីមានអ្នក Pass
+        });
+
+        socket.on('clearTable', ({ nextPlayer }) => {
+            document.getElementById('playedCardsArea').innerHTML = `<span style="color: #475569;">ដាច់ទឹក! បើកទឹកថ្មីដោយ ${nextPlayer}</span>`;
+        });
+
+        // ពេលហ្គេមបញ្ចប់ដាច់ស្រឡះ
+        socket.on('gameWon', ({ winner, allHands }) => {
+            const popup = document.getElementById('resultPopup');
+            const listArea = document.getElementById('resultListArea');
+            
+            popup.style.display = 'flex';
+            listArea.innerHTML = allHands.map(p => `
+                <div class="result-row">
+                    <span>👑 លំដាប់ទី ${p.rank || '-'} : <b>${p.name}</b></span>
+                    <span style="color:#94a3b8;">សល់បៀរ៖ ${p.remaining.length} សន្លឹក</span>
+                </div>
+            `).join('');
+        });
+
+        // ត្រឡប់ទៅទំព័រ Lobby វិញ
+        function backToLobby() {
+            window.location.href = "/";
+        }
+
+        // ទប់ស្កាត់ករណីមានសារកំហុសពី Server (ចុះខុសក្បួន ឬតូចជាង)
+        socket.on('errorMsg', (msg) => {
+            alert(msg);
+        });
+    </script>
+</body>
+</html>
