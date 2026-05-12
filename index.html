@@ -305,7 +305,7 @@ button:active {
 .controls {
     display: flex;
     gap: 10px;
-    transition: all 0.3s ease;
+    transition: opacity 0.2s ease;
 }
 .controls button {
     margin-top: 0;
@@ -365,7 +365,7 @@ button:active {
         <input type="text" id="playerName" placeholder="បញ្ចូលឈ្មោះរបស់អ្នក...">
         <div style="margin-top: 15px;">
             <input type="text" id="roomInput" placeholder="លេខបន្ទប់ (Room ID)...">
-            <input type="password" id="roomPass" placeholder="លេខកូដសម្ងាត់បន្ទប់ (បើគ្មាន ទុកទទេ)...">
+            <input type="password" id="roomPass" placeholder="លេខកកូដសម្ងាត់បន្ទប់ (បើគ្មាន ទុកទទេ)...">
             <div style="display: flex; gap: 10px;">
                 <button class="btn-blue" onclick="createRoom()">➕ បង្កើតបន្ទប់ថ្មី</button>
                 <button class="btn-green" onclick="joinRoom()">🚪 ចូលរួមបន្ទប់</button>
@@ -559,7 +559,7 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn }) => {
         document.getElementById('actionControls').style.display = 'none';
     } else {
         document.getElementById('actionControls').style.display = 'flex';
-        checkMyTurnControls();
+        checkMyTurnControls(); // កំណត់ស្ថានភាពប៊ូតុងភ្លាមៗពេលហ្គេមចាប់ផ្ដើម
     }
 });
 
@@ -569,27 +569,29 @@ socket.on('dealCards', ({ hand }) => {
     renderMyCards();
 });
 
-// មុខងារសម្រាប់ឆែក និង បិទ/បើក ប៊ូតុងមិនឱ្យចុចពេលខុសវេនលេង
+// មុខងារជំនួយ៖ ឆែក និងចាក់សោរប៊ូតុងបញ្ជា (UI Lock) ការពារអ៊ីនធឺណិតទាក់
 function checkMyTurnControls() {
     if (amISpectator) return;
 
     const myIndex = playersData.findIndex(p => p.id === myId);
     const actionControls = document.getElementById('actionControls');
     
-    if (myIndex === currentTurnIndex) {
-        // បើដល់វេនខ្ញុំ៖ អនុញ្ញាតឱ្យចុចធម្មតា
-        actionControls.style.opacity = "1";
-        actionControls.style.pointerEvents = "auto";
-        document.querySelectorAll('#actionControls button').forEach(btn => {
-            btn.style.filter = "none";
-        });
-    } else {
-        // បើមិនទាន់ដល់វេន៖ ធ្វើឱ្យព្រាល និងចាក់សោរមិនឱ្យចុចកើតដាច់ខាត
-        actionControls.style.opacity = "0.5";
-        actionControls.style.pointerEvents = "none";
-        document.querySelectorAll('#actionControls button').forEach(btn => {
-            btn.style.filter = "grayscale(50%)";
-        });
+    if (actionControls) {
+        if (myIndex === currentTurnIndex) {
+            // បើចំវេនលេង៖ បើកឱ្យចុចធម្មតា
+            actionControls.style.opacity = "1";
+            actionControls.style.pointerEvents = "auto";
+            document.querySelectorAll('#actionControls button').forEach(btn => {
+                btn.style.filter = "none";
+            });
+        } else {
+            // បើមិនមែនវេនលេង៖ ចាក់សោរមិនឱ្យមាន Event ឆ្លងកាត់ទៅកូដខាងក្រោមដាច់ខាត
+            actionControls.style.opacity = "0.5";
+            actionControls.style.pointerEvents = "none";
+            document.querySelectorAll('#actionControls button').forEach(btn => {
+                btn.style.filter = "grayscale(50%)";
+            });
+        }
     }
 }
 
@@ -655,7 +657,7 @@ function renderPlayers(players) {
         startBtn.style.display = 'none';
     }
 
-    // ហៅការឆែកប្រព័ន្ធ Lock ប៊ូតុងរាល់ពេល Render អ្នកលេងឡើងវិញ
+    // ឆែកគ្រប់គ្រងប៊ូតុងរាល់ពេលដែលទិន្នន័យអ្នកលេងដូរ
     checkMyTurnControls();
 }
 
@@ -698,20 +700,20 @@ function toggleCard(card) {
 function playSelectedCards() {
     if (selectedCards.length === 0) return alert("សូមជ្រើសរើសសន្លឹកបៀរមុននឹងចុះ!");
     
-    // បន្ថែមការស្ទាក់ឆែកសុវត្ថិភាពនៅខាង Client ការពារករណីចុចលឿនពេក
+    // ប្រព័ន្ធការពារស្រទាប់ទី២ (Logic-Lock)៖ ទោះប៊ូតុងគាំងខូច ក៏មិនឱ្យបញ្ជូនកញ្ចប់ Data ទៅទាក់ Internet ដែរ
     const myIndex = playersData.findIndex(p => p.id === myId);
     if (myIndex !== currentTurnIndex) {
-        alert("⚠️ មិនទាន់ដល់វេនរបស់អ្នកឡើយ!");
-        return;
+        return; // បដិសេធចោលភ្លាមៗដោយមិនបាច់ដំណើរការអ្វីទាំងអស់
     }
 
     socket.emit('playCard', { roomId: currentRoom, cards: selectedCards });
 }
 
 function passTurn() {
-    // ស្ទាក់ឆែកសុវត្ថិភាពសម្រាប់ប៊ូតុង Pass ដូចគ្នា
     const myIndex = playersData.findIndex(p => p.id === myId);
-    if (myIndex !== currentTurnIndex) return;
+    if (myIndex !== currentTurnIndex) {
+        return; // ការពារការចុចច្រឡំបញ្ជូនទិន្នន័យដដែលៗនាំឱ្យណែន Network
+    }
 
     socket.emit('passTurn', currentRoom);
 }
@@ -831,6 +833,7 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
         
         selectedCards = [];
         renderMyCards();
+        checkMyTurnControls(); // ធ្វើបច្ចុប្បន្នភាពប៊ូតុងចុងក្រោយបង្អស់បន្ទាប់ពីបៀរហោះចប់
     });
 });
 
