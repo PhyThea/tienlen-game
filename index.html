@@ -266,7 +266,6 @@ button:disabled {
     color: #ef4444;
 }
 
-/* ស្ទាយល៍ភ្លឺដេញព័ណ៌លឿងស្អាត */
 .card.first-turn-highlight {
     box-shadow: 0 0 12px #eab308 !important;
     border: 2px solid #eab308 !important;
@@ -274,8 +273,8 @@ button:disabled {
 }
 
 @keyframes pulseGlow {
-    0% { box-shadow: 0 0 6px #eab308; }
-    100% { box-shadow: 0 0 16px #eab308; }
+    0% { box-shadow: 0 0 6px #eab308; border-color: #eab308; }
+    100% { box-shadow: 0 0 18px #eab308; border-color: #f59e0b; }
 }
 
 .card.selected {
@@ -689,24 +688,23 @@ function renderMyCards() {
     
     const myTurn = isMyTurn();
     const tableDiv = document.getElementById('table');
-    const isNewRound = tableDiv && (tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ'));
+    const isNewRound = tableDiv && (tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត!'));
 
     myHand.forEach(card => {
         const el = document.createElement('div');
         const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
         el.className = `card ${isRed}`;
         
+        // កែសម្រួល៖ ឆែកលក្ខខណ្ឌផ្ដល់ពន្លឺ Highlight ពណ៌លឿងឱ្យត្រូវតាមច្បាប់ហ្គេម
         if (!myTurn) {
             el.classList.add('disabled-card');
         } else {
             if (isNewRound) {
                 if (!lastRoundWinnerId) {
-                    // កែតម្រូវត្រង់នេះ៖ ផ្តល់ពន្លឺពណ៌លឿងលោតៗចំសន្លឹក ៣ ប៊ិច (3 ♠) នៅវគ្គដំបូងពិតប្រាកដ
                     if (card.value === '3' && card.suit === '♠') {
                         el.classList.add('first-turn-highlight');
                     }
                 } else {
-                    // វគ្គបន្ទាប់គឺផ្តល់ពន្លឺទៅឱ្យអ្នកលេងជាប់លេខមួយ (Last Winner)
                     if (myId === lastRoundWinnerId) {
                         el.classList.add('first-turn-highlight');
                     }
@@ -828,6 +826,7 @@ socket.on('playerPassed', ({ name, id, message }) => {
 
 socket.on('clearTable', ({ nextPlayer }) => {
     document.getElementById('table').innerHTML = '<div style="color: #64748b;">តុត្រូវបានសម្អាត! ជុំថ្មី...</div>';
+    renderMyCards();
 });
 
 socket.on('errorMsg', (msg) => {
@@ -851,7 +850,6 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
     const activePlayers = allHands.filter(p => !p.isSpectator);
     const spectators = allHands.filter(p => p.isSpectator);
 
-    // រៀបលំដាប់លទ្ធផលពីលេខ ១ ដល់លេខចុងក្រោយគេបង្អស់
     activePlayers.sort((a, b) => {
         const rankA = a.rank || 99;
         const rankB = b.rank || 99;
@@ -892,14 +890,12 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
                 } else if (currentRank === 3) {
                     rankBadgeHTML = `<span style="color: #a855f7; font-weight: bold;">🥉 លេខ ៣</span>`;
                 } else {
-                    // កែសម្រួល៖ បើស្អុយបៀរ (សល់១៣សន្លឹកពេញ) ដាក់ថាស្អុយបៀរ បើមិនអញ្ចឹងទេបង្ហាញថាអ្នកចាញ់ចុងក្រោយ
                     const isRotten = remainingCount === 13;
                     rankBadgeHTML = isRotten 
                         ? `<span style="color: #ef4444; font-weight: bold;">☠️ ស្អុយបៀរ (លេខចុងក្រោយ)</span>` 
                         : `<span style="color: #f43f5e; font-weight: bold;">❌ លេខចុងក្រោយ (អ្នកចាញ់)</span>`;
                 }
 
-                // បង្ហាញសន្លឹកបៀរដែលនៅសល់របស់អ្នកលេងចុងក្រោយ និងអ្នកលេងផ្សេងទៀតទាំងអស់នៅលើតារាងលទ្ធផល
                 if (remainingCount > 0) {
                     p.remaining.forEach(card => {
                         const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
