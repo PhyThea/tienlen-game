@@ -2,7 +2,7 @@
 <html lang="km">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>🃏 Tien Len Online</title>
 
 <style>
@@ -10,18 +10,20 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
 }
 
 body {
     font-family: Arial, sans-serif;
     background: #0f172a;
     color: white;
-    padding: 15px;
+    overflow-x: hidden;
 }
 
 .container {
     max-width: 1200px;
     margin: auto;
+    padding: 15px;
 }
 
 h1 {
@@ -56,7 +58,10 @@ button {
     font-weight: bold;
     cursor: pointer;
     width: 100%;
-    transition: background 0.2s ease;
+    transition: background 0.2s ease, transform 0.1s ease;
+}
+button:active {
+    transform: scale(0.98);
 }
 
 .btn-blue { background: #3b82f6; color: white; }
@@ -77,124 +82,187 @@ button {
     align-items: center;
 }
 
-/* តំបន់លេងហ្គេម */
+/* ================================================================= */
+/* ផ្នែកគ្រប់គ្រងការបង្វិលអេក្រង់ឱ្យដូច App Play Store (Landscape Mode) */
+/* ================================================================= */
+
 #gameArea {
     display: none;
+    position: relative;
+    width: 100%;
+    height: 100%;
 }
 
+/* លក្ខខណ្ឌពិសេស៖ បើលេងលើទូរសព្ទដៃ ហើយអេក្រង់កំពុងបញ្ឈរ (Portrait) */
+@media screen and (max-width: 932px) and (orientation: portrait) {
+    body.in-game {
+        overflow: hidden;
+        position: fixed;
+        width: 100vw;
+        height: 100vh;
+    }
+
+    body.in-game .container {
+        padding: 0;
+        max-width: 100%;
+    }
+
+    body.in-game #gameArea {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        width: 100vh;
+        height: 100vw;
+        transform: translate(-50%, -50%) rotate(90deg);
+        transform-origin: center center;
+        background: #0f172a;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+}
+
+/* លក្ខខណ្ឌ៖ បើអេក្រង់ផ្ដេកស្រាប់ (PC, Tablet, or Rotated Phone) */
+@media screen and (min-width: 600px) and (orientation: landscape), screen and (min-width: 933px) {
+    body.in-game #gameArea {
+        display: grid;
+        grid-template-rows: auto 1fr auto auto;
+        height: 92vh;
+        max-height: 700px;
+        gap: 10px;
+    }
+}
+
+/* រៀបចំ layout ក្បាលហ្គេម */
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #1e293b;
+    padding: 8px 15px;
+    border-radius: 10px;
+}
+
+/* ប្លង់បង្ហាញអ្នកលេងក្នុងតុ */
 #players {
     display: flex;
     gap: 10px;
-    flex-wrap: nowrap;          
-    overflow-x: auto;           
-    padding: 10px 5px;
-    justify-content: flex-start;
-    -webkit-overflow-scrolling: touch; 
-    margin-bottom: 20px;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
 }
 
-#players::-webkit-scrollbar {
-    display: none; 
-}
-
-/* កាតអ្នកលេងទូទៅ */
 .player {
     background: #334155;
-    padding: 12px 14px;
-    border-radius: 12px;
-    min-width: 145px;           
-    flex-shrink: 0;
+    padding: 6px 10px;
+    border-radius: 10px;
+    min-width: 110px;
+    flex: 1;
+    max-width: 160px;
     position: relative;
-    border: 3px solid transparent; 
+    border: 2px solid transparent; 
     transition: all 0.3s ease;
     text-align: center;
+    font-size: 13px;
 }
 
-/* បន្លិចពណ៌បៃតងយ៉ាងច្បាស់ចំតែអ្នកលេងដល់វេន */
 .player.active-turn {
-    border: 3px solid #22c55e !important;
-    box-shadow: 0 0 15px rgba(34, 197, 94, 0.8) !important;
+    border: 2px solid #22c55e !important;
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.6) !important;
     background: #1e293b !important;
-    transform: scale(1.03);
 }
 
-/* ពណ៌ក្រហមសម្រាប់អ្នក Pass */
 .player-passed {
     background: #451a1a !important;
-    border: 3px solid #ef4444 !important;
+    border: 2px solid #ef4444 !important;
     opacity: 0.6;
 }
 
-/* សញ្ញាចង្អុលវេន */
 .turn-badge {
     position: absolute;
-    top: -12px;
+    top: -10px;
     left: 50%;
     transform: translateX(-50%);
     background: #22c55e;
     color: white;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: bold;
-    padding: 2px 8px;
+    padding: 1px 6px;
     border-radius: 20px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
     white-space: nowrap;
 }
 
-/* ស្លាកបង្ហាញចំនួនសន្លឹកបៀរដែលនៅសល់ (ធំ ច្បាស់ ងាយស្រួលមើល) */
 .card-counter {
-    margin-top: 8px;
+    margin-top: 4px;
     background: #1e293b;
-    border-radius: 8px;
-    padding: 4px 6px;
+    border-radius: 5px;
+    padding: 2px 5px;
     font-weight: bold;
-    font-size: 13px;
-    color: #f59e0b; /* ពណ៌លឿងទុំច្បាស់ល្អ */
+    font-size: 11px;
+    color: #f59e0b;
     border: 1px solid #475569;
     display: inline-block;
 }
 
-/* តុចុះបៀរ */
+/* តុចុះបៀរកណ្ដាល */
 .table-area {
-    background: #1e293b;
-    border: 3px dashed #475569;
-    border-radius: 15px;
-    min-height: 150px;
+    background: #14532d; 
+    border: 2px dashed #22c55e;
+    border-radius: 12px;
+    flex: 1;
+    min-height: 110px;
     display: flex;
     justify-content: center;
     align-items: center;
     flex-wrap: wrap;
-    gap: 10px;
-    padding: 20px;
-    margin-bottom: 20px;
+    gap: 6px;
+    padding: 10px;
     position: relative;
 }
 
-/* បៀរនៅលើតុ និងក្នុងដៃ */
+/* ផ្នែកបៀរក្នុងដៃ និងប៊ូតុងបញ្ជា */
+.hand-and-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: #1e293b;
+    padding: 10px;
+    border-radius: 12px;
+}
+
 .card-container {
     display: flex;
     justify-content: center;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 20px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 10px 0;
+    gap: -15px; 
 }
 
+/* ស្ទីលសន្លឹកបៀរ */
 .card {
     background: white;
     color: black;
-    width: 65px;
-    height: 95px;
-    border-radius: 8px;
+    width: 52px;
+    height: 76px;
+    border-radius: 6px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    padding: 8px;
-    font-size: 18px;
+    padding: 4px 6px;
+    font-size: 15px;
     font-weight: bold;
     cursor: pointer;
     user-select: none;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: -2px 3px 5px rgba(0,0,0,0.3);
+    transition: transform 0.15s ease;
+    flex-shrink: 0;
+    margin-right: -12px; 
+}
+
+.card:last-child {
+    margin-right: 0;
 }
 
 .card.red {
@@ -203,27 +271,58 @@ button {
 
 .card.selected {
     transform: translateY(-15px);
-    box-shadow: 0 0 10px #3b82f6, 0 8px 12px rgba(0,0,0,0.4);
+    box-shadow: 0 5px 10px #3b82f6;
     border: 2px solid #3b82f6;
+    margin-right: -6px;
+}
+
+/* ========================================== */
+/* ស្ទីលពិសេសសម្រាប់កូដបៀរហោះ (Flying Animation) */
+/* ========================================== */
+.flying-card {
+    position: fixed;
+    z-index: 9999;
+    background: white;
+    color: black;
+    width: 52px;
+    height: 76px;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 4px 6px;
+    font-size: 15px;
+    font-weight: bold;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    pointer-events: none; /* មិនឱ្យរាំងស្ទះការចុច */
+    transition: all 0.45s cubic-bezier(0.25, 1, 0.5, 1); /* ល្បឿនហោះបែបធម្មជាតិ */
+}
+.flying-card.red {
+    color: #ef4444;
 }
 
 /* ផ្ទាំងបញ្ជាលេង */
 .controls {
     display: flex;
-    gap: 15px;
+    gap: 10px;
+}
+.controls button {
+    margin-top: 0;
+    padding: 10px;
+    font-size: 15px;
 }
 
-/* សារអណ្ដែត "Pass" ពេលចុចរំលង */
+/* សារអណ្ដែត Pass */
 .bubble-msg {
     position: absolute;
-    top: -30px;
+    top: -25px;
     left: 50%;
     transform: translateX(-50%);
     background: #ef4444;
     color: white;
-    padding: 5px 10px;
-    border-radius: 10px;
-    font-size: 12px;
+    padding: 3px 8px;
+    border-radius: 8px;
+    font-size: 11px;
     font-weight: bold;
     animation: fadeUp 1.5s forwards;
     white-space: nowrap;
@@ -232,7 +331,7 @@ button {
 
 @keyframes fadeUp {
     0% { opacity: 1; transform: translate(-50%, 0); }
-    100% { opacity: 0; transform: translate(-50%, -25px); }
+    100% { opacity: 0; transform: translate(-50%, -15px); }
 }
 
 /* អេក្រង់លទ្ធផលឈ្នះចាញ់ */
@@ -243,7 +342,7 @@ button {
 
 .result-player {
     background: #334155;
-    padding: 15px;
+    padding: 12px;
     border-radius: 10px;
     margin-top: 10px;
     text-align: left;
@@ -255,27 +354,13 @@ button {
     flex-wrap: wrap;
     margin-top: 8px;
 }
-
-.result-card {
-    background: white;
-    color: black;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 14px;
-    font-weight: bold;
-}
-
-.result-card.red {
-    color: #ef4444;
-}
 </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🃏 Tien Len Online</h1>
-
     <div id="loginArea" class="panel">
+        <h1>🃏 Tien Len Online</h1>
         <input type="text" id="playerName" placeholder="បញ្ចូលឈ្មោះរបស់អ្នក...">
         <div style="margin-top: 15px;">
             <input type="text" id="roomInput" placeholder="លេខបន្ទប់ (Room ID)...">
@@ -291,32 +376,32 @@ button {
     </div>
 
     <div id="lobbyArea" class="panel" style="display: none;">
+        <h1>🃏 Tien Len Online</h1>
         <h2>Room: <span id="showRoom" style="color: #3b82f6;"></span></h2>
         <br>
-        <div id="lobbyPlayers"></div>
+        <div id="lobbyPlayers" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;"></div>
         <button id="startBtn" class="btn-green" onclick="startGame()" style="display: none;">🚀 Start Game</button>
         <button class="btn-red" onclick="leaveRoom()">🚪 ចាកចេញ (Leave)</button>
     </div>
 
     <div id="gameArea">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <div id="status" style="margin-bottom: 0; text-align: left;">Waiting...</div>
-            <button class="btn-red" onclick="leaveRoom()" style="margin-top: 0; padding: 8px 15px; font-size: 14px; width: auto;">🚪 ចាកចេញ</button>
+        <div class="game-header">
+            <div id="status" style="font-weight: bold; color: #22c55e;">Waiting...</div>
+            <button class="btn-red" onclick="leaveRoom()" style="margin-top: 0; padding: 6px 12px; font-size: 13px; width: auto;">🚪 ផ្ទះដើម</button>
         </div>
 
         <div id="players"></div>
 
-        <h3 style="margin-bottom: 8px; color: #94a3b8;">📥 បៀរនៅលើតុ៖</h3>
         <div class="table-area" id="table">
-            <div style="color: #64748b;">មិនទាន់មានបៀរចុះឡើយ</div>
+            <div style="color: #a7f3d0;">មិនទាន់មានបៀរចុះឡើយ</div>
         </div>
 
-        <h3 style="margin-bottom: 8px; color: #94a3b8;">🃏 បៀរក្នុងដៃរបស់អ្នក៖</h3>
-        <div class="card-container" id="myCards"></div>
-
-        <div class="controls" id="actionControls">
-            <button class="btn-green" onclick="playSelectedCards()">🎯 ចុះបៀរ (Play)</button>
-            <button class="btn-red" onclick="passTurn()">❌ រំលង (Pass)</button>
+        <div class="hand-and-controls">
+            <div class="card-container" id="myCards"></div>
+            <div class="controls" id="actionControls">
+                <button class="btn-green" onclick="playSelectedCards()">🎯 ចុះបៀរ (Play)</button>
+                <button class="btn-red" onclick="passTurn()">❌ រំលង (Pass)</button>
+            </div>
         </div>
     </div>
 
@@ -360,7 +445,7 @@ socket.on('roomList', (rooms) => {
         const item = document.createElement('div');
         item.className = 'room-item';
         const lockIcon = r.hasPassword ? '🔒' : '🔓';
-        const statusText = r.status === 'playing' ? '<span style="color: #ef4444;">(កំពុងលេង - ចូលមើល)</span>' : '<span style="color: #22c55e;">(ទំនេរ)</span>';
+        const statusText = r.status === 'playing' ? '<span style="color: #ef4444;">(កំពុងលេង)</span>' : '<span style="color: #22c55e;">(ទំនេរ)</span>';
         
         item.innerHTML = `
             <div>
@@ -428,6 +513,7 @@ socket.on('roomJoined', ({ roomId, playerId, isSpectator }) => {
 });
 
 function showLobby(roomId) {
+    document.body.classList.remove('in-game');
     document.getElementById('loginArea').style.display = 'none';
     document.getElementById('lobbyArea').style.display = 'block';
     document.getElementById('gameArea').style.display = 'none';
@@ -454,16 +540,18 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn }) => {
     playersData = players;
     amISpectator = players.find(p => p.id === myId).isSpectator;
 
+    document.body.classList.add('in-game');
+
     document.getElementById('lobbyArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'none';
     document.getElementById('gameArea').style.display = 'block';
     
-    document.getElementById('table').innerHTML = '<div style="color: #64748b;">មិនទាន់មានបៀរចុះឡើយ - ចាប់ផ្ដើមហ្គេម!</div>';
+    document.getElementById('table').innerHTML = '<div style="color: #a7f3d0;">ចាប់ផ្ដើមហ្គេម!</div>';
     
     renderPlayers(players);
     
     if (playersData[currentTurnIndex]) {
-        document.getElementById('status').innerHTML = `🎯 វេនរបស់៖ ${playersData[currentTurnIndex].name}`;
+        document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
     }
 
     if (amISpectator) {
@@ -479,7 +567,6 @@ socket.on('dealCards', ({ hand }) => {
     renderMyCards();
 });
 
-// បង្ហាញកាតអ្នកលេង (ដករាប់ចំនួនសន្លឹកបៀរដែលនៅសល់ក្នុងដៃយ៉ាងច្បាស់)
 function renderPlayers(players) {
     playersData = players;
     const div = document.getElementById('players');
@@ -507,23 +594,22 @@ function renderPlayers(players) {
         if (p.isSpectator) {
             roleText = '<span style="color: #ef4444;">(អ្នកមើល)</span>';
         } else if (p.rank !== null && p.rank > 0) {
-            // បង្ហាញស្ថានភាពសម្រាប់អ្នកដែលអស់បៀរមុន (កំពុងចាំមើលគេលេងបន្ត)
-            let rankBadge = p.rank === 1 ? '🎉 ប៉េ (លេខ ១)' : `🥈 ជាប់ទី ${p.rank}`;
-            roleText = `<div style="color: #22c55e; font-weight: bold; margin-top:8px;">${rankBadge}<br>⏱️ កំពុងចាំមើល...</div>`;
+            let rankBadge = p.rank === 1 ? '🎉 លេខ ១' : `🥈 ទី ${p.rank}`;
+            roleText = `<div style="color: #22c55e; font-weight: bold; margin-top:2px;">${rankBadge}</div>`;
         } else {
             const count = p.hand ? p.hand.length : (p.cardCount !== undefined ? p.cardCount : 13);
-            roleText = `<div class="card-counter">🃏 នៅសល់៖ ${count} សន្លឹក</div>`;
+            roleText = `<div class="card-counter">🃏 សល់៖ ${count}</div>`;
         }
 
         if (p.passed && !p.isSpectator && p.hand.length > 0) {
-            roleText += '<br><span style="color: #ef4444; font-weight: bold; font-size: 13px;">❌ Pass (រំលង)</span>';
+            roleText += '<br><span style="color: #ef4444; font-weight: bold; font-size: 11px;">❌ Pass</span>';
         }
 
         let turnBadgeHTML = isCurrentTurn ? '<div class="turn-badge">🟢 វេនអ្នក</div>' : '';
 
         el.innerHTML = `
             ${turnBadgeHTML}
-            <strong>👤 ${p.name} ${p.id === myId ? '(ខ្ញុំ)' : ''}</strong>
+            <strong>👤 ${p.name.substring(0, 8)} ${p.id === myId ? '(ខ្ញុំ)' : ''}</strong>
             <br>
             ${roleText}
         `;
@@ -548,7 +634,7 @@ function renderMyCards() {
     const div = document.getElementById('myCards');
     div.innerHTML = '';
     if (amISpectator) {
-        div.innerHTML = '<div style="color: #94a3b8; font-style: italic;">អ្នកកំពុងចូលរួមមើលការប្រកួត (Spectating)...</div>';
+        div.innerHTML = '<div style="color: #94a3b8; font-style: italic; font-size:13px;">អ្នកកំពុងចូលរួមមើលការប្រកួត...</div>';
         return;
     }
     myHand.forEach(card => {
@@ -561,7 +647,7 @@ function renderMyCards() {
 
         el.innerHTML = `
             <div>${card.value}</div>
-            <div style="align-self: center; font-size: 24px;">${card.suit}</div>
+            <div style="align-self: center; font-size: 20px;">${card.suit}</div>
             <div style="align-self: flex-end; transform: rotate(180deg);">${card.value}</div>
         `;
         
@@ -592,61 +678,119 @@ function passTurn() {
 socket.on('turnChanged', ({ currentTurnIndex: turn }) => {
     currentTurnIndex = turn;
     if (playersData[currentTurnIndex]) {
-        document.getElementById('status').innerHTML = `🎯 វេនរបស់៖ ${playersData[currentTurnIndex].name}`;
+        document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
     }
     renderPlayers(playersData);
 });
 
-socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
-    currentTurnIndex = nextTurn;
-    
-    // ធ្វើបច្ចុប្បន្នភាពកាត និងចំនួនសន្លឹកបៀររបស់អ្នកលេងទាំងអស់ភ្លាមៗ
-    updatedHands.forEach(p => {
-        const found = playersData.find(oldP => oldP.id === p.id);
-        if (found) {
-            found.cardCount = p.hand ? p.hand.length : p.cardCount;
-            found.rank = p.rank; // បន្ថែមការរក្សាទុក Rank ដើម្បីឱ្យការ Render ពណ៌កាតបានត្រឹមត្រូវ
-            found.passed = p.passed; // បន្ថែមការរក្សាទុកស្ថានភាព Pass
-        }
-    });
+/* ========================================================== */
+/* មុខងារបង្កើត និងដំណើរការគំនូរជីវចល បៀរហោះចេញពីឈ្មោះអ្នកលេង */
+/* ========================================================== */
+function animateFlyingCards(playerId, cards, callback) {
+    const startEl = document.getElementById(`player-card-${playerId}`) || document.getElementById('myCards');
+    const targetEl = document.getElementById('table');
 
-    playersData = updatedHands;
-    
-    const me = updatedHands.find(p => p.id === myId);
-    if (me && me.hand) {
-        myHand = me.hand;
+    if (!startEl || !targetEl || cards.length === 0) {
+        callback();
+        return;
     }
 
-    renderPlayers(updatedHands);
-    renderMyCards();
+    const startRect = startEl.getBoundingClientRect();
+    const targetRect = targetEl.getBoundingClientRect();
 
-    if (playersData[currentTurnIndex]) {
-        document.getElementById('status').innerHTML = `🎯 វេនរបស់៖ ${playersData[currentTurnIndex].name}`;
-    }
+    let completed = 0;
 
-    const tableDiv = document.getElementById('table');
-    tableDiv.innerHTML = '';
-    
-    // បង្ហាញបៀរដែលទើបនឹងចុះនៅលើតុ (ទោះជាបៀរចុងក្រោយរបស់អ្នក ប៉េ ក៏បង្ហាញដែរ)
-    if (cards && cards.length > 0) {
-        cards.forEach(card => {
-            const el = document.createElement('div');
-            const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
-            el.className = `card ${isRed}`;
-            el.style.cursor = 'default';
-            el.innerHTML = `
-                <div>${card.value}</div>
-                <div style="align-self: center; font-size: 24px;">${card.suit}</div>
-                <div style="align-self: flex-end; transform: rotate(180deg);">${card.value}</div>
-            `;
-            tableDiv.appendChild(el);
+    cards.forEach((card, index) => {
+        const flyCard = document.createElement('div');
+        const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
+        flyCard.className = `flying-card ${isRed}`;
+        flyCard.innerHTML = `
+            <div>${card.value}</div>
+            <div style="align-self: center; font-size: 20px;">${card.suit}</div>
+            <div style="align-self: flex-end; transform: rotate(180deg);">${card.value}</div>
+        `;
+
+        // កំណត់ទីតាំងចាប់ផ្ដើមនៅចំកណ្ដាលប្រអប់ឈ្មោះអ្នកលេង
+        flyCard.style.top = `${startRect.top + (startRect.height / 2) - 38}px`;
+        flyCard.style.left = `${startRect.left + (startRect.width / 2) - 26}px`;
+        flyCard.style.transform = `scale(0.3) rotate(${Math.random() * 40 - 20}deg)`;
+        flyCard.style.opacity = '0';
+
+        document.body.appendChild(flyCard);
+
+        // បើកដំណើរការគំនូរជីវចល (setTimeout ធានាថា DOM ស្គាល់ style ដើម)
+        setTimeout(() => {
+            flyCard.style.opacity = '1';
+            // ហោះទៅកាន់តុ និងរាយគ្នាបន្តិចៗកុំឱ្យជាន់គ្នាចំកណ្ដាលពេក
+            const offsetX = (index - (cards.length - 1) / 2) * 20; 
+            flyCard.style.top = `${targetRect.top + (targetRect.height / 2) - 38}px`;
+            flyCard.style.left = `${targetRect.left + (targetRect.width / 2) - 26 + offsetX}px`;
+            flyCard.style.transform = `scale(1) rotate(${Math.random() * 20 - 10}deg)`;
+        }, index * 60); // បង្កើតការលោតចេញមកម្ដងមួយសន្លឹកៗយ៉ាងស្អាត
+
+        // ពេលហោះទៅដល់ដកវាចេញពីអេក្រង់ រួចបង្ហាញបៀរពិតលើតុ
+        flyCard.addEventListener('transitionend', () => {
+            flyCard.remove();
+            completed++;
+            if (completed === cards.length) {
+                callback();
+            }
         });
-    } else {
-        tableDiv.innerHTML = '<div style="color: #64748b;">មិនទាន់មានបៀរចុះឡើយ</div>';
-    }
-    
-    selectedCards = [];
-    renderMyCards();
+    });
+}
+
+socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
+    // ដំណើរការបៀរហោះជាមុនសិន ទើប Render ប្លង់តុថ្មីតាមក្រោយ
+    animateFlyingCards(by, cards, () => {
+        currentTurnIndex = nextTurn;
+        
+        updatedHands.forEach(p => {
+            const found = playersData.find(oldP => oldP.id === p.id);
+            if (found) {
+                found.cardCount = p.hand ? p.hand.length : p.cardCount;
+                found.rank = p.rank; 
+                found.passed = p.passed; 
+            }
+        });
+
+        playersData = updatedHands;
+        
+        const me = updatedHands.find(p => p.id === myId);
+        if (me && me.hand) {
+            myHand = me.hand;
+        }
+
+        renderPlayers(updatedHands);
+        renderMyCards();
+
+        if (playersData[currentTurnIndex]) {
+            document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
+        }
+
+        const tableDiv = document.getElementById('table');
+        tableDiv.innerHTML = '';
+        
+        if (cards && cards.length > 0) {
+            cards.forEach(card => {
+                const el = document.createElement('div');
+                const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
+                el.className = `card ${isRed}`;
+                el.style.cursor = 'default';
+                el.style.marginRight = '4px';
+                el.innerHTML = `
+                    <div>${card.value}</div>
+                    <div style="align-self: center; font-size: 20px;">${card.suit}</div>
+                    <div style="align-self: flex-end; transform: rotate(180deg);">${card.value}</div>
+                `;
+                tableDiv.appendChild(el);
+            });
+        } else {
+            tableDiv.innerHTML = '<div style="color: #a7f3d0;">មិនទាន់មានបៀរចុះឡើយ</div>';
+        }
+        
+        selectedCards = [];
+        renderMyCards();
+    });
 });
 
 socket.on('playerPassed', ({ name, id, message }) => {
@@ -654,34 +798,26 @@ socket.on('playerPassed', ({ name, id, message }) => {
     if (playerCard) {
         const bubble = document.createElement('div');
         bubble.className = 'bubble-msg';
-        bubble.innerText = message || "Pass ❌";
+        bubble.innerText = "Pass ❌";
         playerCard.appendChild(bubble);
         setTimeout(() => bubble.remove(), 1500);
     }
 });
 
 socket.on('clearTable', ({ nextPlayer }) => {
-    document.getElementById('table').innerHTML = '<div style="color: #64748b;">តុត្រូវបានសម្អាត! ចាប់ផ្ដើមជុំថ្មី...</div>';
+    document.getElementById('table').innerHTML = '<div style="color: #64748b;">តុត្រូវបានសម្អាត! ជុំថ្មី...</div>';
 });
 
 socket.on('errorMsg', (msg) => {
     alert("⚠️ " + msg);
 });
 
-socket.on('gameWon', ({ allHands }) => {
+socket.on('gameWon', ({ winner, winnerId, allHands }) => {
+    document.body.classList.remove('in-game');
     document.getElementById('gameArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'block';
     
-    // តម្រៀបលំដាប់លទ្ធផលបង្ហាញពីលេខ ១ ដល់អ្នកលេខ ០ (អ្នកចាញ់)
-    allHands.sort((a, b) => {
-        if (a.rank === 0) return 1;
-        if (b.rank === 0) return -1;
-        return a.rank - b.rank;
-    });
-
-    // ស្វែងរកឈ្មោះអ្នកបានលេខ ១ (ប៉េ) ដើម្បីបង្ហាញលើ Header
-    const winnerObj = allHands.find(p => p.rank === 1);
-    document.getElementById('winnerName').innerText = winnerObj ? winnerObj.name : 'រកមិនឃើញ';
+    document.getElementById('winnerName').innerText = winner;
 
     const resultList = document.getElementById('resultList');
     resultList.innerHTML = '';
@@ -690,37 +826,33 @@ socket.on('gameWon', ({ allHands }) => {
         const playerDiv = document.createElement('div');
         playerDiv.className = 'result-player';
         
-        let rankText = '';
         let cardsHTML = '';
-
         if (p.isSpectator) {
-            rankText = `<span style="color: #94a3b8;">[អ្នកមើលការប្រកួត]</span>`;
-            cardsHTML = `<span style="color: #64748b; font-style: italic;">មិនបានចូលរួមលេងឡើយ</span>`;
+            cardsHTML = `<span style="color: #ef4444; font-weight: bold;">👀 (អ្នកមើលការប្រកួត)</span>`;
+        } else if (p.id === winnerId || !p.remaining || p.remaining.length === 0) {
+            cardsHTML = `<span style="color: #22c55e; font-weight: bold;">🎉 អស់បៀរមុនគេបង្អស់ (ឈ្នះលេខ ១)</span>`;
         } else {
-            if (p.rank === 1) {
-                rankText = `<span style="color: #22c55e; font-weight: bold;">🥇 ឋានៈ៖ ប៉េ (លេខ ១)</span>`;
-                cardsHTML = `<span style="color: #22c55e; font-weight: bold;">🎉 អស់បៀរមុនគេបង្អស់!</span>`;
-            } else if (p.rank === 0) {
-                rankText = `<span style="color: #ef4444; font-weight: bold;">💀 ឋានៈ៖ ០ (ចាញ់ចុងក្រោយគេ)</span>`;
-                // បង្ហាញបៀរដែលនៅសល់ក្នុងដៃរបស់អ្នកចាញ់
-                p.remaining.forEach(card => {
-                    const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
-                    cardsHTML += `<div class="result-card ${isRed}">${card.value}${card.suit}</div>`;
-                });
-            } else {
-                rankText = `<span style="color: #f59e0b; font-weight: bold;">🥈 ឋានៈ៖ ទី${p.rank}</span>`;
-                cardsHTML = `<span style="color: #f59e0b;">បានរំលាយបៀរអស់រួចរាល់</span>`;
-            }
+            p.remaining.forEach(card => {
+                const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
+                cardsHTML += `
+                    <div class="result-card" style="display: inline-flex; flex-direction: column; justify-content: space-between; width: 42px; height: 60px; background: white; color: black; border-radius: 5px; padding: 4px; font-size: 11px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); text-align: center; margin-right:4px; ${isRed ? 'color:#ef4444;' : ''}">
+                        <div>${card.value}</div>
+                        <div style="font-size: 14px; align-self: center;">${card.suit}</div>
+                    </div>
+                `;
+            });
         }
 
+        const remainingCount = p.remaining ? p.remaining.length : 0;
+        const countText = (p.isSpectator || p.id === winnerId) ? '' : `<span style="color: #f59e0b;">(នៅសល់ ${remainingCount} សន្លឹក)</span>`;
+
         playerDiv.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <strong>👤 ${p.name}</strong>
-                ${rankText}
+            <div style="margin-bottom: 8px;">
+                <strong>👤 ${p.name} ${p.id === myId ? '(ខ្ញុំ)' : ''}</strong> ${countText}
             </div>
-            <div class="result-cards" style="margin-top: 10px;">${cardsHTML}</div>
+            <div class="result-cards">${cardsHTML}</div>
         `;
-            resultList.appendChild(playerDiv);
+        resultList.appendChild(playerDiv);
     });
 
     const playAgainBtn = document.getElementById('hostPlayAgainBtn');
@@ -741,6 +873,7 @@ function leaveRoom() {
 }
 
 socket.on('leftRoom', () => {
+    document.body.classList.remove('in-game');
     currentRoom = null;
     myHand = [];
     selectedCards = [];
