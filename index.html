@@ -220,7 +220,7 @@ button:disabled {
     justify-content: center;
     align-items: center;
     flex-wrap: nowrap;
-    overflow-x: auto;
+    overflow-x: auto;  
     gap: 6px;
     padding: 10px;
     position: relative;
@@ -260,7 +260,7 @@ button:disabled {
     cursor: pointer;
     user-select: none;
     box-shadow: -2px 3px 5px rgba(0,0,0,0.3);
-    transition: transform 0.15s ease, opacity 0.15s ease;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
     flex-shrink: 0;
     margin-right: -12px; 
 }
@@ -273,6 +273,18 @@ button:disabled {
     color: #ef4444;
 }
 
+/* ស្ទីលពិសេសសម្រាប់អ្នកបានសិទ្ធិចុះមុនគេ (៣ប៊ិច ឬអ្នកឈ្នះវគ្គមុន) */
+.card.first-turn-highlight {
+    box-shadow: 0 0 12px #eab308 !important;
+    border: 2px solid #eab308 !important;
+    animation: pulseGlow 1.5s infinite alternate;
+}
+
+@keyframes pulseGlow {
+    0% { box-shadow: 0 0 6px #eab308; }
+    100% { box-shadow: 0 0 16px #eab308; }
+}
+
 .card.selected {
     transform: translateY(-15px);
     box-shadow: 0 5px 10px #3b82f6;
@@ -281,12 +293,13 @@ button:disabled {
 }
 
 .card.disabled-card {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
-    box-shadow: none;
+    box-shadow: none !important;
+    border: none !important;
 }
 
-/* ស្ទីលបៀរនៅលើតុ (រៀបជាជួរស្អាត) */
+/* ស្ទីលបៀរនៅលើតុ */
 .table-card {
     background: white;
     color: black;
@@ -358,9 +371,7 @@ button:disabled {
     margin-top: 8px;
 }
 
-/* ========================================== */
 /* គំនូរជីវចលសម្រាប់បៀរហោះចេញមកលើតុ */
-/* ========================================== */
 .animate-play-card {
     animation: popInCard 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
@@ -450,6 +461,7 @@ let selectedCards = [];
 let currentTurnIndex = 0;
 let playersData = [];
 let amISpectator = false;
+let lastRoundWinnerId = null; // រក្សាទុក ID អ្នកឈ្នះកាលពីវគ្គមុន
 
 if (localStorage.getItem('tienlen_name')) {
     document.getElementById('playerName').value = localStorage.getItem('tienlen_name');
@@ -584,12 +596,11 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn }) => {
     }
 });
 
-/* កែសម្រួលចំណុច dealCards ដើម្បីឱ្យ update វេន និង render បៀរឱ្យភ្លឺច្បាស់ភ្លាមៗ */
 socket.on('dealCards', ({ hand }) => {
     myHand = hand;
     selectedCards = [];
-    updateControlsState(); // update ប៊ូតុង និងវេនជាមុនសិន
-    renderMyCards();       // ទើប render សន្លឹកបៀរតាមក្រោយ (ធានាថាភ្លឺច្បាស់ មិនព្រៀល)
+    renderMyCards();
+    updateControlsState();
 });
 
 function isMyTurn() {
@@ -676,6 +687,7 @@ function renderPlayers(players) {
     }
 }
 
+/* កែប្រែផ្នែក Render កាតរបស់ខ្ញុំ ដើម្បីផ្តល់ពន្លឺច្បាស់លាស់ និងលុបភាពព្រៀលចេញពេលដល់វេន */
 function renderMyCards() {
     const div = document.getElementById('myCards');
     div.innerHTML = '';
@@ -686,13 +698,33 @@ function renderMyCards() {
     
     const myTurn = isMyTurn();
     
+    // ឆែកមើលថាតើតុបច្ចុប្បន្នទំនេរឬអត់ (ទើបចាប់ផ្ដើមជុំដំបូងគេបង្អស់)
+    const tableDiv = document.getElementById('table');
+    const isNewRound = tableDiv && (tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ'));
+
     myHand.forEach(card => {
         const el = document.createElement('div');
         const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
         el.className = `card ${isRed}`;
         
+        // បើដល់វេនខ្លួនឯង ដាច់ខាតមិនឱ្យមាន Class ព្រៀល (disabled-card) ឡើយ
         if (!myTurn) {
             el.classList.add('disabled-card');
+        } else {
+            // លក្ខខណ្ឌផ្តល់ពន្លឺពិសេស (Highlight) ពេលដល់វេនដំបូងគេបង្អស់
+            if (isNewRound) {
+                if (!lastRoundWinnerId) {
+                    // វគ្គដំបូងគេបង្អស់៖ ផ្តល់ពន្លឺឱ្យតែអ្នកមាន 3ប៊ិច (3 ♣) មុនគេ
+                    if (card.value === '3' && card.suit === '♣') {
+                        el.classList.add('first-turn-highlight');
+                    }
+                } else {
+                    // វគ្គបន្ទាប់ៗ៖ ផ្តល់ពន្លឺឱ្យតែអ្នកដែលបានឈ្នះលេខ ១ ពីវគ្គមុន
+                    if (myId === lastRoundWinnerId) {
+                        el.classList.add('first-turn-highlight');
+                    }
+                }
+            }
         }
         
         const isSelected = selectedCards.some(c => c.value === card.value && c.suit === card.suit);
@@ -818,6 +850,9 @@ socket.on('errorMsg', (msg) => {
 });
 
 socket.on('gameWon', ({ winner, winnerId, allHands }) => {
+    // កត់ត្រាទុក ID របស់អ្នកឈ្នះលេខ ១ ដើម្បីយកទៅផ្តល់ពន្លឺនៅវគ្គបន្ទាប់
+    lastRoundWinnerId = winnerId;
+
     document.body.classList.remove('in-game');
     document.getElementById('gameArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'block';
@@ -884,6 +919,7 @@ socket.on('leftRoom', () => {
     selectedCards = [];
     playersData = [];
     amISpectator = false;
+    lastRoundWinnerId = null; // សូន្យទិន្នន័យចោលពេលចាកចេញ
     
     document.getElementById('loginArea').style.display = 'block';
     document.getElementById('lobbyArea').style.display = 'none';
