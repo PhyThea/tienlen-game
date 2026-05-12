@@ -9,12 +9,110 @@ const io = new Server(server);
 
 app.use(express.static(__dirname));
 
-const tienlenLogic = require('./games/tienlenLogic');
-const catteLogic = require('./games/catteLogic');
-
 const rooms = {};
 
-// លេខកូដជំនួយសម្រាប់ Shuffling
+// =================================================================
+// ផ្នែកទី១៖ LOGIC ហ្គេមទៀនឡេន
+// =================================================================
+const CARD_ORDER = ['3','4','5','6','7','8','9','10','J','Q','K','A','2'];
+const SUIT_ORDER = { '♠': 0, '♣': 1, '♦': 2, '♥': 3 };
+
+function getCardPower(card) {
+    return (CARD_ORDER.indexOf(card.value) * 10) + SUIT_ORDER[card.suit];
+}
+
+function sortCards(cards) {
+    return cards.sort((a, b) => getCardPower(a) - getCardPower(b));
+}
+
+function getComboType(cards) {
+    const len = cards.length;
+    if (len === 0) return null;
+    if (len === 1) return 'single';
+    
+    const sorted = sortCards([...cards]);
+    const sameValue = cards.every(c => c.value === cards[0].value);
+    
+    if (sameValue) {
+        if (len === 2) return 'pair';
+        if (len === 3) return 'triple'; 
+        if (len === 4) return 'bomb'; 
+    }
+
+    if (len === 6) {
+        let is3Pair = true;
+        for (let i = 0; i < 6; i += 2) {
+            if (sorted[i].value !== sorted[i+1].value) is3Pair = false;
+            if (i > 0 && CARD_ORDER.indexOf(sorted[i].value) !== CARD_ORDER.indexOf(sorted[i-2].value) + 1) is3Pair = false;
+        }
+        if (sorted[4].value === '2') is3Pair = false;
+        if (is3Pair) return 'triple_pair';
+    }
+
+    if (len === 8) {
+        let is4Pair = true;
+        for (let i = 0; i < 8; i += 2) {
+            if (sorted[i].value !== sorted[i+1].value) is4Pair = false;
+            if (i > 0 && CARD_ORDER.indexOf(sorted[i].value) !== CARD_ORDER.indexOf(sorted[i-2].value) + 1) is4Pair = false;
+        }
+        if (sorted[6].value === '2') is4Pair = false;
+        if (is4Pair) return 'quad_pair';
+    }
+
+    let isStr = true;
+    for (let i = 1; i < len; i++) {
+        if (CARD_ORDER.indexOf(sorted[i].value) !== CARD_ORDER.indexOf(sorted[i-1].value) + 1) isStr = false;
+        if (sorted[i].value === '2') isStr = false; 
+    }
+
+    if (isStr && len >= 3) return 'straight'; 
+    return null;
+}
+
+function comparePlay(newCards, oldCards) {
+    if (!oldCards || oldCards.length === 0) return true;
+    
+    const newType = getComboType(newCards);
+    const oldType = getComboType(oldCards);
+    if (!newType) return false;
+
+    const newMax = getCardPower(sortCards([...newCards]).pop());
+    const oldMax = getCardPower(sortCards([...oldCards]).pop());
+
+    if (oldType === 'single' && oldCards[0].value === '2') {
+        if (newType === 'bomb' || newType === 'quad_pair' || newType === 'triple_pair') return true;
+    }
+
+    if (oldType === 'bomb') {
+        if (newType === 'bomb' && newMax > oldMax) return true;
+        if (newType === 'quad_pair') return true;
+    }
+
+    if (oldType === 'triple_pair') {
+        if (newType === 'triple_pair' && newMax > oldMax) return true;
+        if (newType === 'bomb' || newType === 'quad_pair') return true;
+    }
+
+    if (oldType === 'quad_pair') {
+        if (newType === 'quad_pair' && newMax > oldMax) return true;
+    }
+
+    if (newType === oldType && newCards.length === oldCards.length) {
+        return newMax > oldMax;
+    }
+
+    return false;
+}
+
+function createTienlenDeck() {
+    const suits = ['♠', '♣', '♦', '♥'];
+    const deck = [];
+    for (const suit of suits) {
+        for (const value of CARD_ORDER) deck.push({ suit, value });
+    }
+    return deck;
+}
+
 function shuffleDeck(deck) {
     for (let i = deck.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -23,7 +121,7 @@ function shuffleDeck(deck) {
     return deck;
 }
 
-// ផ្លាស់ប្តូរវេនទៀនឡេន
+// គ្រប់គ្រងវេនទៀនឡេន
 function moveToNextTienlenTurn(room) {
     let orig = room.currentTurnIndex;
     for (let i = 1; i <= room.players.length; i++) {
@@ -52,7 +150,10 @@ function handleTienlenRound(room) {
     }
 }
 
-// Routes សម្រាប់ចែកទំព័រឱ្យត្រូវតាម Folder Structure
+// =================================================================
+// ផ្នែកទី២៖ SERVER ROUTING & SOCKET.IO CONNECTIONS
+// =================================================================
+
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 app.get('/tienlen', (req, res) => res.sendFile(path.join(__dirname, 'tienlen.html')));
 app.get('/catte', (req, res) => res.sendFile(path.join(__dirname, 'catte.html')));
@@ -76,9 +177,8 @@ io.on('connection', (socket) => {
         
         rooms[roomId] = {
             roomId, password: password || "", gameType,
-            players: [{ id: socket.id, name: playerName || 'Player 1', hand: [], passed: false, isSpectator: false, rank: null, catteKakt: 0 }],
-            creatorId: socket.id, status: 'waiting', currentTurnIndex: 0, playedCards: [], lastPlayerId: null, lastWinnerId: null, nextRank: 1,
-            catteRoundCount: 0, trickPlays: []
+            players: [{ id: socket.id, name: playerName || 'Player 1', hand: [], passed: false, isSpectator: false, rank: null }],
+            creatorId: socket.id, status: 'waiting', currentTurnIndex: 0, playedCards: [], lastPlayerId: null, lastWinnerId: null, nextRank: 1
         };
         socket.join(roomId);
         socket.emit('roomCreated', { roomId, gameType });
@@ -89,16 +189,15 @@ io.on('connection', (socket) => {
         const room = rooms[roomId];
         if (!room) return socket.emit('errorMsg', 'រកមិនឃើញបន្ទប់នេះទេ!');
         if (room.password && room.password !== password) return socket.emit('errorMsg', 'លេខកូដមិនត្រឹមត្រូវ!');
-        if (room.players.length >= (room.gameType === 'catte' ? 6 : 4)) return socket.emit('errorMsg', 'បន្ទប់ពេញហើយ!');
+        if (room.players.length >= 4) return socket.emit('errorMsg', 'បន្ទប់ពេញហើយ!');
 
-        room.players.push({ id: socket.id, name: playerName || 'Guest', hand: [], passed: false, isSpectator: room.status === 'playing', rank: null, catteKakt: 0 });
+        room.players.push({ id: socket.id, name: playerName || 'Guest', hand: [], passed: false, isSpectator: room.status === 'playing', rank: null });
         socket.join(roomId);
         socket.emit('roomJoined', { roomId, gameType: room.gameType });
         io.to(roomId).emit('updatePlayers', room.players);
         broadcastRoomList();
     });
 
-    // ព្រឹត្តិការណ៍បន្តបន្ទាប់សម្រាប់ Tien Len
     socket.on('getRoomInfo', (roomId) => {
         const room = rooms[roomId];
         if (room) socket.emit('roomInfo', { players: room.players, creatorId: room.creatorId, status: room.status });
@@ -114,9 +213,9 @@ io.on('connection', (socket) => {
         room.nextRank = 1;
         
         if (room.gameType === 'tienlen') {
-            const deck = shuffleDeck(tienlenLogic.createDeck());
+            const deck = shuffleDeck(createTienlenDeck());
             room.players.forEach((p, i) => {
-                p.hand = tienlenLogic.sortCards(deck.slice(i * 13, (i + 1) * 13));
+                p.hand = sortCards(deck.slice(i * 13, (i + 1) * 13));
                 p.passed = false; p.rank = null;
                 io.to(p.id).emit('dealCards', { hand: p.hand });
             });
@@ -133,7 +232,7 @@ io.on('connection', (socket) => {
         const player = room.players[room.currentTurnIndex];
         if (!player || player.id !== socket.id) return;
 
-        if (tienlenLogic.getComboType(cards) && tienlenLogic.comparePlay(cards, room.playedCards)) {
+        if (getComboType(cards) && comparePlay(cards, room.playedCards)) {
             cards.forEach(c => {
                 const idx = player.hand.findIndex(pc => pc.value === c.value && pc.suit === c.suit);
                 if (idx !== -1) player.hand.splice(idx, 1);
@@ -173,7 +272,6 @@ io.on('connection', (socket) => {
         io.to(roomId).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex });
     });
 
-    // ចាកចេញពីបន្ទប់
     socket.on('leaveRoom', () => {
         for (const id in rooms) {
             const room = rooms[id];
