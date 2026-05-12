@@ -79,7 +79,6 @@ button:disabled {
 .btn-red { background: #ef4444; color: white; }
 .btn-red:hover:not(:disabled) { background: #dc2626; }
 
-/* បញ្ជីបន្ទប់ */
 .room-item {
     background: #334155;
     padding: 15px;
@@ -89,10 +88,6 @@ button:disabled {
     justify-content: space-between;
     align-items: center;
 }
-
-/* ================================================================= */
-/* ផ្នែកគ្រប់គ្រងការបង្វិលអេក្រង់ឱ្យដូច App Play Store (Landscape Mode) */
-/* ================================================================= */
 
 #gameArea {
     display: none;
@@ -209,7 +204,6 @@ button:disabled {
     display: inline-block;
 }
 
-/* តុចុះបៀរកណ្ដាល - រៀបជាជួរដេកផ្ដេកស្អាត មិនត្រួតជាន់គ្នា */
 .table-area {
     background: #14532d; 
     border: 2px dashed #22c55e;
@@ -244,7 +238,6 @@ button:disabled {
     gap: -15px; 
 }
 
-/* ស្ទីលសន្លឹកបៀរ */
 .card {
     background: white;
     color: black;
@@ -273,7 +266,6 @@ button:disabled {
     color: #ef4444;
 }
 
-/* ស្ទីលពិសេសសម្រាប់អ្នកបានសិទ្ធិចុះមុនគេ (៣ប៊ិច ឬអ្នកឈ្នះវគ្គមុន) */
 .card.first-turn-highlight {
     box-shadow: 0 0 12px #eab308 !important;
     border: 2px solid #eab308 !important;
@@ -299,7 +291,6 @@ button:disabled {
     border: none !important;
 }
 
-/* ស្ទីលបៀរនៅលើតុ */
 .table-card {
     background: white;
     color: black;
@@ -371,7 +362,6 @@ button:disabled {
     margin-top: 8px;
 }
 
-/* គំនូរជីវចលសម្រាប់បៀរហោះចេញមកលើតុ */
 .animate-play-card {
     animation: popInCard 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
@@ -440,7 +430,7 @@ button:disabled {
     <div id="resultArea" class="panel">
         <h2 style="color: #22c55e;">🎉 ជ័យជម្នះបានទៅលើ៖ <span id="winnerName"></span></h2>
         <br>
-        <h3>📊 សន្លឹកបៀដែលនៅសល់៖</h3>
+        <h3>📊 ចំណាត់ថ្នាក់ និងសន្លឹកបៀដែលនៅសល់៖</h3>
         <div id="resultList"></div>
         <br>
         <button id="hostPlayAgainBtn" class="btn-green" onclick="startGame()" style="display: none;">🔄 លេងម្ដងទៀត (Play Again)</button>
@@ -461,7 +451,7 @@ let selectedCards = [];
 let currentTurnIndex = 0;
 let playersData = [];
 let amISpectator = false;
-let lastRoundWinnerId = null; // រក្សាទុក ID អ្នកឈ្នះកាលពីវគ្គមុន
+let lastRoundWinnerId = null; 
 
 if (localStorage.getItem('tienlen_name')) {
     document.getElementById('playerName').value = localStorage.getItem('tienlen_name');
@@ -568,9 +558,10 @@ function startGame() {
     socket.emit('startGame', currentRoom);
 }
 
-socket.on('gameStarted', ({ players, currentTurnIndex: turn }) => {
+socket.on('gameStarted', ({ players, currentTurnIndex: turn, lastRoundWinnerId: serverWinnerId }) => {
     currentTurnIndex = turn;
     playersData = players;
+    lastRoundWinnerId = serverWinnerId; 
     const myData = players.find(p => p.id === myId);
     amISpectator = myData ? myData.isSpectator : false;
 
@@ -687,7 +678,6 @@ function renderPlayers(players) {
     }
 }
 
-/* កែប្រែផ្នែក Render កាតរបស់ខ្ញុំ ដើម្បីផ្តល់ពន្លឺច្បាស់លាស់ និងលុបភាពព្រៀលចេញពេលដល់វេន */
 function renderMyCards() {
     const div = document.getElementById('myCards');
     div.innerHTML = '';
@@ -697,8 +687,6 @@ function renderMyCards() {
     }
     
     const myTurn = isMyTurn();
-    
-    // ឆែកមើលថាតើតុបច្ចុប្បន្នទំនេរឬអត់ (ទើបចាប់ផ្ដើមជុំដំបូងគេបង្អស់)
     const tableDiv = document.getElementById('table');
     const isNewRound = tableDiv && (tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ'));
 
@@ -707,19 +695,16 @@ function renderMyCards() {
         const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
         el.className = `card ${isRed}`;
         
-        // បើដល់វេនខ្លួនឯង ដាច់ខាតមិនឱ្យមាន Class ព្រៀល (disabled-card) ឡើយ
         if (!myTurn) {
             el.classList.add('disabled-card');
         } else {
-            // លក្ខខណ្ឌផ្តល់ពន្លឺពិសេស (Highlight) ពេលដល់វេនដំបូងគេបង្អស់
             if (isNewRound) {
                 if (!lastRoundWinnerId) {
-                    // វគ្គដំបូងគេបង្អស់៖ ផ្តល់ពន្លឺឱ្យតែអ្នកមាន 3ប៊ិច (3 ♣) មុនគេ
-                    if (card.value === '3' && card.suit === '♣') {
+                    // កែតម្រូវត្រង់នេះ៖ ៣ប៊ិច គឺសញ្ញា ♠ មិនមែន ♣ ទេ
+                    if (card.value === '3' && card.suit === '♠') {
                         el.classList.add('first-turn-highlight');
                     }
                 } else {
-                    // វគ្គបន្ទាប់ៗ៖ ផ្តល់ពន្លឺឱ្យតែអ្នកដែលបានឈ្នះលេខ ១ ពីវគ្គមុន
                     if (myId === lastRoundWinnerId) {
                         el.classList.add('first-turn-highlight');
                     }
@@ -850,7 +835,6 @@ socket.on('errorMsg', (msg) => {
 });
 
 socket.on('gameWon', ({ winner, winnerId, allHands }) => {
-    // កត់ត្រាទុក ID របស់អ្នកឈ្នះលេខ ១ ដើម្បីយកទៅផ្តល់ពន្លឺនៅវគ្គបន្ទាប់
     lastRoundWinnerId = winnerId;
 
     document.body.classList.remove('in-game');
@@ -862,13 +846,9 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
     const resultList = document.getElementById('resultList');
     resultList.innerHTML = '';
 
-    // --- ១. ដំណើរការកំណត់ចំណាត់ថ្នាក់ និងតម្រៀបលំដាប់លទ្ធផលពីលើចុះក្រោម ---
-    // បំបែកអ្នកមើល (Spectator) ឡែក ដើម្បីកុំឱ្យប៉ះពាល់ដល់ការតម្រៀបចំណាត់ថ្នាក់អ្នកលេង
     const activePlayers = allHands.filter(p => !p.isSpectator);
     const spectators = allHands.filter(p => p.isSpectator);
 
-    // តម្រៀបអ្នកលេងតាម Rank (ពីលេខ ១ ដល់ចុងក្រោយ)
-    // ប្រសិនបើ Rank ស្មើគ្នា ឬមិនទាន់មាន (null/0) គឺវាស់វែងលើចំនួនបៀរសល់ (អ្នកសល់តិចជាងនៅលើ)
     activePlayers.sort((a, b) => {
         const rankA = a.rank || 99;
         const rankB = b.rank || 99;
@@ -879,16 +859,13 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
         return countA - countB;
     });
 
-    // បញ្ចូលអ្នកមើលទៅខាងក្រោមគេបង្អស់
     const sortedFinalResults = [...activePlayers, ...spectators];
 
-    // --- ២. រៀបចំបង្ហាញទិន្នន័យទៅលើអេក្រង់ ---
     sortedFinalResults.forEach((p, index) => {
         const playerDiv = document.createElement('div');
         playerDiv.className = 'result-player';
         
-        // បន្ថែមស្ទីលព្រំប្រទល់ពិសេសសម្រាប់អ្នកលេខ ១
-        if (!p.isSpectator && (p.rank === 1 || p.id === winnerId)) {
+        if (!p.isSpectator && p.rank === 1) {
             playerDiv.style.border = '2px solid #eab308';
             playerDiv.style.background = '#1e293b';
         }
@@ -900,49 +877,42 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
             rankBadgeHTML = `<span style="color: #94a3b8; font-weight: bold;">👀 អ្នកមើលការប្រកួត</span>`;
             cardsHTML = `<span style="color: #64748b; font-style: italic;">(គ្មានសន្លឹកបៀរឡើយ)</span>`;
         } else {
-            // កំណត់ស្លាកចំណាត់ថ្នាក់ (លេខ ១, លេខ ២, លេខ ៣ ឬ ចាញ់/ស្អុយ)
             let currentRank = p.rank;
-            
-            // ករណី Server មិនបានផ្ញើ rank មក (តែដឹងថាជាអ្នកអស់បៀរមុនគេ)
-            if (!currentRank && (p.id === winnerId || !p.remaining || p.remaining.length === 0)) {
-                currentRank = 1;
-            }
+            const remainingCount = p.remaining ? p.remaining.length : 0;
 
             if (currentRank === 1) {
                 rankBadgeHTML = `<span style="color: #eab308; font-weight: bold;">👑 លេខ ១ (🏆 Winner)</span>`;
-            } else if (currentRank === 2) {
-                rankBadgeHTML = `<span style="color: #3b82f6; font-weight: bold;">🥈 លេខ ២</span>`;
-            } else if (currentRank === 3) {
-                rankBadgeHTML = `<span style="color: #a855f7; font-weight: bold;">🥉 លេខ ៣</span>`;
-            } else {
-                // ប្រសិនបើសល់បៀរទាំង ១៣ សន្លឹកពេញ ហៅថា "ស្អុយ" បើមិនដឹង rank ច្បាស់លាស់ដាក់ "ចាញ់"
-                const isRotten = p.remaining && p.remaining.length === 13;
-                rankBadgeHTML = isRotten 
-                    ? `<span style="color: #ef4444; font-weight: bold;">☠️ ស្អុយបៀរ (ចាញ់ ០)</span>` 
-                    : `<span style="color: #f43f5e; font-weight: bold;">❌ ចាញ់</span>`;
-            }
-
-            // ករណីអ្នកឈ្នះ លេខ ១ (គ្មានបៀរសល់នៅលើដៃទេ)
-            if (currentRank === 1) {
                 cardsHTML = `<span style="color: #22c55e; font-weight: bold; font-size: 14px;">🎉 អស់បៀរពីដៃមុនគេបង្អស់!</span>`;
-            } else if (p.remaining && p.remaining.length > 0) {
-                // បង្ហាញសន្លឹកបៀរដែលនៅសល់កាត់ហាយ (High) ស្អាតៗ
-                p.remaining.forEach(card => {
-                    const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
-                    cardsHTML += `
-                        <div class="result-card" style="display: inline-flex; flex-direction: column; justify-content: space-between; width: 44px; height: 64px; background: white; color: black; border-radius: 6px; padding: 4px; font-size: 13px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.3); text-align: center; margin-right: 6px; margin-bottom: 6px; ${isRed ? 'color:#ef4444;' : ''}">
-                            <div style="text-align: left; line-height: 1;">${card.value}</div>
-                            <div style="font-size: 16px; align-self: center; line-height: 1;">${card.suit}</div>
-                        </div>
-                    `;
-                });
             } else {
-                cardsHTML = `<span style="color: #94a3b8; font-style: italic;">គ្មានបៀរសល់</span>`;
+                if (currentRank === 2) {
+                    rankBadgeHTML = `<span style="color: #3b82f6; font-weight: bold;">🥈 លេខ ២</span>`;
+                } else if (currentRank === 3) {
+                    rankBadgeHTML = `<span style="color: #a855f7; font-weight: bold;">🥉 លេខ ៣</span>`;
+                } else {
+                    const isRotten = remainingCount === 13;
+                    rankBadgeHTML = isRotten 
+                        ? `<span style="color: #ef4444; font-weight: bold;">☠️ ស្អុយបៀរ (លេខចុងក្រោយ)</span>` 
+                        : `<span style="color: #f43f5e; font-weight: bold;">❌ លេខចុងក្រោយ (អ្នកចាញ់)</span>`;
+                }
+
+                if (remainingCount > 0) {
+                    p.remaining.forEach(card => {
+                        const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
+                        cardsHTML += `
+                            <div class="result-card" style="display: inline-flex; flex-direction: column; justify-content: space-between; width: 44px; height: 64px; background: white; color: black; border-radius: 6px; padding: 4px; font-size: 13px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.3); text-align: center; margin-right: 6px; margin-bottom: 6px; ${isRed ? 'color:#ef4444;' : ''}">
+                                <div style="text-align: left; line-height: 1;">${card.value}</div>
+                                <div style="font-size: 16px; align-self: center; line-height: 1;">${card.suit}</div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    cardsHTML = `<span style="color: #94a3b8; font-style: italic;">គ្មានបៀរសល់ (អស់បៀរតាមលំដាប់)</span>`;
+                }
             }
         }
 
         const remainingCount = p.remaining ? p.remaining.length : 0;
-        const countText = (p.isSpectator || p.id === winnerId || remainingCount === 0) 
+        const countText = (p.isSpectator || p.rank === 1 || remainingCount === 0) 
             ? '' 
             : `<span style="color: #f59e0b; font-size: 12px; margin-left: 8px;">(នៅសល់ ${remainingCount} សន្លឹក)</span>`;
 
@@ -959,7 +929,6 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
         resultList.appendChild(playerDiv);
     });
 
-    // គ្រប់គ្រងប៊ូតុងលេងម្ដងទៀត
     const playAgainBtn = document.getElementById('hostPlayAgainBtn');
     const waitText = document.getElementById('waitHostText');
     if (isCreator) {
@@ -984,7 +953,7 @@ socket.on('leftRoom', () => {
     selectedCards = [];
     playersData = [];
     amISpectator = false;
-    lastRoundWinnerId = null; // សូន្យទិន្នន័យចោលពេលចាកចេញ
+    lastRoundWinnerId = null; 
     
     document.getElementById('loginArea').style.display = 'block';
     document.getElementById('lobbyArea').style.display = 'none';
@@ -992,6 +961,5 @@ socket.on('leftRoom', () => {
     document.getElementById('resultArea').style.display = 'none';
 });
 </script>
-
 </body>
 </html>
