@@ -949,9 +949,11 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
     const resultList = document.getElementById('resultList');
     resultList.innerHTML = '';
 
+    // បំបែកអ្នកលេងពិតប្រាកដ និងអ្នកចូលរួមមើល (Spectator)
     const activePlayers = allHands.filter(p => !p.isSpectator);
     const spectators = allHands.filter(p => p.isSpectator);
 
+    // រៀបចំលំដាប់ពិន្ទុ៖ លេខ ១ មកមុន បន្ទាប់មកលេខ ២, លេខ ៣ និងអ្នកចាញ់ចុងក្រោយ
     activePlayers.sort((a, b) => {
         const rankA = a.rank || 99;
         const rankB = b.rank || 99;
@@ -968,9 +970,13 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
         const playerDiv = document.createElement('div');
         playerDiv.className = 'result-player';
         
+        // ផ្តល់ពណ៌ពិសេសសម្រាប់អ្នកឈ្នះលេខ ១
         if (!p.isSpectator && p.rank === 1) {
             playerDiv.style.border = '2px solid #eab308';
             playerDiv.style.background = '#1e293b';
+        } else if (!p.isSpectator) {
+            // បន្ថែមពណ៌ព្រំក្រហមស្រាលសម្រាប់អ្នកចាញ់ ដើម្បីងាយស្រួលមើល
+            playerDiv.style.border = '1px solid #f43f5e';
         }
 
         let rankBadgeHTML = '';
@@ -985,16 +991,18 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
 
             if (currentRank === 1) {
                 rankBadgeHTML = `<span style="color: #eab308; font-weight: bold;">👑 លេខ ១ (🏆 Winner)</span>`;
-                cardsHTML = `<span style="color: #22c55e; font-weight: bold; font-size: 14px;">🎉 អស់បៀរ ឬឈ្នះទឹកធំជាងគេ!</span>`;
+                cardsHTML = `<span style="color: #22c55e; font-weight: bold; font-size: 14px;">🎉 អស់បៀរពីដៃមុនគេ!</span>`;
             } else {
+                // កំណត់ស្លាកសញ្ញា ចំណាត់ថ្នាក់អ្នកចាញ់
                 if (currentRank === 2) {
                     rankBadgeHTML = `<span style="color: #3b82f6; font-weight: bold;">🥈 លេខ ២</span>`;
                 } else if (currentRank === 3) {
                     rankBadgeHTML = `<span style="color: #a855f7; font-weight: bold;">🥉 លេខ ៣</span>`;
                 } else {
-                    rankBadgeHTML = `<span style="color: #f43f5e; font-weight: bold;">❌ លេខចុងក្រោយ (អ្នកចាញ់)</span>`;
+                    rankBadgeHTML = `<span style="color: #f43f5e; font-weight: bold;">❌ អ្នកចាញ់ចុងក្រោយ</span>`;
                 }
 
+                // បង្ហាញសន្លឹកបៀរដែលនៅសល់ទាំងអស់របស់អ្នកចាញ់ (មិនថាមានប៉ុន្មានសន្លឹកឡើយ)
                 if (remainingCount > 0) {
                     p.remaining.forEach(card => {
                         const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
@@ -1012,6 +1020,7 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
         }
 
         const remainingCount = p.remaining ? p.remaining.length : 0;
+        // បង្ហាញចំនួនសន្លឹកបៀរដែលនៅសល់ជាលេខក្បែរឈ្មោះ
         const countText = (p.isSpectator || p.rank === 1 || remainingCount === 0) 
             ? '' 
             : `<span style="color: #f59e0b; font-size: 12px; margin-left: 8px;">(នៅសល់ ${remainingCount} សន្លឹក)</span>`;
