@@ -1,5 +1,5 @@
 // =================================================================
-// server.js (កំណែទម្រង់លេងសល់ម្នាក់ចុងក្រោយ + ៣ផែ ៤ផែ ការ៉េ កាត់ហាយ)
+// server.js (កំណែទម្រង់លេងរហូតដល់សល់ម្នាក់ចុងក្រោយ - រត់រលូនឥតខ្ចោះ)
 // =================================================================
 
 const express = require('express');
@@ -55,21 +55,21 @@ function getComboType(cards) {
     if (sameValue) {
         if (len === 2) return 'pair';
         if (len === 3) return 'triple'; 
-        if (len === 4) return 'bomb';   
+        if (len === 4) return 'bomb';   // ការ៉េ
     }
 
-    // ពិនិត្យ ៣ ផែជាប់គ្នា (៦ សន្លឹក)
+    // ឆែក ៣ ផែជាប់គ្នា (៦ សន្លឹក)
     if (len === 6) {
         let is3Pair = true;
         for (let i = 0; i < 6; i += 2) {
             if (sorted[i].value !== sorted[i+1].value) is3Pair = false;
             if (i > 0 && CARD_ORDER.indexOf(sorted[i].value) !== CARD_ORDER.indexOf(sorted[i-2].value) + 1) is3Pair = false;
         }
-        if (sorted[4].value === '2') is3Pair = false; // មិនអាចយក ២ ធ្វើផែជាប់គ្នាបានទេ
+        if (sorted[4].value === '2') is3Pair = false; // ផែហាយមិនអាចចូលឡូបានទេ
         if (is3Pair) return 'triple_pair';
     }
 
-    // ពិនិត្យ ៤ ផែជាប់គ្នា (៨ សន្លឹក)
+    // ឆែក ៤ ផែជាប់គ្នា (៨ សន្លឹក)
     if (len === 8) {
         let is4Pair = true;
         for (let i = 0; i < 8; i += 2) {
@@ -80,7 +80,7 @@ function getComboType(cards) {
         if (is4Pair) return 'quad_pair';
     }
 
-    // ស៊េរីធម្មតា (Straight)
+    // ឆែកខ្សែ (Straight)
     let isStr = true;
     for (let i = 1; i < len; i++) {
         if (CARD_ORDER.indexOf(sorted[i].value) !== CARD_ORDER.indexOf(sorted[i-1].value) + 1) isStr = false;
@@ -104,31 +104,34 @@ function comparePlay(newCards, oldCards) {
     const newMax = getCardPower(sortCards([...newCards]).pop());
     const oldMax = getCardPower(sortCards([...oldCards]).pop());
 
-    // ច្បាប់វាយកាត់បៀហាយ (អាត់ លេខ ២)
+    // --- ច្បាប់ស៊ីកាត់ពិសេស ---
+    
+    // ១. បើនៅលើតុជាបៀរ ហាយ (សន្លឹក ២ តែមួយសន្លឹក)
     if (oldType === 'single' && oldCards[0].value === '2') {
-        if (newType === 'triple_pair' || newType === 'bomb' || newType === 'quad_pair') return true;
-    }
-
-    if (oldType === 'pair' && oldCards[0].value === '2') {
+        // ការ៉េ ឬ ៤ផែជាប់គ្នា អាចកាត់បាន (៣ផែជាប់គ្នា មិនអាចកាត់បានទេ)
         if (newType === 'bomb' || newType === 'quad_pair') return true;
     }
 
-    // ច្បាប់វាយកាត់គ្នារវាងបៀពិសេស (បៀកាត់)
-    if (oldType === 'triple_pair') {
-        if (newType === 'triple_pair' && newMax > oldMax) return true;
-        if (newType === 'bomb' || newType === 'quad_pair') return true;
-    }
-
+    // ២. បើនៅលើតុជា ការ៉េ (Bomb)
     if (oldType === 'bomb') {
+        // ការ៉េធំជាង ឬ ៤ផែជាប់គ្នា អាចស៊ីបាន
         if (newType === 'bomb' && newMax > oldMax) return true;
         if (newType === 'quad_pair') return true;
     }
 
+    // ៣. បើនៅលើតុជា ៤ផែជាប់គ្នា (Quad Pair)
     if (oldType === 'quad_pair') {
+        // មានតែ ៤ផែជាប់គ្នាដែលធំជាងទេ ទើបស៊ីបាន
         if (newType === 'quad_pair' && newMax > oldMax) return true;
     }
 
-    // ប្រៀបធៀបបៀប្រភេទដូចគ្នា និងចំនួនស្មើគ្នា
+    // ៤. បើនៅលើតុជា ៣ផែជាប់គ្នា (Triple Pair)
+    if (oldType === 'triple_pair') {
+        // តាមសំណូមពរ៖ ៣ផែ បានតែ៣ផែដូចគ្នាដែលធំជាងប៉ុណ្ណោះ (មិនអាចកាត់ហាយ ហើយក៏គ្មានអ្វីកាត់វាបាន)
+        if (newType === 'triple_pair' && newMax > oldMax) return true;
+    }
+
+    // ៥. ករណីបៀរក្បួនដូចគ្នា និងចំនួនសន្លឹកស្មើគ្នា (លេងធម្មតា)
     if (newType === oldType && newCards.length === oldCards.length) {
         return newMax > oldMax;
     }
@@ -355,6 +358,7 @@ io.on('connection', (socket) => {
                 }, 1500);
 
             } else {
+                let lastTurnIdx = room.currentTurnIndex;
                 handleTurnAndRoundStatus(room);
 
                 io.to(roomId).emit('cardPlayed', { 
