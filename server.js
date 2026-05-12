@@ -263,6 +263,7 @@ io.on('connection', (socket) => {
             startingIndex = room.players.findIndex(p => p.id === room.lastWinnerId);
         }
         if (startingIndex === -1) {
+            // កែសម្រួល៖ ស្វែងរកអ្នកមាន ៣ ប៊ិច (3 ♠) នៅវគ្គដំបូងបង្អស់
             startingIndex = room.players.findIndex(p => p.hand.some(c => c.value === '3' && c.suit === '♠'));
         }
         if (startingIndex === -1) startingIndex = 0;
@@ -306,6 +307,7 @@ io.on('connection', (socket) => {
 
             const remainingActivePlayers = room.players.filter(p => p.hand.length > 0);
 
+            // កែសម្រួល៖ នៅពេលសល់ម្នាក់ចុងក្រោយ ត្រូវកំណត់ Rank ឱ្យគាត់រួចបញ្ចប់ហ្គេមភ្លាម
             if (remainingActivePlayers.length <= 1) {
                 if (remainingActivePlayers.length === 1) {
                     remainingActivePlayers[0].rank = room.nextRank;
