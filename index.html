@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>🃏 Card Game Online (Tien Len & Ka Te)</title>
+<title>🃏 Games Online</title>
 
 <style>
 * {
@@ -78,6 +78,8 @@ button:disabled {
 .btn-green:hover:not(:disabled) { background: #16a34a; }
 .btn-red { background: #ef4444; color: white; }
 .btn-red:hover:not(:disabled) { background: #dc2626; }
+.btn-orange { background: #f59e0b; color: white; }
+.btn-orange:hover:not(:disabled) { background: #d97706; }
 
 .room-item {
     background: #334155;
@@ -150,15 +152,16 @@ button:disabled {
     justify-content: center;
     align-items: center;
     width: 100%;
+    flex-wrap: wrap;
 }
 
 .player {
     background: #334155;
     padding: 6px 10px;
     border-radius: 10px;
-    min-width: 110px;
+    min-width: 90px;
     flex: 1;
-    max-width: 160px;
+    max-width: 150px;
     position: relative;
     border: 2px solid transparent; 
     transition: all 0.3s ease;
@@ -256,7 +259,6 @@ button:disabled {
     transition: transform 0.15s ease, box-shadow 0.15s ease;
     flex-shrink: 0;
     margin-right: -12px; 
-    position: relative;
 }
 
 .card:last-child {
@@ -267,15 +269,10 @@ button:disabled {
     color: #ef4444;
 }
 
-/* ស្ទីលខ្នងបៀរផ្កាប់ */
-.card.back-flipped {
-    background: radial-gradient(circle, #b91c1c 20%, #7f1d1d 80%) !important;
+.card.back-card {
+    background: linear-gradient(135deg, #7f1d1d 0%, #450a0a 100%) !important;
+    border: 2px solid #f59e0b !important;
     color: transparent !important;
-    border: 2px solid #fecdd3 !important;
-    box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
-}
-.card.back-flipped * {
-    visibility: hidden;
 }
 
 .card.first-turn-highlight {
@@ -322,6 +319,13 @@ button:disabled {
 .table-card.red {
     color: #ef4444;
 }
+.table-card.folded {
+    background: linear-gradient(135deg, #451a03 0%, #78350f 100%) !important;
+    color: #f59e0b !important;
+    border: 2px dashed #f59e0b;
+    justify-content: center !important;
+    align-items: center !important;
+}
 
 .controls {
     display: flex;
@@ -333,49 +337,25 @@ button:disabled {
     font-size: 15px;
 }
 
-/* ប៊ូតុងផ្កាប់បៀរពិសេស */
-.btn-flip {
-    background: #ec4899;
-    color: white;
-    font-weight: bold;
-    width: auto !important;
-    flex: 0 0 auto;
-}
-
 .bubble-msg {
     position: absolute;
-    top: -35px;
+    top: -25px;
     left: 50%;
     transform: translateX(-50%);
     background: #ef4444;
     color: white;
-    padding: 5px 10px;
+    padding: 3px 8px;
     border-radius: 8px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: bold;
-    animation: fadeUp 2s forwards;
+    animation: fadeUp 1.5s forwards;
     white-space: nowrap;
     z-index: 10;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-}
-
-.bubble-msg.kubte {
-    background: #f59e0b !important;
-    border: 2px solid #fff;
-    font-size: 14px;
-    animation: popAndFade 2.5s forwards;
 }
 
 @keyframes fadeUp {
     0% { opacity: 1; transform: translate(-50%, 0); }
     100% { opacity: 0; transform: translate(-50%, -15px); }
-}
-
-@keyframes popAndFade {
-    0% { opacity: 1; transform: translate(-50%, 0) scale(0.5); }
-    20% { opacity: 1; transform: translate(-50%, -10px) scale(1.2); }
-    40% { transform: translate(-50%, -10px) scale(1); }
-    100% { opacity: 0; transform: translate(-50%, -30px) scale(0.9); }
 }
 
 #resultArea {
@@ -418,18 +398,14 @@ button:disabled {
 
 <div class="container">
     <div id="loginArea" class="panel">
-        <h1>🃏 Tien Len & Ka Te Online</h1>
+        <h1>🃏 Games Online</h1>
         <input type="text" id="playerName" placeholder="បញ្ចូលឈ្មោះរបស់អ្នក...">
-        
         <div style="margin-top: 15px;">
-            <label style="font-size: 14px; color: #94a3b8;">🎯 ជ្រើសរើសប្រភេទហ្គេម៖</label>
-            <select id="gameModeSelect">
-                <option value="tienlen">🃏 ទៀនឡេន (Tien Len - 13 សន្លឹក)</option>
-                <option value="kate">🎴 កាតេ (Ka Te - 6 សន្លឹក)</option>
+            <label style="font-size: 14px; color:#94a3b8;">ជ្រើសរើសហ្គេម៖</label>
+            <select id="gameTypeSelect">
+                <option value="tienlen">Tien Len (ទៀនឡេន)</option>
+                <option value="catte">Catte (កាតេ)</option>
             </select>
-        </div>
-
-        <div style="margin-top: 15px;">
             <input type="text" id="roomInput" placeholder="លេខបន្ទប់ (Room ID)...">
             <input type="password" id="roomPass" placeholder="លេខកូដសម្ងាត់បន្ទប់ (បើគ្មាន ទុកទទេ)...">
             <div style="display: flex; gap: 10px;">
@@ -443,9 +419,16 @@ button:disabled {
     </div>
 
     <div id="lobbyArea" class="panel" style="display: none;">
-        <h1>🃏 Game Lobby</h1>
-        <h2>Room: <span id="showRoom" style="color: #3b82f6;"></span> <span id="showMode" style="font-size:16px; color:#f59e0b;"></span></h2>
+        <h1>🃏 Games Online</h1>
+        <h2>Room: <span id="showRoom" style="color: #3b82f6;"></span> (<span id="showGameType" style="color: #f59e0b;"></span>)</h2>
         <br>
+        <div id="lobbyGameSelector" style="display: none; margin-bottom: 15px;">
+            <label style="font-size: 14px;">ប្តូរប្រភេទហ្គេម៖ </label>
+            <select id="lobbyGameType" onchange="onLobbyGameTypeChange()" style="width: auto; display: inline-block; padding: 5px; margin: 0; font-size:14px;">
+                <option value="tienlen">Tien Len</option>
+                <option value="catte">Catte</option>
+            </select>
+        </div>
         <div id="lobbyPlayers" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;"></div>
         <button id="startBtn" class="btn-green" onclick="startGame()" style="display: none;">🚀 Start Game</button>
         <button class="btn-red" onclick="leaveRoom()">🚪 ចាកចេញ (Leave)</button>
@@ -466,8 +449,8 @@ button:disabled {
         <div class="hand-and-controls">
             <div class="card-container" id="myCards"></div>
             <div class="controls" id="actionControls">
-                <button id="flipBtn" class="btn-flip" onclick="toggleFlipCards()">🎴 ផ្កាប់បៀរ</button>
                 <button id="playBtn" class="btn-green" onclick="playSelectedCards()">🎯 ចុះបៀរ (Play)</button>
+                <button id="foldBtn" class="btn-orange" onclick="foldCard()" style="display: none;">🔒 ធិបបៀរ (Fold)</button>
                 <button id="passBtn" class="btn-red" onclick="passTurn()">❌ រំលង (Pass)</button>
             </div>
         </div>
@@ -476,7 +459,7 @@ button:disabled {
     <div id="resultArea" class="panel">
         <h2 style="color: #22c55e;">🎉 ជ័យជម្នះបានទៅលើ៖ <span id="winnerName"></span></h2>
         <br>
-        <h3>📊 ចំណាត់ថ្នាក់ និងសន្លឹកបៀដែលនៅសល់៖</h3>
+        <h3>📊 ចំណាត់ថ្នាក់៖</h3>
         <div id="resultList"></div>
         <br>
         <button id="hostPlayAgainBtn" class="btn-green" onclick="startGame()" style="display: none;">🔄 លេងម្ដងទៀត (Play Again)</button>
@@ -498,8 +481,7 @@ let currentTurnIndex = 0;
 let playersData = [];
 let amISpectator = false;
 let lastRoundWinnerId = null; 
-let currentGameMode = 'tienlen';
-let isCardsFlipped = false; // ស្ថានភាពសម្រាប់ផ្កាប់បៀរខ្លួនឯង
+let currentGameType = 'tienlen';
 
 if (localStorage.getItem('tienlen_name')) {
     document.getElementById('playerName').value = localStorage.getItem('tienlen_name');
@@ -516,13 +498,13 @@ socket.on('roomList', (rooms) => {
         const item = document.createElement('div');
         item.className = 'room-item';
         const lockIcon = r.hasPassword ? '🔒' : '🔓';
-        const gameModeText = r.gameMode === 'kate' ? '【កាតេ】' : '【ទៀនឡេន】';
         const statusText = r.status === 'playing' ? '<span style="color: #ef4444;">(កំពុងលេង)</span>' : '<span style="color: #22c55e;">(ទំនេរ)</span>';
+        const typeText = r.gameType === 'catte' ? 'Catte' : 'Tien Len';
         
         item.innerHTML = `
             <div>
-                <strong>បន្ទប់ ID: ${r.roomId} ${gameModeText}</strong> ${lockIcon} <br>
-                <small style="color: #94a3b8;">សមាជិក៖ ${r.playerCount}/4 នាក់ ${statusText}</small>
+                <strong>បន្ទប់ ID: ${r.roomId} [${typeText}]</strong> ${lockIcon} <br>
+                <small style="color: #94a3b8;">សមាជិក៖ ${r.playerCount}/${r.gameType==='catte'?6:4} នាក់ ${statusText}</small>
             </div>
             <button class="btn-blue" style="width: auto; margin-top: 0; padding: 6px 12px;" onclick="quickJoin('${r.roomId}', ${r.hasPassword})">ចូលរួម</button>
         `;
@@ -554,10 +536,10 @@ function createRoom() {
     if (!playerName) return;
     const roomId = document.getElementById('roomInput').value.trim();
     const password = document.getElementById('roomPass').value;
-    const gameMode = document.getElementById('gameModeSelect').value;
+    const gameType = document.getElementById('gameTypeSelect').value;
     if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!");
 
-    socket.emit('createRoom', { roomId, password, playerName, gameMode });
+    socket.emit('createRoom', { roomId, password, playerName, gameType });
 }
 
 function joinRoom() {
@@ -587,12 +569,30 @@ socket.on('roomJoined', ({ roomId, playerId, isSpectator }) => {
 
 function showLobby(roomId) {
     document.body.classList.remove('in-game');
+    document.getElementById('loginArea').style.none = 'none';
     document.getElementById('loginArea').style.display = 'none';
     document.getElementById('lobbyArea').style.display = 'block';
     document.getElementById('gameArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'none';
     document.getElementById('showRoom').innerText = roomId;
+    
+    if (isCreator) {
+        document.getElementById('lobbyGameSelector').style.display = 'block';
+    } else {
+        document.getElementById('lobbyGameSelector').style.display = 'none';
+    }
 }
+
+function onLobbyGameTypeChange() {
+    const gt = document.getElementById('lobbyGameType').value;
+    socket.emit('changeGameType', { roomId: currentRoom, gameType: gt });
+}
+
+socket.on('gameTypeChanged', (gameType) => {
+    currentGameType = gameType;
+    document.getElementById('showGameType').innerText = gameType === 'catte' ? 'កាតេ' : 'ទៀនឡេន';
+    document.getElementById('lobbyGameType').value = gameType;
+});
 
 socket.on('updatePlayers', (players) => {
     playersData = players;
@@ -608,25 +608,31 @@ function startGame() {
     socket.emit('startGame', currentRoom);
 }
 
-socket.on('gameStarted', ({ players, currentTurnIndex: turn, lastRoundWinnerId: serverWinnerId, gameMode }) => {
+socket.on('gameStarted', ({ players, currentTurnIndex: turn, lastRoundWinnerId: serverWinnerId, gameType }) => {
     currentTurnIndex = turn;
     playersData = players;
     lastRoundWinnerId = serverWinnerId; 
-    currentGameMode = gameMode || 'tienlen';
-    isCardsFlipped = false; // Reset ស្ថានភាពផ្កាប់បៀរ
-
+    currentGameType = gameType;
+    
     const myData = players.find(p => p.id === myId);
     amISpectator = myData ? myData.isSpectator : false;
 
     document.body.classList.add('in-game');
-
     document.getElementById('lobbyArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'none';
     document.getElementById('gameArea').style.display = 'block';
     
     document.getElementById('table').innerHTML = '<div style="color: #a7f3d0;">ចាប់ផ្ដើមហ្គេម!</div>';
-    document.getElementById('showMode').innerText = currentGameMode === 'kate' ? '(របៀបលេង៖ កាតេ)' : '(របៀបលេង៖ ទៀនឡេន)';
     
+    // បង្ហាញ ឬលាក់ Button ទៅតាមប្រភេទហ្គេម
+    if (currentGameType === 'catte') {
+        document.getElementById('foldBtn').style.display = 'inline-block';
+        document.getElementById('passBtn').style.display = 'none';
+    } else {
+        document.getElementById('foldBtn').style.display = 'none';
+        document.getElementById('passBtn').style.display = 'inline-block';
+    }
+
     renderPlayers(players);
     updateControlsState();
     
@@ -641,9 +647,8 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn, lastRoundWinnerId: 
     }
 });
 
-socket.on('dealCards', ({ hand, gameMode }) => {
+socket.on('dealCards', ({ hand }) => {
     myHand = hand;
-    currentGameMode = gameMode;
     selectedCards = [];
     renderMyCards();
     updateControlsState();
@@ -658,30 +663,12 @@ function isMyTurn() {
 function updateControlsState() {
     const playBtn = document.getElementById('playBtn');
     const passBtn = document.getElementById('passBtn');
+    const foldBtn = document.getElementById('foldBtn');
     
-    if (playBtn && passBtn) {
-        if (isMyTurn()) {
-            playBtn.disabled = false;
-            passBtn.disabled = false;
-        } else {
-            playBtn.disabled = true;
-            passBtn.disabled = true;
-        }
-    }
-}
-
-// មុខងារចុចប៊ូតុងដើម្បីផ្កាប់ ឬបើកបៀរមើលខ្លួនឯង
-function toggleFlipCards() {
-    isCardsFlipped = !isCardsFlipped;
-    const flipBtn = document.getElementById('flipBtn');
-    if(isCardsFlipped) {
-        flipBtn.innerText = "👁️ បើកបៀរមើល";
-        flipBtn.style.background = "#65a30d";
-    } else {
-        flipBtn.innerText = "🎴 ផ្កាប់បៀរ";
-        flipBtn.style.background = "#ec4899";
-    }
-    renderMyCards();
+    const myTurn = isMyTurn();
+    if (playBtn) playBtn.disabled = !myTurn;
+    if (passBtn) passBtn.disabled = !myTurn;
+    if (foldBtn) foldBtn.disabled = !myTurn;
 }
 
 function renderPlayers(players) {
@@ -699,13 +686,8 @@ function renderPlayers(players) {
         
         const isCurrentTurn = (index === currentTurnIndex && !p.isSpectator && p.hand.length > 0);
         
-        if (isCurrentTurn) {
-            el.classList.add('active-turn'); 
-        }
-
-        if (p.passed && p.hand.length > 0) {
-            el.classList.add('player-passed'); 
-        }
+        if (isCurrentTurn) el.classList.add('active-turn'); 
+        if (p.passed && p.hand.length > 0 && currentGameType !== 'catte') el.classList.add('player-passed'); 
 
         let roleText = '';
         if (p.isSpectator) {
@@ -714,12 +696,11 @@ function renderPlayers(players) {
             let rankBadge = p.rank === 1 ? '🎉 លេខ ១' : `🥈 ទី ${p.rank}`;
             roleText = `<div style="color: #22c55e; font-weight: bold; margin-top:2px;">${rankBadge}</div>`;
         } else {
-            const defaultCount = currentGameMode === 'kate' ? 6 : 13;
-            const count = p.hand ? p.hand.length : (p.cardCount !== undefined ? p.cardCount : defaultCount);
+            const count = p.hand ? p.hand.length : (p.cardCount !== undefined ? p.cardCount : (currentGameType==='catte'?6:13));
             roleText = `<div class="card-counter">🃏 សល់៖ ${count}</div>`;
         }
 
-        if (p.passed && !p.isSpectator && p.hand.length > 0) {
+        if (p.passed && !p.isSpectator && p.hand.length > 0 && currentGameType !== 'catte') {
             roleText += '<br><span style="color: #ef4444; font-weight: bold; font-size: 11px;">❌ Pass</span>';
         }
 
@@ -763,29 +744,22 @@ function renderMyCards() {
     myHand.forEach(card => {
         const el = document.createElement('div');
         const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
-        
-        // ពិនិត្យមើលថាតើត្រូវផ្កាប់បៀរឬអត់
-        const flipClass = isCardsFlipped ? 'back-flipped' : '';
-        el.className = `card ${isRed} ${flipClass}`;
+        el.className = `card ${isRed}`;
         
         if (!myTurn) {
             el.classList.add('disabled-card');
         } else {
-            if (isNewRound && currentGameMode === 'tienlen') {
+            if (isNewRound && currentGameType === 'tienlen') {
                 if (!lastRoundWinnerId) {
-                    if (card.value === '3' && card.suit === '♠') {
-                        el.classList.add('first-turn-highlight');
-                    }
+                    if (card.value === '3' && card.suit === '♠') el.classList.add('first-turn-highlight');
                 } else {
-                    if (myId === lastRoundWinnerId) {
-                        el.classList.add('first-turn-highlight');
-                    }
+                    if (myId === lastRoundWinnerId) el.classList.add('first-turn-highlight');
                 }
             }
         }
         
         const isSelected = selectedCards.some(c => c.value === card.value && c.suit === card.suit);
-        if (isSelected && myTurn && !isCardsFlipped) el.classList.add('selected');
+        if (isSelected && myTurn) el.classList.add('selected');
 
         el.innerHTML = `
             <div>${card.value}</div>
@@ -794,24 +768,25 @@ function renderMyCards() {
         `;
         
         el.onclick = () => {
-            if (!isMyTurn() || isCardsFlipped) return; 
-            toggleCard(card);
+            if (!isMyTurn()) return; 
+            if (currentGameType === 'catte') {
+                // សម្រាប់កាតេអនុញ្ញាតឲ្យជ្រើសរើសបានតែ ១ សន្លឹកប៉ុណ្ណោះ
+                selectedCards = [card];
+                renderMyCards();
+            } else {
+                toggleCard(card);
+            }
         };
         div.appendChild(el);
     });
 }
 
 function toggleCard(card) {
-    if (currentGameMode === 'kate') {
-        // ក្នុងហ្គេមកាតេ ជ្រើសរើសបានតែម្ដងមួយសន្លឹកគត់
-        selectedCards = [card];
+    const idx = selectedCards.findIndex(c => c.value === card.value && c.suit === card.suit);
+    if (idx === -1) {
+        selectedCards.push(card);
     } else {
-        const idx = selectedCards.findIndex(c => c.value === card.value && c.suit === card.suit);
-        if (idx === -1) {
-            selectedCards.push(card);
-        } else {
-            selectedCards.splice(idx, 1);
-        }
+        selectedCards.splice(idx, 1);
     }
     renderMyCards();
 }
@@ -819,25 +794,19 @@ function toggleCard(card) {
 function playSelectedCards() {
     if (!isMyTurn()) return alert("មិនទាន់ដល់វេនរបស់អ្នកឡើយ!");
     if (selectedCards.length === 0) return alert("សូមជ្រើសរើសសន្លឹកបៀរមុននឹងចុះ!");
-    socket.emit('playCard', { roomId: currentRoom, cards: selectedCards });
+    socket.emit('playCard', { roomId: currentRoom, cards: selectedCards, isFolded: false });
+}
+
+function foldCard() {
+    if (!isMyTurn()) return alert("មិនទាន់ដល់វេនរបស់អ្នកឡើយ!");
+    if (selectedCards.length === 0) return alert("សូមជ្រើសរើសសន្លឹកបៀរ ១ សន្លឹកដើម្បីធិប!");
+    socket.emit('playCard', { roomId: currentRoom, cards: selectedCards, isFolded: true });
 }
 
 function passTurn() {
     if (!isMyTurn()) return alert("មិនទាន់ដល់វេនរបស់អ្នកឡើយ!");
     socket.emit('passTurn', currentRoom);
 }
-
-// ទទួលសញ្ញា Alert "នេះនែ គុបទេ!" ពី Server ពេលមានអ្នកសល់បៀ ២ សន្លឹក
-socket.on('triggerKubTe', ({ name, id }) => {
-    const playerCard = document.getElementById(`player-card-${id}`);
-    if (playerCard) {
-        const bubble = document.createElement('div');
-        bubble.className = 'bubble-msg kubte';
-        bubble.innerText = `🔥 នេះនែ គុបទេ!`;
-        playerCard.appendChild(bubble);
-        setTimeout(() => bubble.remove(), 2500);
-    }
-});
 
 socket.on('turnChanged', ({ currentTurnIndex: turn }) => {
     currentTurnIndex = turn;
@@ -849,7 +818,7 @@ socket.on('turnChanged', ({ currentTurnIndex: turn }) => {
     renderMyCards(); 
 });
 
-socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
+socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands, isFolded, shoutOut }) => {
     currentTurnIndex = nextTurn;
     
     updatedHands.forEach(p => {
@@ -864,9 +833,7 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
     playersData = updatedHands;
     
     const me = updatedHands.find(p => p.id === myId);
-    if (me && me.hand) {
-        myHand = me.hand;
-    }
+    if (me && me.hand) myHand = me.hand;
 
     renderPlayers(updatedHands);
     updateControlsState();
@@ -882,27 +849,47 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
     if (cards && cards.length > 0) {
         cards.forEach((card, index) => {
             const el = document.createElement('div');
-            const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
-            
-            el.className = `table-card ${isRed} animate-play-card`;
-            el.style.animationDelay = `${index * 0.05}s`;
-            
-            el.innerHTML = `
-                <div>${card.value}</div>
-                <div style="align-self: center; font-size: 20px;">${card.suit}</div>
-                <div style="align-self: flex-end; transform: rotate(180deg);">${card.value}</div>
-            `;
+            if (isFolded) {
+                el.className = `table-card folded animate-play-card`;
+                el.innerHTML = `🎴<br><span style="font-size:10px;">ធិបបៀរ</span>`;
+            } else {
+                const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
+                el.className = `table-card ${isRed} animate-play-card`;
+                el.style.animationDelay = `${index * 0.05}s`;
+                el.innerHTML = `
+                    <div>${card.value}</div>
+                    <div style="align-self: center; font-size: 20px;">${card.suit}</div>
+                    <div style="align-self: flex-end; transform: rotate(180deg);">${card.value}</div>
+                `;
+            }
             tableDiv.appendChild(el);
         });
     } else {
         tableDiv.innerHTML = '<div style="color: #a7f3d0;">មិនទាន់មានបៀរចុះឡើយ</div>';
+    }
+
+    // ពិនិត្យលោតអក្សរ «នេះនែ គប់ទេ» ពេលសល់ ២ សន្លឹកហើយវាយចេញ
+    if (shoutOut) {
+        const activePlayer = updatedHands.find(p => p.name === by);
+        if (activePlayer) {
+            const playerCard = document.getElementById(`player-card-${activePlayer.id}`);
+            if (playerCard) {
+                const bubble = document.createElement('div');
+                bubble.className = 'bubble-msg';
+                bubble.style.background = '#eab308';
+                bubble.style.color = 'black';
+                bubble.innerText = "💥 នេះនែ គប់ទេ!";
+                playerCard.appendChild(bubble);
+                setTimeout(() => bubble.remove(), 2000);
+            }
+        }
     }
     
     selectedCards = [];
     renderMyCards();
 });
 
-socket.on('playerPassed', ({ name, id, message }) => {
+socket.on('playerPassed', ({ name, id }) => {
     const playerCard = document.getElementById(`player-card-${id}`);
     if (playerCard) {
         const bubble = document.createElement('div');
@@ -936,86 +923,24 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
     const resultList = document.getElementById('resultList');
     resultList.innerHTML = '';
 
-    const activePlayers = allHands.filter(p => !p.isSpectator);
-    const spectators = allHands.filter(p => p.isSpectator);
-
-    activePlayers.sort((a, b) => {
-        const rankA = a.rank || 99;
-        const rankB = b.rank || 99;
-        if (rankA !== rankB) return rankA - rankB;
-        
-        const countA = a.remaining ? a.remaining.length : 0;
-        const countB = b.remaining ? b.remaining.length : 0;
-        return countA - countB;
-    });
-
-    const sortedFinalResults = [...activePlayers, ...spectators];
-
-    sortedFinalResults.forEach((p, index) => {
+    allHands.forEach((p, index) => {
         const playerDiv = document.createElement('div');
         playerDiv.className = 'result-player';
         
-        if (!p.isSpectator && p.rank === 1) {
+        if (p.rank === 1) {
             playerDiv.style.border = '2px solid #eab308';
             playerDiv.style.background = '#1e293b';
         }
 
-        let rankBadgeHTML = '';
-        let cardsHTML = '';
-
-        if (p.isSpectator) {
-            rankBadgeHTML = `<span style="color: #94a3b8; font-weight: bold;">👀 អ្នកមើលការប្រកួត</span>`;
-            cardsHTML = `<span style="color: #64748b; font-style: italic;">(គ្មានសន្លឹកបៀរឡើយ)</span>`;
-        } else {
-            let currentRank = p.rank;
-            const remainingCount = p.remaining ? p.remaining.length : 0;
-
-            if (currentRank === 1) {
-                rankBadgeHTML = `<span style="color: #eab308; font-weight: bold;">👑 លេខ ១ (🏆 Winner)</span>`;
-                cardsHTML = `<span style="color: #22c55e; font-weight: bold; font-size: 14px;">🎉 អស់បៀរពីដៃមុនគេបង្អស់!</span>`;
-            } else {
-                if (currentRank === 2) {
-                    rankBadgeHTML = `<span style="color: #3b82f6; font-weight: bold;">🥈 លេខ ២</span>`;
-                } else if (currentRank === 3) {
-                    rankBadgeHTML = `<span style="color: #a855f7; font-weight: bold;">🥉 លេខ ៣</span>`;
-                } else {
-                    const maxCards = currentGameMode === 'kate' ? 6 : 13;
-                    const isRotten = remainingCount === maxCards;
-                    rankBadgeHTML = isRotten 
-                        ? `<span style="color: #ef4444; font-weight: bold;">☠️ ស្អុយបៀរ (លេខចុងក្រោយ)</span>` 
-                        : `<span style="color: #f43f5e; font-weight: bold;">❌ លេខចុងក្រោយ (អ្នកចាញ់)</span>`;
-                }
-
-                if (remainingCount > 0) {
-                    p.remaining.forEach(card => {
-                        const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
-                        cardsHTML += `
-                            <div class="result-card" style="display: inline-flex; flex-direction: column; justify-content: space-between; width: 44px; height: 64px; background: white; color: black; border-radius: 6px; padding: 4px; font-size: 13px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.3); text-align: center; margin-right: 6px; margin-bottom: 6px; ${isRed ? 'color:#ef4444;' : ''}">
-                                <div style="text-align: left; line-height: 1;">${card.value}</div>
-                                <div style="font-size: 16px; align-self: center; line-height: 1;">${card.suit}</div>
-                            </div>
-                        `;
-                    });
-                } else {
-                    cardsHTML = `<span style="color: #94a3b8; font-style: italic;">គ្មានបៀរសល់ (អស់បៀរតាមលំដាប់)</span>`;
-                }
-            }
-        }
-
-        const remainingCount = p.remaining ? p.remaining.length : 0;
-        const countText = (p.isSpectator || p.rank === 1 || remainingCount === 0) 
-            ? '' 
-            : `<span style="color: #f59e0b; font-size: 12px; margin-left: 8px;">(នៅសល់ ${remainingCount} សន្លឹក)</span>`;
+        let rankBadgeHTML = p.rank === 1 
+            ? `<span style="color: #eab308; font-weight: bold;">👑 អ្នកឈ្នះ (🏆 Winner)</span>` 
+            : `<span style="color: #ef4444;">❌ អ្នកចាញ់</span>`;
 
         playerDiv.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #475569; padding-bottom: 6px;">
-                <div>
-                    <strong>👤 ${p.name} ${p.id === myId ? '<span style="color:#22c55e;">(ខ្ញុំ)</span>' : ''}</strong>
-                    ${countText}
-                </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <strong>👤 ${p.name} ${p.id === myId ? '<span style="color:#22c55e;">(ខ្ញុំ)</span>' : ''}</strong>
                 <div>${rankBadgeHTML}</div>
             </div>
-            <div class="result-cards" style="display: flex; flex-wrap: wrap; align-items: center; min-height: 40px;">${cardsHTML}</div>
         `;
         resultList.appendChild(playerDiv);
     });
