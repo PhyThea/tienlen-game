@@ -64,12 +64,20 @@ button:active {
     transform: scale(0.98);
 }
 
+button:disabled {
+    background: #475569 !important;
+    color: #94a3b8 !important;
+    cursor: not-allowed;
+    transform: none !important;
+    opacity: 0.6;
+}
+
 .btn-blue { background: #3b82f6; color: white; }
-.btn-blue:hover { background: #2563eb; }
+.btn-blue:hover:not(:disabled) { background: #2563eb; }
 .btn-green { background: #22c55e; color: white; }
-.btn-green:hover { background: #16a34a; }
+.btn-green:hover:not(:disabled) { background: #16a34a; }
 .btn-red { background: #ef4444; color: white; }
-.btn-red:hover { background: #dc2626; }
+.btn-red:hover:not(:disabled) { background: #dc2626; }
 
 /* បញ្ជីបន្ទប់ */
 .room-item {
@@ -276,6 +284,12 @@ button:active {
     margin-right: -6px;
 }
 
+.card.disabled-card {
+    opacity: 0.6;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
 /* ========================================== */
 /* ស្ទីលពិសេសសម្រាប់កូដបៀរហោះ (Flying Animation) */
 /* ========================================== */
@@ -305,7 +319,6 @@ button:active {
 .controls {
     display: flex;
     gap: 10px;
-    transition: opacity 0.2s ease;
 }
 .controls button {
     margin-top: 0;
@@ -400,8 +413,8 @@ button:active {
         <div class="hand-and-controls">
             <div class="card-container" id="myCards"></div>
             <div class="controls" id="actionControls">
-                <button class="btn-green" onclick="playSelectedCards()">🎯 ចុះបៀរ (Play)</button>
-                <button class="btn-red" onclick="passTurn()">❌ រំលង (Pass)</button>
+                <button id="playBtn" class="btn-green" onclick="playSelectedCards()">🎯 ចុះបៀរ (Play)</button>
+                <button id="passBtn" class="btn-red" onclick="passTurn()">❌ រំលង (Pass)</button>
             </div>
         </div>
     </div>
@@ -539,7 +552,8 @@ function startGame() {
 socket.on('gameStarted', ({ players, currentTurnIndex: turn }) => {
     currentTurnIndex = turn;
     playersData = players;
-    amISpectator = players.find(p => p.id === myId).isSpectator;
+    const myData = players.find(p => p.id === myId);
+    amISpectator = myData ? myData.isSpectator : false;
 
     document.body.classList.add('in-game');
 
@@ -550,6 +564,7 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn }) => {
     document.getElementById('table').innerHTML = '<div style="color: #a7f3d0;">ចាប់ផ្ដើមហ្គេម!</div>';
     
     renderPlayers(players);
+    updateControlsState();
     
     if (playersData[currentTurnIndex]) {
         document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
@@ -559,7 +574,6 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn }) => {
         document.getElementById('actionControls').style.display = 'none';
     } else {
         document.getElementById('actionControls').style.display = 'flex';
-        checkMyTurnControls(); // កំណត់ស្ថានភាពប៊ូតុងភ្លាមៗពេលហ្គេមចាប់ផ្ដើម
     }
 });
 
@@ -567,30 +581,26 @@ socket.on('dealCards', ({ hand }) => {
     myHand = hand;
     selectedCards = [];
     renderMyCards();
+    updateControlsState();
 });
 
-// មុខងារជំនួយ៖ ឆែក និងចាក់សោរប៊ូតុងបញ្ជា (UI Lock) ការពារអ៊ីនធឺណិតទាក់
-function checkMyTurnControls() {
-    if (amISpectator) return;
+function isMyTurn() {
+    if (amISpectator || currentTurnIndex === null) return false;
+    const activePlayer = playersData[currentTurnIndex];
+    return activePlayer && activePlayer.id === myId;
+}
 
-    const myIndex = playersData.findIndex(p => p.id === myId);
-    const actionControls = document.getElementById('actionControls');
+function updateControlsState() {
+    const playBtn = document.getElementById('playBtn');
+    const passBtn = document.getElementById('passBtn');
     
-    if (actionControls) {
-        if (myIndex === currentTurnIndex) {
-            // បើចំវេនលេង៖ បើកឱ្យចុចធម្មតា
-            actionControls.style.opacity = "1";
-            actionControls.style.pointerEvents = "auto";
-            document.querySelectorAll('#actionControls button').forEach(btn => {
-                btn.style.filter = "none";
-            });
+    if (playBtn && passBtn) {
+        if (isMyTurn()) {
+            playBtn.disabled = false;
+            passBtn.disabled = false;
         } else {
-            // បើមិនមែនវេនលេង៖ ចាក់សោរមិនឱ្យមាន Event ឆ្លងកាត់ទៅកូដខាងក្រោមដាច់ខាត
-            actionControls.style.opacity = "0.5";
-            actionControls.style.pointerEvents = "none";
-            document.querySelectorAll('#actionControls button').forEach(btn => {
-                btn.style.filter = "grayscale(50%)";
-            });
+            playBtn.disabled = true;
+            passBtn.disabled = true;
         }
     }
 }
@@ -633,7 +643,7 @@ function renderPlayers(players) {
             roleText += '<br><span style="color: #ef4444; font-weight: bold; font-size: 11px;">❌ Pass</span>';
         }
 
-        let turnBadgeHTML = isCurrentTurn ? '<div class="turn-badge">🟢 វេនអ្នក</div>' : '';
+        let turnBadgeHTML = isCurrentTurn ? `<div class="turn-badge">${p.id === myId ? '🟢 វេនអ្នក' : '🎯 កំពុងលេង'}</div>` : '';
 
         el.innerHTML = `
             ${turnBadgeHTML}
@@ -656,9 +666,6 @@ function renderPlayers(players) {
     } else {
         startBtn.style.display = 'none';
     }
-
-    // ឆែកគ្រប់គ្រងប៊ូតុងរាល់ពេលដែលទិន្នន័យអ្នកលេងដូរ
-    checkMyTurnControls();
 }
 
 function renderMyCards() {
@@ -668,13 +675,20 @@ function renderMyCards() {
         div.innerHTML = '<div style="color: #94a3b8; font-style: italic; font-size:13px;">អ្នកកំពុងចូលរួមមើលការប្រកួត...</div>';
         return;
     }
+    
+    const myTurn = isMyTurn();
+    
     myHand.forEach(card => {
         const el = document.createElement('div');
         const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
         el.className = `card ${isRed}`;
         
+        if (!myTurn) {
+            el.classList.add('disabled-card');
+        }
+        
         const isSelected = selectedCards.some(c => c.value === card.value && c.suit === card.suit);
-        if (isSelected) el.classList.add('selected');
+        if (isSelected && myTurn) el.classList.add('selected');
 
         el.innerHTML = `
             <div>${card.value}</div>
@@ -682,7 +696,10 @@ function renderMyCards() {
             <div style="align-self: flex-end; transform: rotate(180deg);">${card.value}</div>
         `;
         
-        el.onclick = () => toggleCard(card);
+        el.onclick = () => {
+            if (!isMyTurn()) return; // ការពារមិនឱ្យចុចរើសសន្លឹកបៀរពេលខុសវេន
+            toggleCard(card);
+        };
         div.appendChild(el);
     });
 }
@@ -698,23 +715,13 @@ function toggleCard(card) {
 }
 
 function playSelectedCards() {
+    if (!isMyTurn()) return alert("មិនទាន់ដល់វេនរបស់អ្នកឡើយ!");
     if (selectedCards.length === 0) return alert("សូមជ្រើសរើសសន្លឹកបៀរមុននឹងចុះ!");
-    
-    // ប្រព័ន្ធការពារស្រទាប់ទី២ (Logic-Lock)៖ ទោះប៊ូតុងគាំងខូច ក៏មិនឱ្យបញ្ជូនកញ្ចប់ Data ទៅទាក់ Internet ដែរ
-    const myIndex = playersData.findIndex(p => p.id === myId);
-    if (myIndex !== currentTurnIndex) {
-        return; // បដិសេធចោលភ្លាមៗដោយមិនបាច់ដំណើរការអ្វីទាំងអស់
-    }
-
     socket.emit('playCard', { roomId: currentRoom, cards: selectedCards });
 }
 
 function passTurn() {
-    const myIndex = playersData.findIndex(p => p.id === myId);
-    if (myIndex !== currentTurnIndex) {
-        return; // ការពារការចុចច្រឡំបញ្ជូនទិន្នន័យដដែលៗនាំឱ្យណែន Network
-    }
-
+    if (!isMyTurn()) return alert("មិនទាន់ដល់វេនរបស់អ្នកឡើយ!");
     socket.emit('passTurn', currentRoom);
 }
 
@@ -724,6 +731,8 @@ socket.on('turnChanged', ({ currentTurnIndex: turn }) => {
         document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
     }
     renderPlayers(playersData);
+    updateControlsState();
+    renderMyCards(); // ដើម្បីធ្វើបច្ចុប្បន្នភាពភាពរស់រវើកនៃសន្លឹកបៀរ (Disabled/Enabled)
 });
 
 /* ========================================================== */
@@ -804,6 +813,7 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
         }
 
         renderPlayers(updatedHands);
+        updateControlsState();
         renderMyCards();
 
         if (playersData[currentTurnIndex]) {
@@ -833,7 +843,6 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
         
         selectedCards = [];
         renderMyCards();
-        checkMyTurnControls(); // ធ្វើបច្ចុប្បន្នភាពប៊ូតុងចុងក្រោយបង្អស់បន្ទាប់ពីបៀរហោះចប់
     });
 });
 
@@ -854,6 +863,9 @@ socket.on('clearTable', ({ nextPlayer }) => {
 
 socket.on('errorMsg', (msg) => {
     alert("⚠️ " + msg);
+    // បើមាន Error ពី Server (ដូចជាចុះបៀរខុសច្បាប់) ត្រូវទាញ Render បៀរឡើងវិញកុំអោយបាត់បៀរលើអេក្រង់
+    selectedCards = [];
+    renderMyCards();
 });
 
 socket.on('gameWon', ({ winner, winnerId, allHands }) => {
