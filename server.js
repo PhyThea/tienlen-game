@@ -1,5 +1,5 @@
 // =================================================================
-// server.js (កំណែទម្រង់លេងរហូតដល់សល់ម្នាក់ចុងក្រោយ - រត់រលូនឥតខ្ចោះ)
+// server.js (កំណែទម្រង់លេងសល់ម្នាក់ចុងក្រោយ + ៣ផែ ៤ផែ ការ៉េ កាត់ហាយ)
 // =================================================================
 
 const express = require('express');
@@ -58,20 +58,18 @@ function getComboType(cards) {
         if (len === 4) return 'bomb';   
     }
 
-    if (len === 4) {
-        let is2Pair = true;
-        if (sorted[0].value !== sorted[1].value) is2Pair = false;
-        if (sorted[2].value !== sorted[3].value) is2Pair = false;
-        
-        const firstValIdx = CARD_ORDER.indexOf(sorted[0].value);
-        const secondValIdx = CARD_ORDER.indexOf(sorted[2].value);
-        
-        if (secondValIdx !== firstValIdx + 1) is2Pair = false;
-        if (sorted[2].value === '2') is2Pair = false;
-
-        if (is2Pair) return 'double_pair';
+    // ពិនិត្យ ៣ ផែជាប់គ្នា (៦ សន្លឹក)
+    if (len === 6) {
+        let is3Pair = true;
+        for (let i = 0; i < 6; i += 2) {
+            if (sorted[i].value !== sorted[i+1].value) is3Pair = false;
+            if (i > 0 && CARD_ORDER.indexOf(sorted[i].value) !== CARD_ORDER.indexOf(sorted[i-2].value) + 1) is3Pair = false;
+        }
+        if (sorted[4].value === '2') is3Pair = false; // មិនអាចយក ២ ធ្វើផែជាប់គ្នាបានទេ
+        if (is3Pair) return 'triple_pair';
     }
 
+    // ពិនិត្យ ៤ ផែជាប់គ្នា (៨ សន្លឹក)
     if (len === 8) {
         let is4Pair = true;
         for (let i = 0; i < 8; i += 2) {
@@ -82,6 +80,7 @@ function getComboType(cards) {
         if (is4Pair) return 'quad_pair';
     }
 
+    // ស៊េរីធម្មតា (Straight)
     let isStr = true;
     for (let i = 1; i < len; i++) {
         if (CARD_ORDER.indexOf(sorted[i].value) !== CARD_ORDER.indexOf(sorted[i-1].value) + 1) isStr = false;
@@ -105,15 +104,31 @@ function comparePlay(newCards, oldCards) {
     const newMax = getCardPower(sortCards([...newCards]).pop());
     const oldMax = getCardPower(sortCards([...oldCards]).pop());
 
+    // ច្បាប់វាយកាត់បៀហាយ (អាត់ លេខ ២)
     if (oldType === 'single' && oldCards[0].value === '2') {
-        if (newType === 'double_pair' || newType === 'bomb' || newType === 'quad_pair') return true;
+        if (newType === 'triple_pair' || newType === 'bomb' || newType === 'quad_pair') return true;
     }
 
-    if (oldType === 'double_pair') {
-        if (newType === 'double_pair' && newMax > oldMax) return true;
+    if (oldType === 'pair' && oldCards[0].value === '2') {
         if (newType === 'bomb' || newType === 'quad_pair') return true;
     }
 
+    // ច្បាប់វាយកាត់គ្នារវាងបៀពិសេស (បៀកាត់)
+    if (oldType === 'triple_pair') {
+        if (newType === 'triple_pair' && newMax > oldMax) return true;
+        if (newType === 'bomb' || newType === 'quad_pair') return true;
+    }
+
+    if (oldType === 'bomb') {
+        if (newType === 'bomb' && newMax > oldMax) return true;
+        if (newType === 'quad_pair') return true;
+    }
+
+    if (oldType === 'quad_pair') {
+        if (newType === 'quad_pair' && newMax > oldMax) return true;
+    }
+
+    // ប្រៀបធៀបបៀប្រភេទដូចគ្នា និងចំនួនស្មើគ្នា
     if (newType === oldType && newCards.length === oldCards.length) {
         return newMax > oldMax;
     }
@@ -150,8 +165,6 @@ function handleTurnAndRoundStatus(room) {
             if (p.hand.length > 0) p.passed = false;
         });
 
-        // កែសម្រួល៖ បើអ្នកចុះចុងក្រោយអស់បៀរ (បានលេខ ១) ហើយគ្រប់គ្នា Pass អស់
-        // ត្រូវផ្ដល់សិទ្ធិបើកទឹកថ្មីទៅឱ្យ "អ្នកចុះបៀរស៊ីចុងក្រោយគេបង្អស់" (lastPlayerId) ដែលនៅមានបៀរក្នុងដៃ
         let nextWinnerIndex = room.players.findIndex(p => p.id === room.lastPlayerId);
         
         if (nextWinnerIndex === -1 || room.players[nextWinnerIndex].hand.length === 0) {
@@ -342,7 +355,6 @@ io.on('connection', (socket) => {
                 }, 1500);
 
             } else {
-                let lastTurnIdx = room.currentTurnIndex;
                 handleTurnAndRoundStatus(room);
 
                 io.to(roomId).emit('cardPlayed', { 
