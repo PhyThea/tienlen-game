@@ -796,8 +796,11 @@ function playSelectedCards() {
     if (!isMyTurn()) return alert("មិនទាន់ដល់វេនរបស់អ្នកឡើយ!");
     if (selectedCards.length === 0) return alert("សូមជ្រើសរើសសន្លឹកបៀរមុននឹងចុះ!");
     
-    if (myHand.length === 2 && selectedCards.length === 1) {
-        triggerSayMessage(myId, "នេះនែ គប់ទេ 💥");
+    // បង្ហាញការផ្ញើសារពេលសល់បៀរតិច ហើយមានការវាយដេញតាមគ្នា
+    if (myHand.length <= 2) {
+        triggerSayMessage(myId, "គប់ឡងគូទ! 💥");
+    } else {
+        triggerSayMessage(myId, "វាយចេញ! 🎯");
     }
 
     socket.emit('playCard', { roomId: currentRoom, cards: selectedCards });
@@ -807,10 +810,7 @@ function burnSelectedCard() {
     if (!isMyTurn()) return alert("មិនទាន់ដល់វេនរបស់អ្នកឡើយ!");
     if (selectedCards.length !== 1) return alert("សូមជ្រើសរើសសន្លឹកបៀរចំនួន ១ សន្លឹកដើម្បីធិបផ្កាប់!");
 
-    if (myHand.length === 2) {
-        triggerSayMessage(myId, "នេះនែ គប់ទេ 💥");
-    }
-
+    triggerSayMessage(myId, "ធិបផ្កាប់ 🃏");
     socket.emit('burnCard', { roomId: currentRoom, card: selectedCards[0] });
 }
 
@@ -937,7 +937,6 @@ socket.on('leftRoom', () => {
     document.getElementById('resultArea').style.display = 'none';
 });
 
-// 🛠️ ផ្នែកបំពេញបន្ថែមដែលដាច់ពីមុន (Event gameWon)
 socket.on('gameWon', ({ winner, winnerId, allHands }) => {
     lastRoundWinnerId = winnerId;
 
@@ -1039,27 +1038,6 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
         playAgainBtn.style.display = 'none';
         waitText.style.display = 'block';
     }
-});
-
-function leaveRoom() {
-    if (confirm("តើអ្នកពិតជាចង់ចាកចេញពីបន្ទប់នេះមែនទេ?")) {
-        socket.emit('leaveRoom');
-    }
-}
-
-socket.on('leftRoom', () => {
-    document.body.classList.remove('in-game');
-    currentRoom = null;
-    myHand = [];
-    selectedCards = [];
-    playersData = [];
-    amISpectator = false;
-    lastRoundWinnerId = null; 
-    
-    document.getElementById('loginArea').style.display = 'block';
-    document.getElementById('lobbyArea').style.display = 'none';
-    document.getElementById('gameArea').style.display = 'none';
-    document.getElementById('resultArea').style.display = 'none';
 });
 </script>
 </body>
