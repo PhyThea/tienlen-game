@@ -461,7 +461,7 @@ let selectedCards = [];
 let currentTurnIndex = 0;
 let playersData = [];
 let amISpectator = false;
-let lastRoundWinnerId = null; // រក្សាទុក ID អ្នកឈ្នះកាលពីវគ្គមុន
+let lastRoundWinnerId = null;
 
 if (localStorage.getItem('tienlen_name')) {
     document.getElementById('playerName').value = localStorage.getItem('tienlen_name');
@@ -687,7 +687,6 @@ function renderPlayers(players) {
     }
 }
 
-/* កែប្រែផ្នែក Render កាតរបស់ខ្ញុំ ដើម្បីផ្តល់ពន្លឺច្បាស់លាស់ និងលុបភាពព្រៀលចេញពេលដល់វេន */
 function renderMyCards() {
     const div = document.getElementById('myCards');
     div.innerHTML = '';
@@ -697,8 +696,6 @@ function renderMyCards() {
     }
     
     const myTurn = isMyTurn();
-    
-    // ឆែកមើលថាតើតុបច្ចុប្បន្នទំនេរឬអត់ (ទើបចាប់ផ្ដើមជុំដំបូងគេបង្អស់)
     const tableDiv = document.getElementById('table');
     const isNewRound = tableDiv && (tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ'));
 
@@ -707,19 +704,15 @@ function renderMyCards() {
         const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
         el.className = `card ${isRed}`;
         
-        // បើដល់វេនខ្លួនឯង ដាច់ខាតមិនឱ្យមាន Class ព្រៀល (disabled-card) ឡើយ
         if (!myTurn) {
             el.classList.add('disabled-card');
         } else {
-            // លក្ខខណ្ឌផ្តល់ពន្លឺពិសេស (Highlight) ពេលដល់វេនដំបូងគេបង្អស់
             if (isNewRound) {
                 if (!lastRoundWinnerId) {
-                    // វគ្គដំបូងគេបង្អស់៖ ផ្តល់ពន្លឺឱ្យតែអ្នកមាន 3ប៊ិច (3 ♣) មុនគេ
                     if (card.value === '3' && card.suit === '♣') {
                         el.classList.add('first-turn-highlight');
                     }
                 } else {
-                    // វគ្គបន្ទាប់ៗ៖ ផ្តល់ពន្លឺឱ្យតែអ្នកដែលបានឈ្នះលេខ ១ ពីវគ្គមុន
                     if (myId === lastRoundWinnerId) {
                         el.classList.add('first-turn-highlight');
                     }
@@ -850,7 +843,6 @@ socket.on('errorMsg', (msg) => {
 });
 
 socket.on('gameWon', ({ winner, winnerId, allHands }) => {
-    // កត់ត្រាទុក ID របស់អ្នកឈ្នះលេខ ១ ដើម្បីយកទៅផ្តល់ពន្លឺនៅវគ្គបន្ទាប់
     lastRoundWinnerId = winnerId;
 
     document.body.classList.remove('in-game');
@@ -862,16 +854,33 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
     const resultList = document.getElementById('resultList');
     resultList.innerHTML = '';
 
-    // តម្រៀបលំដាប់លទ្ធផល៖ អ្នកអស់បៀរមុននៅខាងលើ អ្នកសល់បៀរច្រើននៅខាងក្រោម
-    allHands.sort((a, b) => {
-        if (a.isSpectator) return 1;
-        if (b.isSpectator) return -1;
+    // ១. បំបែកអ្នកលេងតាមប្រភេទ ដើម្បីងាយស្រួលកំណត់ចំណាត់ថ្នាក់ច្បាស់លាស់
+    const activePlayers = allHands.filter(p => !p.isSpectator);
+    const spectators = allHands.filter(p => p.isSpectator);
+
+    // អ្នកឈ្នះលេខ ១ (អស់បៀរមុនគេ)
+    const winnerPlayer = activePlayers.find(p => p.id === winnerId || (p.remaining && p.remaining.length === 0));
+    
+    // អ្នកដេកប៉េ (សល់ ១៣ សន្លឹកពេញ)
+    const pePlayers = activePlayers.filter(p => p.id !== winnerId && p.remaining && p.remaining.length === 13);
+    
+    // អ្នកសល់បៀរកម្រិតធម្មតា (យកទៅ Sort ពីតិចទៅច្រើនដើម្បីដឹង លេខ២ នឹង លេខ៣)
+    const normalPlayers = activePlayers.filter(p => p.id !== winnerId && (!p.remaining || p.remaining.length !== 13));
+    normalPlayers.sort((a, b) => {
         const countA = a.remaining ? a.remaining.length : 0;
         const countB = b.remaining ? b.remaining.length : 0;
         return countA - countB;
     });
 
-    allHands.forEach((p, idx) => {
+    // ២. បញ្ចូលត្រឡប់មកវិញតាមលំដាប់៖ លេខ១ -> ធម្មតា(សល់បៀរពីតិចទៅច្រើន) -> អ្នកប៉េ -> អ្នកមើល
+    const sortedFinalList = [];
+    if (winnerPlayer) sortedFinalList.push(winnerPlayer);
+    sortedFinalList.push(...normalPlayers);
+    sortedFinalList.push(...pePlayers);
+    sortedFinalList.push(...spectators);
+
+    // ស្វែងរកទីតាំង (Index) ពិតប្រាកដក្នុងចំណោមអ្នកលេងធម្មតាដើម្បីដាក់ លេខ២ លេខ៣
+    sortedFinalList.forEach((p) => {
         const playerDiv = document.createElement('div');
         playerDiv.className = 'result-player';
         
@@ -883,28 +892,29 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
             statusBadge = `<span style="color: #94a3b8; font-weight: bold;">👀 អ្នកមើលការប្រកួត</span>`;
         } else if (p.id === winnerId || remainingCount === 0) {
             statusBadge = `<span style="color: #22c55e; font-weight: bold; font-size: 16px;">🎉 អ្នកឈ្នះលេខ ១ (អស់បៀរ)</span>`;
-            playerDiv.style.border = "2px solid #22c55e"; // ហាយឡាយប្រអប់អ្នកឈ្នះ
+            playerDiv.style.border = "2px solid #22c55e"; 
             playerDiv.style.background = "#064e3b";
         } else if (remainingCount === 13) {
-            statusBadge = `<span style="color: #ef4444; font-weight: bold; font-size: 16px;">ដេកប៉េ ❌ (សល់ ១៣ សន្លឹកពេញ)</span>`;
-            playerDiv.style.border = "2px solid #ef4444"; // ហាយឡាយប្រអប់អ្នកប៉េ
+            // ប៉េ គឺស្មើនឹងចាញ់សូន្យ (០)
+            statusBadge = `<span style="color: #ef4444; font-weight: bold; font-size: 16px;">❌ ដេកប៉េ (ចាញ់ ០)</span>`;
+            playerDiv.style.border = "2px solid #ef4444"; 
             playerDiv.style.background = "#451a1a";
         } else {
-            // កំណត់ចំណាត់ថ្នាក់ផ្អែកលើលំដាប់លទ្ធផលដែលបាន Sort រួច
-            if (idx === 1) {
+            // រកមើលលំដាប់នៅក្នុងបញ្ជីលេងធម្មតា
+            const normalIdx = normalPlayers.findIndex(normalP => normalP.id === p.id);
+            if (normalIdx === 0) {
                 statusBadge = `<span style="color: #3b82f6; font-weight: bold;">🥈 ជាប់លេខ ២ (សល់ ${remainingCount} សន្លឹក)</span>`;
-            } else if (idx === 2) {
+            } else if (normalIdx === 1) {
                 statusBadge = `<span style="color: #f59e0b; font-weight: bold;">🥉 ជាប់លេខ ៣ (សល់ ${remainingCount} សន្លឹក)</span>`;
             } else {
                 statusBadge = `<span style="color: #cbd5e1; font-weight: bold;">💀 ចាញ់ (សល់ ${remainingCount} សន្លឹក)</span>`;
             }
         }
 
-        // បង្ហាញសន្លឹកបៀដែលនៅសល់ (បើមាន)
+        // បង្ហាញសន្លឹកបៀដែលនៅសល់កាត់ហាយឡាយច្បាស់ៗ
         if (!p.isSpectator && remainingCount > 0) {
             p.remaining.forEach(card => {
                 const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
-                // បន្ថែមស្ទីលហាយឡាយសន្លឹកបៀរឱ្យកាន់តែច្បាស់ និងធំជាងមុនបន្តិច
                 cardsHTML += `
                     <div class="result-card" style="display: inline-flex; flex-direction: column; justify-content: space-between; width: 46px; height: 66px; background: white; color: black; border-radius: 6px; padding: 4px 6px; font-size: 13px; font-weight: bold; box-shadow: 0 3px 6px rgba(0,0,0,0.3); text-align: center; margin-right: 6px; ${isRed ? 'color: #ef4444;' : 'color: #0f172a;'}">
                         <div style="text-align: left; font-size: 11px;">${card.value}</div>
@@ -949,7 +959,7 @@ socket.on('leftRoom', () => {
     selectedCards = [];
     playersData = [];
     amISpectator = false;
-    lastRoundWinnerId = null; // សូន្យទិន្នន័យចោលពេលចាកចេញ
+    lastRoundWinnerId = null;
     
     document.getElementById('loginArea').style.display = 'block';
     document.getElementById('lobbyArea').style.display = 'none';
