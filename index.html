@@ -1,86 +1,264 @@
 <!DOCTYPE html>
 <html lang="km">
 <head>
-    <meta charset="UTF-8">
-    <title>Lobby បន្ទប់ហ្គេម</title>
-    <script src="/socket.io/socket.io.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🏰 Game Lobby Online</title>
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+body {
+    font-family: Arial, sans-serif;
+    background: #0f172a;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+.container {
+    width: 100%;
+    max-width: 500px;
+    padding: 20px;
+}
+.panel {
+    background: #1e293b;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+}
+h1 {
+    text-align: center;
+    margin-bottom: 25px;
+    font-size: 28px;
+}
+input, select {
+    width: 100%;
+    padding: 12px;
+    margin-top: 12px;
+    border: 2px solid #334155;
+    border-radius: 10px;
+    font-size: 16px;
+    background: #1e293b;
+    color: white;
+    outline: none;
+    transition: border 0.2s;
+}
+input:focus, select:focus {
+    border-color: #3b82f6;
+}
+button {
+    padding: 12px 20px;
+    margin-top: 15px;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    width: 100%;
+    transition: background 0.2s, transform 0.1s;
+}
+button:active { transform: scale(0.98); }
+.btn-blue { background: #3b82f6; color: white; }
+.btn-blue:hover { background: #2563eb; }
+.btn-green { background: #22c55e; color: white; }
+.btn-green:hover { background: #16a34a; }
+.btn-red { background: #ef4444; color: white; }
+.btn-red:hover { background: #dc2626; }
+
+.room-item {
+    background: #334155;
+    padding: 15px;
+    border-radius: 10px;
+    margin-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.player-tag {
+    background: #334155;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin-top: 5px;
+    display: inline-block;
+    margin-right: 5px;
+}
+</style>
 </head>
 <body>
-    <h1>Lobby បន្ទប់កាតហ្គេម</h1>
-    
-    <div id="setupRoom">
-        <input type="text" id="playerName" placeholder="ឈ្មោះរបស់អ្នក">
-        <input type="text" id="roomId" placeholder="លេខបន្ទប់">
-        <button onclick="createRoom()">បង្កើតបន្ទប់</button>
-        <button onclick="joinRoom()">ចូលបន្ទប់</button>
+
+<div class="container">
+    <div id="loginArea" class="panel">
+        <h1>🃏 Game Lobby</h1>
+        <input type="text" id="playerName" placeholder="👤 បញ្ចូលឈ្មោះរបស់អ្នក...">
+        <input type="text" id="roomInput" placeholder="🔑 លេខបន្ទប់ (Room ID)...">
+        <input type="password" id="roomPass" placeholder="🔒 លេខកូដសម្ងាត់ (បើគ្មាន ទុកទទេ)...">
+        
+        <div style="display: flex; gap: 10px;">
+            <button class="btn-blue" onclick="createRoom()">➕ បង្កើតបន្ទប់</button>
+            <button class="btn-green" onclick="joinRoom()">🚪 ចូលរួមបន្ទប់</button>
+        </div>
+        
+        <hr style="margin-top: 25px; border-color: #334155;">
+        <h3 style="margin-top: 15px;">🏰 បញ្ជីបន្ទប់កំពុងទំនេរ៖</h3>
+        <div id="roomList"></div>
     </div>
 
-    <div id="insideRoom" style="display:none;">
-        <h2>បន្ទប់: <span id="roomTitle"></span></h2>
+    <div id="lobbyArea" class="panel" style="display: none;">
+        <h1>🏰 បន្ទប់រង់ចាំ</h1>
+        <h2 style="text-align: center;">Room: <span id="showRoom" style="color: #3b82f6;"></span></h2>
         
-        <div id="gameSetting" style="display:none;">
-            <label>ជ្រើសរើសប្រភេទហ្គេម៖</label>
-            <select id="gameType" onchange="selectGame()">
-                <option value="tienlen">ទៀនឡេន (លេង ២-៤ នាក់)</option>
-                <option value="catte">កាតេ (លេង ២-៦ នាក់)</option>
+        <div id="gameSelectionArea" style="margin-top: 20px;">
+            <label style="font-weight: bold; color: #94a3b8;">🎯 ជ្រើសរើសប្រភេទហ្គេម៖</label>
+            <select id="gameTypeSelect" onchange="changeGameType()">
+                <option value="tienlen">🃏 ហ្គេម ទៀនឡេន (Tien Len)</option>
+                <option value="catte">🎴 ហ្គេម កាតេ (Catte)</option>
             </select>
         </div>
 
-        <div id="playerList"></div>
-        <button id="startBtn" style="display:none;" onclick="startGame()">ចាប់ផ្តើមលេង</button>
+        <div style="margin-top: 20px;">
+            <p style="color: #94a3b8; margin-bottom: 5px;">👤 សមាជិកក្នុងបន្ទប់៖</p>
+            <div id="lobbyPlayers"></div>
+        </div>
+
+        <button id="startBtn" class="btn-green" onclick="startGame()" style="display: none; margin-top: 25px;">🚀 ចាប់ផ្ដើមហ្គេម (Start)</button>
+        <button class="btn-red" onclick="leaveRoom()">🚪 ចាកចេញពីបន្ទប់</button>
     </div>
+</div>
 
-    <script>
-        const socket = io();
-        let myId, currentRoom;
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+let myId = null;
+let currentRoom = null;
+let isCreator = false;
 
-        function createRoom() {
-            const roomId = document.getElementById('roomId').value;
-            const playerName = document.getElementById('playerName').value;
-            socket.emit('createRoom', { roomId, playerName });
-        }
+// ទាញយកឈ្មោះចាស់បើមាន
+if (localStorage.getItem('tienlen_name')) {
+    document.getElementById('playerName').value = localStorage.getItem('tienlen_name');
+}
 
-        function joinRoom() {
-            const roomId = document.getElementById('roomId').value;
-            const playerName = document.getElementById('playerName').value;
-            socket.emit('joinRoom', { roomId, playerName });
-        }
+socket.on('roomList', (rooms) => {
+    const div = document.getElementById('roomList');
+    div.innerHTML = '';
+    const waitingRooms = rooms.filter(r => r.status === 'waiting');
+    if (waitingRooms.length === 0) {
+        div.innerHTML = '<div style="color: #64748b; margin-top: 10px; text-align:center;">មិនទាន់មានបន្ទប់ទំនេរឡើយ...</div>';
+        return;
+    }
+    waitingRooms.forEach(r => {
+        const item = document.createElement('div');
+        item.className = 'room-item';
+        const lock = r.hasPassword ? '🔒' : '🔓';
+        const gName = r.gameType === 'catte' ? 'កាតេ' : 'ទៀនឡេន';
+        item.innerHTML = `
+            <div>
+                <strong>បន្ទប់ ID: ${r.roomId}</strong> ${lock} [${gName}]<br>
+                <small style="color: #94a3b8;">សមាជិក៖ ${r.playerCount}/${r.maxPlayers} នាក់</small>
+            </div>
+            <button class="btn-blue" style="width: auto; margin-top: 0; padding: 6px 12px;" onclick="quickJoin('${r.roomId}', ${r.hasPassword})">ចូលរួម</button>
+        `;
+        div.appendChild(item);
+    });
+});
 
-        function selectGame() {
-            const gameType = document.getElementById('gameType').value;
-            socket.emit('changeGameType', { roomId: currentRoom, gameType });
-        }
+function quickJoin(roomId, hasPassword) {
+    document.getElementById('roomInput').value = roomId;
+    if (hasPassword) {
+        const pass = prompt("សូមបញ្ចូលលេខកូដសម្ងាត់បន្ទប់៖");
+        if (pass !== null) document.getElementById('roomPass').value = pass;
+    }
+    joinRoom();
+}
 
-        function startGame() {
-            socket.emit('startGame', currentRoom);
-        }
+function getPlayerName() {
+    const name = document.getElementById('playerName').value.trim();
+    if (!name) {
+        alert("សូមបញ្ចូលឈ្មោះរបស់អ្នក!");
+        return null;
+    }
+    localStorage.setItem('tienlen_name', name);
+    return name;
+}
 
-        socket.on('updateRoomInfo', (room) => {
-            currentRoom = room.roomId;
-            document.getElementById('setupRoom').style.display = 'none';
-            document.getElementById('insideRoom').style.display = 'block';
-            document.getElementById('roomTitle').innerText = room.roomId;
-            
-            // បង្ហាញបញ្ជីឈ្មោះអ្នកលេង
-            const list = document.getElementById('playerList');
-            list.innerHTML = room.players.map(p => `<div>👤 ${p.name}</div>`).join('');
+function createRoom() {
+    const playerName = getPlayerName();
+    if (!playerName) return;
+    const roomId = document.getElementById('roomInput').value.trim();
+    const password = document.getElementById('roomPass').value;
+    if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!");
+    socket.emit('createRoom', { roomId, password, playerName });
+}
 
-            // បើជាមេបន្ទប់ ឱ្យបង្ហាញប៊ូតុងរើសហ្គេម និងប៊ូតុង Start
-            if (room.creatorId === socket.id) {
-                document.getElementById('gameSetting').style.display = 'block';
-                document.getElementById('startBtn').style.display = 'block';
-            }
-        });
+function joinRoom() {
+    const playerName = getPlayerName();
+    if (!playerName) return;
+    const roomId = document.getElementById('roomInput').value.trim();
+    const password = document.getElementById('roomPass').value;
+    if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!");
+    socket.emit('joinRoom', { roomId, password, playerName });
+}
 
-        // ពេលទទួលបានបញ្ជាឱ្យទៅទំព័រហ្គេម
-        socket.on('goToGamePage', ({ gameType, roomId }) => {
-            // យកឈ្មោះដែលវាយក្នុង Input ទៅទុកក្នុង LocalStorage
-            const name = document.getElementById('playerNameInput').value || 'Player';
-            localStorage.setItem('playerName', name);
-            
-            // រុញទៅកាន់ទំព័រហ្គេមតាមប្រភេទដែលមេបន្ទប់រើស
-            window.location.href = `/${gameType}?room=${roomId}`;
-        });
-    </script>
+socket.on('joinedRoom', ({ roomId, isCreator: creator, gameType }) => {
+    currentRoom = roomId;
+    isCreator = creator;
+    
+    document.getElementById('loginArea').style.display = 'none';
+    document.getElementById('lobbyArea').style.display = 'block';
+    document.getElementById('showRoom').innerText = roomId;
+    
+    const selectEl = document.getElementById('gameTypeSelect');
+    selectEl.value = gameType;
+    // បើមិនមែនជា Host ទេ មិនអាចប្តូរប្រភេទហ្គេមបានឡើយ
+    selectEl.disabled = !isCreator;
+    document.getElementById('startBtn').style.display = isCreator ? 'block' : 'none';
+});
+
+function changeGameType() {
+    const gameType = document.getElementById('gameTypeSelect').value;
+    socket.emit('changeGameType', { roomId: currentRoom, gameType });
+}
+
+socket.on('gameTypeChanged', (gameType) => {
+    document.getElementById('gameTypeSelect').value = gameType;
+});
+
+socket.on('updatePlayers', (players) => {
+    const div = document.getElementById('lobbyPlayers');
+    div.innerHTML = '';
+    players.forEach(p => {
+        const span = document.createElement('span');
+        span.className = 'player-tag';
+        span.innerHTML = `👤 ${p.name} ${p.id === socket.id ? '(ខ្ញុំ)' : ''}`;
+        div.appendChild(span);
+    });
+});
+
+function startGame() {
+    socket.emit('startGame', currentRoom);
+}
+
+// ទទួលបញ្ជាផ្លាស់ប្តូរទំព័រទៅកាន់ហ្គេមពិតប្រាកដ
+socket.on('goToGamePage', ({ gameType, roomId }) => {
+    window.location.href = `/${gameType}?room=${roomId}`;
+});
+
+function leaveRoom() {
+    socket.emit('leaveRoom');
+}
+
+socket.on('leftRoom', () => {
+    document.getElementById('loginArea').style.display = 'block';
+    document.getElementById('lobbyArea').style.display = 'none';
+});
+
+socket.on('errorMsg', (msg) => {
+    alert("⚠️ " + msg);
+});
+</script>
 </body>
 </html>
