@@ -862,35 +862,65 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
     const resultList = document.getElementById('resultList');
     resultList.innerHTML = '';
 
-    allHands.forEach(p => {
+    // តម្រៀបលំដាប់លទ្ធផល៖ អ្នកអស់បៀរមុននៅខាងលើ អ្នកសល់បៀរច្រើននៅខាងក្រោម
+    allHands.sort((a, b) => {
+        if (a.isSpectator) return 1;
+        if (b.isSpectator) return -1;
+        const countA = a.remaining ? a.remaining.length : 0;
+        const countB = b.remaining ? b.remaining.length : 0;
+        return countA - countB;
+    });
+
+    allHands.forEach((p, idx) => {
         const playerDiv = document.createElement('div');
         playerDiv.className = 'result-player';
         
         let cardsHTML = '';
+        let statusBadge = '';
+        const remainingCount = p.remaining ? p.remaining.length : 0;
+
         if (p.isSpectator) {
-            cardsHTML = `<span style="color: #ef4444; font-weight: bold;">👀 (អ្នកមើលការប្រកួត)</span>`;
-        } else if (p.id === winnerId || !p.remaining || p.remaining.length === 0) {
-            cardsHTML = `<span style="color: #22c55e; font-weight: bold;">🎉 អស់បៀរមុនគេបង្អស់ (ឈ្នះលេខ ១)</span>`;
+            statusBadge = `<span style="color: #94a3b8; font-weight: bold;">👀 អ្នកមើលការប្រកួត</span>`;
+        } else if (p.id === winnerId || remainingCount === 0) {
+            statusBadge = `<span style="color: #22c55e; font-weight: bold; font-size: 16px;">🎉 អ្នកឈ្នះលេខ ១ (អស់បៀរ)</span>`;
+            playerDiv.style.border = "2px solid #22c55e"; // ហាយឡាយប្រអប់អ្នកឈ្នះ
+            playerDiv.style.background = "#064e3b";
+        } else if (remainingCount === 13) {
+            statusBadge = `<span style="color: #ef4444; font-weight: bold; font-size: 16px;">ដេកប៉េ ❌ (សល់ ១៣ សន្លឹកពេញ)</span>`;
+            playerDiv.style.border = "2px solid #ef4444"; // ហាយឡាយប្រអប់អ្នកប៉េ
+            playerDiv.style.background = "#451a1a";
         } else {
+            // កំណត់ចំណាត់ថ្នាក់ផ្អែកលើលំដាប់លទ្ធផលដែលបាន Sort រួច
+            if (idx === 1) {
+                statusBadge = `<span style="color: #3b82f6; font-weight: bold;">🥈 ជាប់លេខ ២ (សល់ ${remainingCount} សន្លឹក)</span>`;
+            } else if (idx === 2) {
+                statusBadge = `<span style="color: #f59e0b; font-weight: bold;">🥉 ជាប់លេខ ៣ (សល់ ${remainingCount} សន្លឹក)</span>`;
+            } else {
+                statusBadge = `<span style="color: #cbd5e1; font-weight: bold;">💀 ចាញ់ (សល់ ${remainingCount} សន្លឹក)</span>`;
+            }
+        }
+
+        // បង្ហាញសន្លឹកបៀដែលនៅសល់ (បើមាន)
+        if (!p.isSpectator && remainingCount > 0) {
             p.remaining.forEach(card => {
                 const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
+                // បន្ថែមស្ទីលហាយឡាយសន្លឹកបៀរឱ្យកាន់តែច្បាស់ និងធំជាងមុនបន្តិច
                 cardsHTML += `
-                    <div class="result-card" style="display: inline-flex; flex-direction: column; justify-content: space-between; width: 42px; height: 60px; background: white; color: black; border-radius: 5px; padding: 4px; font-size: 11px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); text-align: center; margin-right:4px; ${isRed ? 'color:#ef4444;' : ''}">
-                        <div>${card.value}</div>
-                        <div style="font-size: 14px; align-self: center;">${card.suit}</div>
+                    <div class="result-card" style="display: inline-flex; flex-direction: column; justify-content: space-between; width: 46px; height: 66px; background: white; color: black; border-radius: 6px; padding: 4px 6px; font-size: 13px; font-weight: bold; box-shadow: 0 3px 6px rgba(0,0,0,0.3); text-align: center; margin-right: 6px; ${isRed ? 'color: #ef4444;' : 'color: #0f172a;'}">
+                        <div style="text-align: left; font-size: 11px;">${card.value}</div>
+                        <div style="font-size: 18px; align-self: center; margin-top: -4px;">${card.suit}</div>
+                        <div style="text-align: right; font-size: 11px; transform: rotate(180deg);">${card.value}</div>
                     </div>
                 `;
             });
         }
 
-        const remainingCount = p.remaining ? p.remaining.length : 0;
-        const countText = (p.isSpectator || p.id === winnerId) ? '' : `<span style="color: #f59e0b;">(នៅសល់ ${remainingCount} សន្លឹក)</span>`;
-
         playerDiv.innerHTML = `
-            <div style="margin-bottom: 8px;">
-                <strong>👤 ${p.name} ${p.id === myId ? '(ខ្ញុំ)' : ''}</strong> ${countText}
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 5px;">
+                <strong>👤 ${p.name} ${p.id === myId ? '<span style="color:#eab308;">(ខ្ញុំ)</span>' : ''}</strong>
+                <div>${statusBadge}</div>
             </div>
-            <div class="result-cards">${cardsHTML}</div>
+            <div class="result-cards" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px;">${cardsHTML}</div>
         `;
         resultList.appendChild(playerDiv);
     });
