@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🎴 ហ្គេមកាតេ Online</title>
+<script src="/socket.io/socket.io.js"></script>
+
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { font-family: Arial, sans-serif; background: #064e3b; color: white; overflow-x: hidden; padding: 15px; }
+    .game-container { max-width: 1000px; margin: auto; }
+    
+    /* ស្ថានភាពតុ និងព័ត៌មានជុំ */
+    .table-panel { background: #047857; padding: 20px; border-radius: 15px; margin-bottom: 20px; text-align: center; border: 2px solid #059669; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+    .status-bar { font-size: 20px; color: #fef08a; font-weight: bold; margin-bottom: 15px; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+    
+    /* បញ្ជីអ្នកលេងកាតេ */
+    .players-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 20px; }
+    .player-card { background: #065f46; padding: 10px 15px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; min-width: 130px; border: 1px solid #047857; }
+    .player-card.active-turn { background: #16a34a; border-color: #22c55e; box-shadow: 0 0 12px #22c55e; }
+    .player-card.dead { background: #374151; opacity: 0.5; border-color: #4b5563; } /* ងាប់បៀរ/ឡៅ */
+
+    /* សន្លឹកបៀរ */
+    .card-display { width: 60px; height: 85px; background: white; color: black; border-radius: 6px; display: inline-flex; flex-direction: column; justify-content: space-between; padding: 6px; margin: 4px; font-weight: bold; font-size: 18px; box-shadow: 0 3px 6px rgba(0,0,0,0.4); position: relative; user-select: none; }
+    .card-display.red { color: #dc2626; }
+    .card-display.black { color: #000000; }
+    .card-display.folded-card { background: #4b5563; color: #9ca3af; border: 2px dashed #374151; box-shadow: none; }
+    
+    /* បៀរនៅលើតុ (ជុំបច្ចុប្បន្ន) */
+    .played-area { min-height: 150px; background: #022c22; border-radius: 10px; display: flex; justify-content: center; align-items: center; flex-wrap: wrap; padding: 15px; margin-bottom: 15px; box-shadow: inset 0 2px 10px rgba(0,0,0,0.6); }
+    .table-card-slot { text-align: center; margin: 5px; }
+    .table-card-owner { font-size: 12px; color: #a7f3d0; margin-bottom: 3px; display: block; }
+
+    /* បៀរក្នុងដៃ */
+    .hand-area { background: #047857; padding: 20px; border-radius: 15px; text-align: center; border: 2px solid #059669; }
+    .cards-flex { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 20px; }
+    .cards-flex .card-display { cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+    .cards-flex .card-display.selected { transform: translateY(-15px); border: 3px solid #facc15; box-shadow: 0 5px 15px rgba(250, 204, 21, 0.5); }
+    
+    /* ប៊ូតុងបញ្ជា */
+    .btn-group { display: flex; justify-content: center; gap: 15px; }
+    button { padding: 12px 25px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; color: white; transition: background 0.2s; }
+    .btn-play { background: #2563eb; }
+    .btn-play:hover { background: #1d4ed8; }
+    .btn-fold { background: #dc2626; }
+    .btn-fold:hover { background: #b91c1c; }
+    
+    /* ផ្ទាំងលទ្ធផលពេលចប់ហ្គេម */
+    .popup-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); justify-content: center; align-items: center; z-index: 100; }
+    .popup-content { background: #064e3b; padding: 30px; border-radius: 15px; max-width: 500px; width: 90%; text-align: center; border: 2px solid #059669; }
+    .result-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #047857; }
+</style>
+</head>
+<body>
+
+<div class="game-container">
+    <div class="table-panel">
+        <div class="status-bar" id="catteStatus">ទឹកទី ១ - កំពុងរង់ចាំសមាជិក...</div>
+        <div class="players-grid" id="cattePlayersList"></div>
+        
+        <p style="margin-bottom: 5px; color: #a7f3d0; font-size: 14px;">បៀរដែលវាយចេញលើតុ (ក្នុងទឹកនេះ)៖</p>
+        <div class="played-area" id="catteTableArea">
+            <span style="color: #065f46;">មិនទាន់មានបៀរវាយចេញទេ</span>
+        </div>
+    </div>
+
+    <div class="hand-area">
+        <h3 style="margin-bottom: 15px; color: #fef08a;">🎴 បៀរក្នុងដៃរបស់អ្នក (កាតេ)</h3>
+        <div class="cards-flex" id="catteHandArea"></div>
+        
+        <div class="btn-group">
+            <button class="btn-fold" onclick="playCatteCard(true)">❌ ផ្កាប់ចោល (Fold)</button>
+            <button class="btn-play" onclick="playCatteCard(false)">✔️ ស៊ី / បើកទឹក (Play)</button>
+        </div>
+    </div>
+</div>
+
+<div class="popup-overlay" id="catteResultPopup">
+    <div class="popup-content">
+        <h2 style="color: #facc15; margin-bottom: 15px;">🏆 អ្នកឈ្នះលុយរួម (មេហ្គេម) 🏆</h2>
+        <h3 id="catteWinnerName" style="font-size: 24px; margin-bottom: 20px; color: white;"></h3>
+        <div id="catteResultListArea"></div>
+        <br>
+        <button class="btn-play" style="width: 100%; background: #10b981;" onclick="backToLobby()">ត្រឡប់ទៅ Lobby វិញ</button>
+    </div>
+</div>
+
+<script>
+    const socket = io();
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomId = urlParams.get('room');
+    
+    let myId = null;
+    let myHand = [];
+    let selectedIdx = null;
+
+    if (roomId) {
+        const playerName = localStorage.getItem('playerName') || 'Player';
+        // ចូលរួមបន្ទប់កាតេឡើងវិញ
+        socket.emit('joinRoom', { roomId, playerName });
+    } else {
+        alert("រកមិនឃើញលេខបន្ទប់ឡើយ!");
+        window.location.href = "/";
+    }
+
+    socket.on('connect', () => {
+        myId = socket.id;
+    });
+
+    // ទទួលបៀរ ៦ សន្លឹកពី Server
+    socket.on('dealCards', ({ hand }) => {
+        myHand = hand;
+        selectedIdx = null;
+        renderCatteHand();
+    });
+
+    // បង្ហាញបៀរក្នុងដៃ
+    function renderCatteHand() {
+        const area = document.getElementById('catteHandArea');
+        if (myHand.length === 0) {
+            area.innerHTML = `<span style="color:#a7f3d0; font-style: italic;">ឡៅហើយ (ងាប់បៀរក្នុង ៤ទឹកដំបូង) 🔒</span>`;
+            return;
+        }
+        
+        area.innerHTML = myHand.map((card, idx) => {
+            const isRed = card.suit === '♦' || card.suit === '♥';
+            const isSelected = selectedIdx === idx;
+            return `
+                <div class="card-display ${isRed ? 'red' : 'black'} ${isSelected ? 'selected' : ''}" onclick="selectCard(${idx})">
+                    <div>${card.value}</div>
+                    <div style="align-self: flex-end; font-size: 24px; margin-top: -10px;">${card.suit}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function selectCard(idx) {
+        selectedIdx = idx;
+        renderCatteHand();
+    }
+
+    // ចុចវាយបៀរចេញ (isFold = true គឺផ្កាប់បៀរ, isFold = false គឺផ្ញើស៊ី/បើកទឹក)
+    function playCatteCard(isFold) {
+        if (selectedIdx === null) return alert("សូមចុចជ្រើសរើសសន្លឹកបៀរ ១សន្លឹកសិន!");
+        
+        const cardToPlay = myHand[selectedIdx];
+        socket.emit('cattePlayCard', { roomId, card: cardToPlay, isFold });
+        selectedIdx = null; // សម្អាតការរើស
+    }
+
+    // អាប់ដេតស្ថានភាពតុលេងរាល់ពេលមានអ្នកទម្លាក់បៀរ
+    socket.on('catteUpdateState', (state) => {
+        // អាប់ដេត Status Bar
+        document.getElementById('catteStatus').innerText = `ទឹកទី ${state.roundCount} — វេនលេងបច្ចុប្បន្ន`;
+
+        // បង្ហាញបៀរនៅលើតុ (បើផ្កាប់មុខ នឹងបង្ហាញជាបៀរពណ៌ប្រផេះ)
+        const tableArea = document.getElementById('catteTableArea');
+        if (state.trickCards.length === 0) {
+            tableArea.innerHTML = `<span style="color: #065f46;">មិនទាន់មានបៀរវាយចេញទេ</span>`;
+        } else {
+            tableArea.innerHTML = state.trickCards.map(tc => {
+                if (tc.isFold) {
+                    return `
+                        <div class="table-card-slot">
+                            <span class="table-card-owner">${tc.playerName}</span>
+                            <div class="card-display folded-card"><div>🔒</div><div style="align-self: flex-end;">?</div></div>
+                        </div>
+                    `;
+                } else {
+                    const isRed = tc.card.suit === '♦' || tc.card.suit === '♥';
+                    return `
+                        <div class="table-card-slot">
+                            <span class="table-card-owner">${tc.playerName}</span>
+                            <div class="card-display ${isRed ? 'red' : 'black'}">
+                                <div>${tc.card.value}</div>
+                                <div style="align-self: flex-end; font-size: 24px; margin-top: -10px;">${tc.card.suit}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }).join('');
+        }
+
+        // អាប់ដេតបញ្ជីឈ្មោះអ្នកលេង កាក់ និងស្ថានភាពងាប់បៀរ
+        const playersList = document.getElementById('cattePlayersList');
+        playersList.innerHTML = state.players.map((p, idx) => {
+            const isHisTurn = idx === state.currentTurnIndex;
+            const isDead = p.cardCount === 0 && state.roundCount >= 5 && p.catteKakt === 0; // ឡៅ
+            
+            let cardClass = 'player-card';
+            if (isHisTurn) cardClass += ' active-turn';
+            if (isDead) cardClass += ' dead';
+
+            return `
+                <div class="${cardClass}">
+                    <span style="font-weight:bold;">${p.name} ${p.id === myId ? '(ខ្ញុំ)' : ''}</span>
+                    <span style="font-size:13px; color:#fef08a;">កក់៖ ${p.catteKakt} ទឹក</span>
+                    <span style="font-size:11px; color:#cbd5e1;">បៀរសល់៖ ${p.cardCount} សន្លឹក</span>
+                    ${isDead ? '<span style="font-size:11px; color:#ef4444; font-weight:bold;">(ឡៅ/ងាប់បៀរ)</span>' : ''}
+                </div>
+            `;
+        }).join('');
+    });
+
+    // ពេលចប់មួយទឹក (ម្នាក់១សន្លឹក)
+    socket.on('catteTrickEnd', ({ winnerName }) => {
+        // អាចដាក់សំឡេង ឬ Alert បញ្ជាក់
+    });
+
+    // ពេលបញ្ចប់ទឹកទី៦ (ស្វែងរកមេឈ្នះដាច់)
+    socket.on('catteGameEnd', ({ winner, players }) => {
+        const popup = document.getElementById('catteResultPopup');
+        document.getElementById('catteWinnerName').innerText = `🎉 ${winner} 🎉`;
+        popup.style.display = 'flex';
+
+        const listArea = document.getElementById('catteResultListArea');
+        listArea.innerHTML = players.map(p => `
+            <div class="result-row">
+                <span>👤 <b>${p.name}</b></span>
+                <span style="color:#fef08a;">ឈ្នះបានកក់សរុប៖ ${p.catteKakt} ទឹក</span>
+            </div>
+        `).join('');
+    });
+
+    function backToLobby() {
+        window.location.href = "/";
+    }
+
+    socket.on('errorMsg', (msg) => {
+        alert(msg);
+    });
+</script>
+</body>
+</html>
