@@ -784,10 +784,21 @@ function toggleCard(card) {
     }
 
     const idx = selectedCards.findIndex(c => c.value === card.value && c.suit === card.suit);
-    if (idx === -1) {
-        selectedCards.push(card);
+    
+    if (currentGameMode === 'catte') {
+        // សម្រាប់កាតេ៖ អនុញ្ញាតឱ្យ Select បានតែម្តង ១ សន្លឹកគត់ (ចុចយកអាថ្មី អាចាស់ដកចេញ)
+        if (idx === -1) {
+            selectedCards = [card]; 
+        } else {
+            selectedCards = [];
+        }
     } else {
-        selectedCards.splice(idx, 1);
+        // សម្រាប់ទៀនឡេន៖ អាច Select ច្រើនសន្លឹកបាន (ដូចដើម)
+        if (idx === -1) {
+            selectedCards.push(card);
+        } else {
+            selectedCards.splice(idx, 1);
+        }
     }
     renderMyCards();
 }
@@ -796,7 +807,10 @@ function playSelectedCards() {
     if (!isMyTurn()) return alert("មិនទាន់ដល់វេនរបស់អ្នកឡើយ!");
     if (selectedCards.length === 0) return alert("សូមជ្រើសរើសសន្លឹកបៀរមុននឹងចុះ!");
     
-    // បង្ហាញការផ្ញើសារពេលសល់បៀរតិច ហើយមានការវាយដេញតាមគ្នា
+    if (currentGameMode === 'catte' && selectedCards.length > 1) {
+        return alert("ហ្គេមកាតេអាចចុះបៀរបានតែម្តង ១ សន្លឹកប៉ុណ្ណោះ!");
+    }
+
     if (myHand.length <= 2) {
         triggerSayMessage(myId, "គប់ឡងគូទ! 💥");
     } else {
@@ -804,6 +818,20 @@ function playSelectedCards() {
     }
 
     socket.emit('playCard', { roomId: currentRoom, cards: selectedCards });
+    
+    // ចុះរួច លុបបៀរដែលទើបតែរើសចេញភ្លាមៗ ការពារការច្រឡំទៅជុំក្រោយ
+    selectedCards = [];
+}
+
+function burnSelectedCard() {
+    if (!isMyTurn()) return alert("មិនទាន់ដល់វេនរបស់អ្នកឡើយ!");
+    if (selectedCards.length !== 1) return alert("សូមជ្រើសរើសសន្លឹកបៀរចំនួន ១ សន្លឹកដើម្បីធិបផ្កាប់!");
+
+    triggerSayMessage(myId, "ធិបផ្កាប់ 🃏");
+    socket.emit('burnCard', { roomId: currentRoom, card: selectedCards[0] });
+    
+    // ធិបរួច លុបបៀរដែលទើបតែរើសចេញភ្លាមៗ ការពារការច្រឡំ
+    selectedCards = [];
 }
 
 function burnSelectedCard() {
