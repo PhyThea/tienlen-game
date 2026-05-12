@@ -357,6 +357,24 @@ button:disabled {
     flex-wrap: wrap;
     margin-top: 8px;
 }
+
+/* ========================================== */
+/* បន្ថែមគំនូរជីវចលសម្រាប់បៀរហោះចេញមកលើតុ */
+/* ========================================== */
+.animate-play-card {
+    animation: popInCard 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes popInCard {
+    0% {
+        opacity: 0;
+        transform: scale(0.3) translateY(60px) rotate(-12deg);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0) rotate(0deg);
+    }
+}
 </style>
 </head>
 <body>
@@ -724,7 +742,7 @@ socket.on('turnChanged', ({ currentTurnIndex: turn }) => {
     renderMyCards(); 
 });
 
-/* ដកគំនូរជីវចលហោះហើរ (Animation) ចេញទាំងស្រុង ដើម្បីកុំឱ្យគាំង ឬយឺតពេល Internet Slow */
+/* កែប្រែព្រឹត្តិការណ៍ cardPlayed ដើម្បីបន្ថែម Class គំនូរជីវចលហោះចេញមក ដោយមិនប៉ះពាល់ដល់ល្បឿនហ្គេម */
 socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
     currentTurnIndex = nextTurn;
     
@@ -752,16 +770,21 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
         document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
     }
 
-    // ជម្រះ និងបង្ហាញតែសន្លឹកបៀររបស់**អ្នកចុះចុងក្រោយបង្អស់**ប៉ុណ្ណោះ
+    // ជម្រះ និងបង្ហាញតែសន្លឹកបៀររបស់អ្នកចុះចុងក្រោយបង្អស់ប៉ុណ្ណោះ
     const tableDiv = document.getElementById('table');
     tableDiv.innerHTML = '';
     
     if (cards && cards.length > 0) {
-        cards.forEach(card => {
+        cards.forEach((card, index) => {
             const el = document.createElement('div');
             const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
-            // ប្ដូរទៅប្រើ table-card ដើម្បីតម្រៀបជាជួរផ្ដេកស្របគ្នា និងមិនមានការត្រួតជាន់គ្នាឡើយ
-            el.className = `table-card ${isRed}`;
+            
+            // បន្ថែម Class animate-play-card ដើម្បឱ្យមានចលនា
+            el.className = `table-card ${isRed} animate-play-card`;
+            
+            // បង្កើតចលនាហោះចេញមកមួយៗតាមលំដាប់ (Stagger Effect)
+            el.style.animationDelay = `${index * 0.05}s`;
+            
             el.innerHTML = `
                 <div>${card.value}</div>
                 <div style="align-self: center; font-size: 20px;">${card.suit}</div>
