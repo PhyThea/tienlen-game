@@ -150,6 +150,8 @@ function handleTurnAndRoundStatus(room) {
             if (p.hand.length > 0) p.passed = false;
         });
 
+        // កែសម្រួល៖ បើអ្នកចុះចុងក្រោយអស់បៀរ (បានលេខ ១) ហើយគ្រប់គ្នា Pass អស់
+        // ត្រូវផ្ដល់សិទ្ធិបើកទឹកថ្មីទៅឱ្យ "អ្នកចុះបៀរស៊ីចុងក្រោយគេបង្អស់" (lastPlayerId) ដែលនៅមានបៀរក្នុងដៃ
         let nextWinnerIndex = room.players.findIndex(p => p.id === room.lastPlayerId);
         
         if (nextWinnerIndex === -1 || room.players[nextWinnerIndex].hand.length === 0) {
@@ -263,7 +265,6 @@ io.on('connection', (socket) => {
             startingIndex = room.players.findIndex(p => p.id === room.lastWinnerId);
         }
         if (startingIndex === -1) {
-            // កែសម្រួល៖ ស្វែងរកអ្នកមាន ៣ ប៊ិច (3 ♠) នៅវគ្គដំបូងបង្អស់
             startingIndex = room.players.findIndex(p => p.hand.some(c => c.value === '3' && c.suit === '♠'));
         }
         if (startingIndex === -1) startingIndex = 0;
@@ -307,7 +308,6 @@ io.on('connection', (socket) => {
 
             const remainingActivePlayers = room.players.filter(p => p.hand.length > 0);
 
-            // កែសម្រួល៖ នៅពេលសល់ម្នាក់ចុងក្រោយ ត្រូវកំណត់ Rank ឱ្យគាត់រួចបញ្ចប់ហ្គេមភ្លាម
             if (remainingActivePlayers.length <= 1) {
                 if (remainingActivePlayers.length === 1) {
                     remainingActivePlayers[0].rank = room.nextRank;
