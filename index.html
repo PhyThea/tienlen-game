@@ -610,6 +610,7 @@ function updateControlsState() {
             passBtn.disabled = false;
         } else {
             playBtn.disabled = true;
+            playBtn.disabled = true;
             passBtn.disabled = true;
         }
     }
@@ -695,7 +696,6 @@ function renderMyCards() {
         const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
         el.className = `card ${isRed}`;
         
-        // កែសម្រួល៖ ឆែកលក្ខខណ្ឌផ្ដល់ពន្លឺ Highlight ពណ៌លឿងឱ្យត្រូវតាមច្បាប់ហ្គេម
         if (!myTurn) {
             el.classList.add('disabled-card');
         } else {
