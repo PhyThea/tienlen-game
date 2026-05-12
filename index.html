@@ -71,6 +71,7 @@ button:active {
 .btn-red { background: #ef4444; color: white; }
 .btn-red:hover { background: #dc2626; }
 
+/* បញ្ជីបន្ទប់ */
 .room-item {
     background: #334155;
     padding: 15px;
@@ -81,9 +82,10 @@ button:active {
     align-items: center;
 }
 
-/* ========================================== */
-/* ផ្នែកទម្រង់បង្ហាញអេក្រង់ផ្តេក (Landscape Mode) */
-/* ========================================== */
+/* ================================================================= */
+/* ផ្នែកគ្រប់គ្រងការបង្វិលអេក្រង់ឱ្យដូច App Play Store (Landscape Mode) */
+/* ================================================================= */
+
 #gameArea {
     display: none;
     position: relative;
@@ -91,6 +93,7 @@ button:active {
     height: 100%;
 }
 
+/* លក្ខខណ្ឌពិសេស៖ បើលេងលើទូរសព្ទដៃ ហើយអេក្រង់កំពុងបញ្ឈរ (Portrait) */
 @media screen and (max-width: 932px) and (orientation: portrait) {
     body.in-game {
         overflow: hidden;
@@ -98,10 +101,12 @@ button:active {
         width: 100vw;
         height: 100vh;
     }
+
     body.in-game .container {
         padding: 0;
         max-width: 100%;
     }
+
     body.in-game #gameArea {
         position: fixed;
         top: 50%;
@@ -118,6 +123,7 @@ button:active {
     }
 }
 
+/* លក្ខខណ្ឌ៖ បើអេក្រង់ផ្ដេកស្រាប់ (PC, Tablet, or Rotated Phone) */
 @media screen and (min-width: 600px) and (orientation: landscape), screen and (min-width: 933px) {
     body.in-game #gameArea {
         display: grid;
@@ -128,6 +134,7 @@ button:active {
     }
 }
 
+/* រៀបចំ layout ក្បាលហ្គេម */
 .game-header {
     display: flex;
     justify-content: space-between;
@@ -137,6 +144,7 @@ button:active {
     border-radius: 10px;
 }
 
+/* ប្លង់បង្ហាញអ្នកលេងក្នុងតុ */
 #players {
     display: flex;
     gap: 10px;
@@ -207,12 +215,13 @@ button:active {
     display: flex;
     justify-content: center;
     align-items: center;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
+    gap: 6px;
     padding: 10px;
     position: relative;
-    overflow: hidden;
 }
 
+/* ផ្នែកបៀរក្នុងដៃ និងប៊ូតុងបញ្ជា */
 .hand-and-controls {
     display: flex;
     flex-direction: column;
@@ -228,6 +237,7 @@ button:active {
     flex-wrap: nowrap;
     overflow-x: auto;
     padding: 10px 0;
+    gap: -15px; 
 }
 
 /* ស្ទីលសន្លឹកបៀរ */
@@ -246,7 +256,7 @@ button:active {
     cursor: pointer;
     user-select: none;
     box-shadow: -2px 3px 5px rgba(0,0,0,0.3);
-    transition: transform 0.15s ease, opacity 0.1s ease;
+    transition: transform 0.15s ease;
     flex-shrink: 0;
     margin-right: -12px; 
 }
@@ -267,28 +277,35 @@ button:active {
 }
 
 /* ========================================== */
-/* ស្ទីលគំនូរជីវចលហោះបែបធម្មតា និងលឿនរហ័ស */
+/* ស្ទីលពិសេសសម្រាប់កូដបៀរហោះ (Flying Animation) */
 /* ========================================== */
-.flying-card-wrapper {
+.flying-card {
+    position: fixed;
+    z-index: 9999;
+    background: white;
+    color: black;
+    width: 52px;
+    height: 76px;
+    border-radius: 6px;
     display: flex;
-    gap: 4px;
-    animation: normalFlyIn 0.25s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 4px 6px;
+    font-size: 15px;
+    font-weight: bold;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    pointer-events: none; /* មិនឱ្យរាំងស្ទះការចុច */
+    transition: all 0.45s cubic-bezier(0.25, 1, 0.5, 1); /* ល្បឿនហោះបែបធម្មជាតិ */
+}
+.flying-card.red {
+    color: #ef4444;
 }
 
-@keyframes normalFlyIn {
-    0% {
-        transform: translateY(60px) scale(0.5);
-        opacity: 0;
-    }
-    100% {
-        transform: translateY(0) scale(1);
-        opacity: 1;
-    }
-}
-
+/* ផ្ទាំងបញ្ជាលេង */
 .controls {
     display: flex;
     gap: 10px;
+    transition: all 0.3s ease;
 }
 .controls button {
     margin-top: 0;
@@ -296,6 +313,7 @@ button:active {
     font-size: 15px;
 }
 
+/* សារអណ្ដែត Pass */
 .bubble-msg {
     position: absolute;
     top: -25px;
@@ -317,6 +335,7 @@ button:active {
     100% { opacity: 0; transform: translate(-50%, -15px); }
 }
 
+/* អេក្រង់លទ្ធផលឈ្នះចាញ់ */
 #resultArea {
     display: none;
     text-align: center;
@@ -465,6 +484,7 @@ function createRoom() {
     const roomId = document.getElementById('roomInput').value.trim();
     const password = document.getElementById('roomPass').value;
     if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!");
+
     socket.emit('createRoom', { roomId, password, playerName });
 }
 
@@ -474,6 +494,7 @@ function joinRoom() {
     const roomId = document.getElementById('roomInput').value.trim();
     const password = document.getElementById('roomPass').value;
     if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!");
+
     socket.emit('joinRoom', { roomId, password, playerName });
 }
 
@@ -521,6 +542,7 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn }) => {
     amISpectator = players.find(p => p.id === myId).isSpectator;
 
     document.body.classList.add('in-game');
+
     document.getElementById('lobbyArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'none';
     document.getElementById('gameArea').style.display = 'block';
@@ -528,6 +550,7 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn }) => {
     document.getElementById('table').innerHTML = '<div style="color: #a7f3d0;">ចាប់ផ្ដើមហ្គេម!</div>';
     
     renderPlayers(players);
+    
     if (playersData[currentTurnIndex]) {
         document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
     }
@@ -536,6 +559,7 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn }) => {
         document.getElementById('actionControls').style.display = 'none';
     } else {
         document.getElementById('actionControls').style.display = 'flex';
+        checkMyTurnControls();
     }
 });
 
@@ -544,6 +568,30 @@ socket.on('dealCards', ({ hand }) => {
     selectedCards = [];
     renderMyCards();
 });
+
+// មុខងារសម្រាប់ឆែក និង បិទ/បើក ប៊ូតុងមិនឱ្យចុចពេលខុសវេនលេង
+function checkMyTurnControls() {
+    if (amISpectator) return;
+
+    const myIndex = playersData.findIndex(p => p.id === myId);
+    const actionControls = document.getElementById('actionControls');
+    
+    if (myIndex === currentTurnIndex) {
+        // បើដល់វេនខ្ញុំ៖ អនុញ្ញាតឱ្យចុចធម្មតា
+        actionControls.style.opacity = "1";
+        actionControls.style.pointerEvents = "auto";
+        document.querySelectorAll('#actionControls button').forEach(btn => {
+            btn.style.filter = "none";
+        });
+    } else {
+        // បើមិនទាន់ដល់វេន៖ ធ្វើឱ្យព្រាល និងចាក់សោរមិនឱ្យចុចកើតដាច់ខាត
+        actionControls.style.opacity = "0.5";
+        actionControls.style.pointerEvents = "none";
+        document.querySelectorAll('#actionControls button').forEach(btn => {
+            btn.style.filter = "grayscale(50%)";
+        });
+    }
+}
 
 function renderPlayers(players) {
     playersData = players;
@@ -559,8 +607,14 @@ function renderPlayers(players) {
         el.id = `player-card-${p.id}`; 
         
         const isCurrentTurn = (index === currentTurnIndex && !p.isSpectator && p.hand.length > 0);
-        if (isCurrentTurn) el.classList.add('active-turn'); 
-        if (p.passed && p.hand.length > 0) el.classList.add('player-passed'); 
+        
+        if (isCurrentTurn) {
+            el.classList.add('active-turn'); 
+        }
+
+        if (p.passed && p.hand.length > 0) {
+            el.classList.add('player-passed'); 
+        }
 
         let roleText = '';
         if (p.isSpectator) {
@@ -600,6 +654,9 @@ function renderPlayers(players) {
     } else {
         startBtn.style.display = 'none';
     }
+
+    // ហៅការឆែកប្រព័ន្ធ Lock ប៊ូតុងរាល់ពេល Render អ្នកលេងឡើងវិញ
+    checkMyTurnControls();
 }
 
 function renderMyCards() {
@@ -641,14 +698,21 @@ function toggleCard(card) {
 function playSelectedCards() {
     if (selectedCards.length === 0) return alert("សូមជ្រើសរើសសន្លឹកបៀរមុននឹងចុះ!");
     
-    // លុបចេញពីដៃភ្លាមៗ (Instant UI Update) ដើម្បីភាពរហ័សទាន់ចិត្ត
-    myHand = myHand.filter(card => !selectedCards.some(s => s.value === card.value && s.suit === card.suit));
-    renderMyCards(); 
+    // បន្ថែមការស្ទាក់ឆែកសុវត្ថិភាពនៅខាង Client ការពារករណីចុចលឿនពេក
+    const myIndex = playersData.findIndex(p => p.id === myId);
+    if (myIndex !== currentTurnIndex) {
+        alert("⚠️ មិនទាន់ដល់វេនរបស់អ្នកឡើយ!");
+        return;
+    }
 
     socket.emit('playCard', { roomId: currentRoom, cards: selectedCards });
 }
 
 function passTurn() {
+    // ស្ទាក់ឆែកសុវត្ថិភាពសម្រាប់ប៊ូតុង Pass ដូចគ្នា
+    const myIndex = playersData.findIndex(p => p.id === myId);
+    if (myIndex !== currentTurnIndex) return;
+
     socket.emit('passTurn', currentRoom);
 }
 
@@ -661,62 +725,113 @@ socket.on('turnChanged', ({ currentTurnIndex: turn }) => {
 });
 
 /* ========================================================== */
-/* ផ្នែកគ្រប់គ្រងការបង្ហាញបៀរចុងក្រោយ និង គំនូរជីវចលហោះធម្មតាលើតុ */
+/* មុខងារបង្កើត និងដំណើរការគំនូរជីវចល បៀរហោះចេញពីឈ្មោះអ្នកលេង */
 /* ========================================================== */
-socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
-    currentTurnIndex = nextTurn;
-    
-    updatedHands.forEach(p => {
-        const found = playersData.find(oldP => oldP.id === p.id);
-        if (found) {
-            found.cardCount = p.hand ? p.hand.length : p.cardCount;
-            found.rank = p.rank; 
-            found.passed = p.passed; 
-        }
+function animateFlyingCards(playerId, cards, callback) {
+    const startEl = document.getElementById(`player-card-${playerId}`) || document.getElementById('myCards');
+    const targetEl = document.getElementById('table');
+
+    if (!startEl || !targetEl || cards.length === 0) {
+        callback();
+        return;
+    }
+
+    const startRect = startEl.getBoundingClientRect();
+    const targetRect = targetEl.getBoundingClientRect();
+
+    let completed = 0;
+
+    cards.forEach((card, index) => {
+        const flyCard = document.createElement('div');
+        const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
+        flyCard.className = `flying-card ${isRed}`;
+        flyCard.innerHTML = `
+            <div>${card.value}</div>
+            <div style="align-self: center; font-size: 20px;">${card.suit}</div>
+            <div style="align-self: flex-end; transform: rotate(180deg);">${card.value}</div>
+        `;
+
+        // កំណត់ទីតាំងចាប់ផ្ដើមនៅចំកណ្ដាលប្រអប់ឈ្មោះអ្នកលេង
+        flyCard.style.top = `${startRect.top + (startRect.height / 2) - 38}px`;
+        flyCard.style.left = `${startRect.left + (startRect.width / 2) - 26}px`;
+        flyCard.style.transform = `scale(0.3) rotate(${Math.random() * 40 - 20}deg)`;
+        flyCard.style.opacity = '0';
+
+        document.body.appendChild(flyCard);
+
+        // បើកដំណើរការគំនូរជីវចល (setTimeout ធានាថា DOM ស្គាល់ style ដើម)
+        setTimeout(() => {
+            flyCard.style.opacity = '1';
+            // ហោះទៅកាន់តុ និងរាយគ្នាបន្តិចៗកុំឱ្យជាន់គ្នាចំកណ្ដាលពេក
+            const offsetX = (index - (cards.length - 1) / 2) * 20; 
+            flyCard.style.top = `${targetRect.top + (targetRect.height / 2) - 38}px`;
+            flyCard.style.left = `${targetRect.left + (targetRect.width / 2) - 26 + offsetX}px`;
+            flyCard.style.transform = `scale(1) rotate(${Math.random() * 20 - 10}deg)`;
+        }, index * 60); // បង្កើតការលោតចេញមកម្ដងមួយសន្លឹកៗយ៉ាងស្អាត
+
+        // ពេលហោះទៅដល់ដកវាចេញពីអេក្រង់ រួចបង្ហាញបៀរពិតលើតុ
+        flyCard.addEventListener('transitionend', () => {
+            flyCard.remove();
+            completed++;
+            if (completed === cards.length) {
+                callback();
+            }
+        });
     });
+}
 
-    playersData = updatedHands;
-    
-    const me = updatedHands.find(p => p.id === myId);
-    if (me && me.hand) {
-        myHand = me.hand; 
-    }
-
-    renderPlayers(updatedHands);
-    renderMyCards();
-
-    if (playersData[currentTurnIndex]) {
-        document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
-    }
-
-    const tableDiv = document.getElementById('table');
-    tableDiv.innerHTML = ''; // លុបបៀរចាស់ចោលភ្លាមៗ (មិនបង្ហាញបៀរអ្នកមុនទេ)
-    
-    if (cards && cards.length > 0) {
-        // បង្កើតកញ្ចប់ Wrapper សម្រាប់គំនូរជីវចលហោះចូលតុធម្មតា
-        const wrapper = document.createElement('div');
-        wrapper.className = 'flying-card-wrapper';
-
-        cards.forEach(card => {
-            const el = document.createElement('div');
-            const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
-            el.className = `card ${isRed}`;
-            el.style.cursor = 'default';
-            el.innerHTML = `
-                <div>${card.value}</div>
-                <div style="align-self: center; font-size: 20px;">${card.suit}</div>
-                <div style="align-self: flex-end; transform: rotate(180deg);">${card.value}</div>
-            `;
-            wrapper.appendChild(el);
+socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
+    // ដំណើរការបៀរហោះជាមុនសិន ទើប Render ប្លង់តុថ្មីតាមក្រោយ
+    animateFlyingCards(by, cards, () => {
+        currentTurnIndex = nextTurn;
+        
+        updatedHands.forEach(p => {
+            const found = playersData.find(oldP => oldP.id === p.id);
+            if (found) {
+                found.cardCount = p.hand ? p.hand.length : p.cardCount;
+                found.rank = p.rank; 
+                found.passed = p.passed; 
+            }
         });
 
-        tableDiv.appendChild(wrapper);
-    } else {
-        tableDiv.innerHTML = '<div style="color: #a7f3d0;">មិនទាន់មានបៀរចុះឡើយ</div>';
-    }
-    
-    selectedCards = [];
-    renderMyCards();
+        playersData = updatedHands;
+        
+        const me = updatedHands.find(p => p.id === myId);
+        if (me && me.hand) {
+            myHand = me.hand;
+        }
+
+        renderPlayers(updatedHands);
+        renderMyCards();
+
+        if (playersData[currentTurnIndex]) {
+            document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
+        }
+
+        const tableDiv = document.getElementById('table');
+        tableDiv.innerHTML = '';
+        
+        if (cards && cards.length > 0) {
+            cards.forEach(card => {
+                const el = document.createElement('div');
+                const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
+                el.className = `card ${isRed}`;
+                el.style.cursor = 'default';
+                el.style.marginRight = '4px';
+                el.innerHTML = `
+                    <div>${card.value}</div>
+                    <div style="align-self: center; font-size: 20px;">${card.suit}</div>
+                    <div style="align-self: flex-end; transform: rotate(180deg);">${card.value}</div>
+                `;
+                tableDiv.appendChild(el);
+            });
+        } else {
+            tableDiv.innerHTML = '<div style="color: #a7f3d0;">មិនទាន់មានបៀរចុះឡើយ</div>';
+        }
+        
+        selectedCards = [];
+        renderMyCards();
+    });
 });
 
 socket.on('playerPassed', ({ name, id, message }) => {
