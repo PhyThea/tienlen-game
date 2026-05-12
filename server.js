@@ -1,5 +1,5 @@
 // =================================================================
-// server.js (កំណែទម្រង់រួមបញ្ចូល ទៀនឡេន + កាតេ និងមុខងារគុបទេ)
+// server.js (គួបបញ្ចូលគ្នា Tien Len និង Catte - រត់រលូនឥតខ្ចោះ)
 // =================================================================
 
 const express = require('express');
@@ -14,12 +14,8 @@ app.use(express.static(__dirname));
 
 const rooms = {};
 
-// លំដាប់បៀរសម្រាប់ Tien Len
 const CARD_ORDER = ['3','4','5','6','7','8','9','10','J','Q','K','A','2'];
 const SUIT_ORDER = { '♠': 0, '♣': 1, '♦': 2, '♥': 3 };
-
-// លំដាប់បៀរសម្រាប់ កាតេ (A ធំជាងគេ, 2 តូចជាងគេ)
-const KATE_CARD_ORDER = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
 
 function createDeck() {
     const suits = ['♠', '♣', '♦', '♥'];
@@ -40,28 +36,21 @@ function shuffleDeck(deck) {
     return deck;
 }
 
-function getCardPower(card, gameMode = 'tienlen') {
-    if (gameMode === 'kate') {
-        return (KATE_CARD_ORDER.indexOf(card.value) * 10) + SUIT_ORDER[card.suit];
-    }
+function getCardPower(card) {
     return (CARD_ORDER.indexOf(card.value) * 10) + SUIT_ORDER[card.suit];
 }
 
-function sortCards(cards, gameMode = 'tienlen') {
-    return cards.sort((a, b) => getCardPower(a, gameMode) - getCardPower(b, gameMode));
+function sortCards(cards) {
+    return cards.sort((a, b) => getCardPower(a) - getCardPower(b));
 }
 
-function getComboType(cards, gameMode = 'tienlen') {
-    if (gameMode === 'kate') {
-        // ហ្គេមកាតេចុះបានម្ដងមួយសន្លឹកៗប៉ុណ្ណោះ
-        return cards.length === 1 ? 'single' : null;
-    }
-
+// --- TIEN LEN LOGIC ---
+function getComboType(cards) {
     const len = cards.length;
     if (len === 0) return null;
     if (len === 1) return 'single';
     
-    const sorted = sortCards([...cards], 'tienlen');
+    const sorted = sortCards([...cards]);
     const sameValue = cards.every(c => c.value === cards[0].value);
     
     if (sameValue) {
@@ -105,47 +94,34 @@ function getComboType(cards, gameMode = 'tienlen') {
     return null;
 }
 
-function comparePlay(newCards, oldCards, gameMode = 'tienlen') {
+function comparePlay(newCards, oldCards) {
     if (!oldCards || oldCards.length === 0) return true;
     
-    if (gameMode === 'kate') {
-        if (newCards.length !== 1 || oldCards.length !== 1) return false;
-        const newCard = newCards[0];
-        const oldCard = oldCards[0];
-        // ក្នុងច្បាប់កាតេ៖ ត្រូវតែបៀរដែលមានទឹក (Suit) ដូចគ្នា និងមានកម្លាំងធំជាង
-        return (newCard.suit === oldCard.suit) && (getCardPower(newCard, 'kate') > getCardPower(oldCard, 'kate'));
-    }
-
-    // ច្បាប់ Tien Len ដើម
-    const newType = getComboType(newCards, 'tienlen');
-    const oldType = getComboType(oldCards, 'tienlen');
-    const newMax = getCardPower(sortCards([...newCards], 'tienlen').pop(), 'tienlen');
-    const oldMax = getCardPower(sortCards([...oldCards], 'tienlen').pop(), 'tienlen');
+    const newType = getComboType(newCards);
+    const oldType = getComboType(oldCards);
+    const newMax = getCardPower(sortCards([...newCards]).pop());
+    const oldMax = getCardPower(sortCards([...oldCards]).pop());
 
     if (oldType === 'single' && oldCards[0].value === '2') {
         if (newType === 'bomb' || newType === 'quad_pair') return true;
     }
-
     if (oldType === 'bomb') {
         if (newType === 'bomb' && newMax > oldMax) return true;
         if (newType === 'quad_pair') return true;
     }
-
     if (oldType === 'quad_pair') {
         if (newType === 'quad_pair' && newMax > oldMax) return true;
     }
-
     if (oldType === 'triple_pair') {
         if (newType === 'triple_pair' && newMax > oldMax) return true;
     }
-
     if (newType === oldType && newCards.length === oldCards.length) {
         return newMax > oldMax;
     }
-
     return false;
 }
 
+// --- GENERAL GAME LOGIC ---
 function moveToNextTurn(room) {
     let originalIndex = room.currentTurnIndex;
     let nextIndex = originalIndex;
@@ -166,17 +142,33 @@ function moveToNextTurn(room) {
 }
 
 function handleTurnAndRoundStatus(room) {
+    if (room.gameType === 'catte') {
+        // សម្រាប់កាតេ វេនត្រូវរត់ទៅអ្នកបន្ទាប់ដែលមានបៀរជានិច្ច (គ្មានការ Pass ដាច់ជុំទេ)
+        let originalIndex = room.currentTurnIndex;
+        let nextIndex = originalIndex;
+        let found = false;
+        for (let i = 1; i <= room.players.length; i++) {
+            let checkIndex = (originalIndex + i) % room.players.length;
+            let p = room.players[checkIndex];
+            if (p && p.hand.length > 0) {
+                nextIndex = checkIndex;
+                found = true;
+                break;
+            }
+        }
+        if (found) room.currentTurnIndex = nextIndex;
+        return;
+    }
+
+    // Tien Len Logic ដើម
     const stillPlayingAndNotPassed = room.players.filter(p => p.hand.length > 0 && !p.passed);
-    
     if (stillPlayingAndNotPassed.length <= 1) {
         room.playedCards = [];
-        
         room.players.forEach(p => {
             if (p.hand.length > 0) p.passed = false;
         });
 
         let nextWinnerIndex = room.players.findIndex(p => p.id === room.lastPlayerId);
-        
         if (nextWinnerIndex === -1 || room.players[nextWinnerIndex].hand.length === 0) {
             let originalIdx = room.currentTurnIndex;
             for (let i = 1; i <= room.players.length; i++) {
@@ -188,7 +180,6 @@ function handleTurnAndRoundStatus(room) {
                 }
             }
         }
-
         room.currentTurnIndex = nextWinnerIndex !== -1 ? nextWinnerIndex : 0;
         io.to(room.roomId).emit('clearTable', { nextPlayer: room.players[room.currentTurnIndex].name });
     } else {
@@ -202,7 +193,7 @@ function broadcastRoomList() {
             roomId: id,
             playerCount: rooms[id].players.length,
             status: rooms[id].status,
-            gameMode: rooms[id].gameMode || 'tienlen',
+            gameType: rooms[id].gameType || 'tienlen',
             hasPassword: rooms[id].password && rooms[id].password !== "" ? true : false
         };
     });
@@ -212,17 +203,17 @@ function broadcastRoomList() {
 io.on('connection', (socket) => {
     broadcastRoomList();
 
-    socket.on('createRoom', ({ roomId, password, playerName, gameMode }) => {
+    socket.on('createRoom', ({ roomId, password, playerName, gameType }) => {
         if (rooms[roomId]) {
             return socket.emit('errorMsg', 'បន្ទប់នេះមានរួចហើយ!');
         }
         
         rooms[roomId] = {
             roomId: roomId,
+            gameType: gameType || 'tienlen', // 'tienlen' ឬ 'catte'
             players: [{ id: socket.id, name: playerName || 'Player 1', hand: [], passed: false, isSpectator: false, rank: null }],
             creatorId: socket.id,
             status: 'waiting', 
-            gameMode: gameMode || 'tienlen',
             password: password || "",
             currentTurnIndex: 0,
             playedCards: [],
@@ -241,7 +232,9 @@ io.on('connection', (socket) => {
         const room = rooms[roomId];
         if (!room) return socket.emit('errorMsg', 'រកមិនឃើញបន្ទប់នេះទេ!');
         if (room.password && room.password !== password) return socket.emit('errorMsg', 'លេខកូដសម្ងាត់មិនត្រឹមត្រូវ!');
-        if (room.players.length >= 4) return socket.emit('errorMsg', 'បន្ទប់ពេញហើយ!');
+        
+        const maxPlayers = room.gameType === 'catte' ? 6 : 4;
+        if (room.players.length >= maxPlayers) return socket.emit('errorMsg', `បន្ទប់ពេញហើយ! (ហ្គេមនេះអនុញ្ញាតត្រឹម ${maxPlayers} នាក់)`);
 
         const isSpectator = room.status === 'playing';
 
@@ -257,6 +250,14 @@ io.on('connection', (socket) => {
         socket.join(roomId);
         socket.emit('roomJoined', { roomId, playerId: socket.id, isSpectator });
         io.to(roomId).emit('updatePlayers', room.players);
+        broadcastRoomList();
+    });
+
+    socket.on('changeGameType', ({ roomId, gameType }) => {
+        const room = rooms[roomId];
+        if (!room || room.creatorId !== socket.id || room.status === 'playing') return;
+        room.gameType = gameType;
+        io.to(roomId).emit('gameTypeChanged', gameType);
         broadcastRoomList();
     });
 
@@ -280,24 +281,19 @@ io.on('connection', (socket) => {
         room.lastPlayerId = null;
         room.nextRank = 1; 
         
-        // ចែកបៀរ៖ Tien Len 13 សន្លឹក, Kate 6 សន្លឹក
-        const cardsPerPlayer = room.gameMode === 'kate' ? 6 : 13;
-
+        const cardsPerPlayer = room.gameType === 'catte' ? 6 : 13;
+        
         room.players.forEach((p, i) => {
-            p.hand = sortCards(deck.slice(i * cardsPerPlayer, (i + 1) * cardsPerPlayer), room.gameMode);
-            io.to(p.id).emit('dealCards', { hand: p.hand, gameMode: room.gameMode });
+            p.hand = sortCards(deck.slice(i * cardsPerPlayer, (i + 1) * cardsPerPlayer));
+            io.to(p.id).emit('dealCards', { hand: p.hand });
         });
 
         let startingIndex = -1;
         if (room.lastWinnerId) {
             startingIndex = room.players.findIndex(p => p.id === room.lastWinnerId);
         }
-        if (startingIndex === -1) {
-            if (room.gameMode === 'kate') {
-                startingIndex = 0; // កាតេចាប់ផ្ដើមពីម្ចាស់បន្ទប់ ឬរ៉េនដឹម
-            } else {
-                startingIndex = room.players.findIndex(p => p.hand.some(c => c.value === '3' && c.suit === '♠'));
-            }
+        if (startingIndex === -1 && room.gameType === 'tienlen') {
+            startingIndex = room.players.findIndex(p => p.hand.some(c => c.value === '3' && c.suit === '♠'));
         }
         if (startingIndex === -1) startingIndex = 0;
 
@@ -307,107 +303,187 @@ io.on('connection', (socket) => {
             players: room.players, 
             currentTurnIndex: room.currentTurnIndex,
             lastRoundWinnerId: room.lastWinnerId,
-            gameMode: room.gameMode
+            gameType: room.gameType
         });
         broadcastRoomList();
     });
 
-    socket.on('playCard', ({ roomId, cards }) => {
+    socket.on('playCard', ({ roomId, cards, isFolded }) => {
         const room = rooms[roomId];
         if (!room) return;
         const player = room.players[room.currentTurnIndex];
         
         if (!player || player.id !== socket.id) return socket.emit('errorMsg', 'មិនមែនវេនអ្នកទេ');
-        if (player.hand.length === 0) return socket.emit('errorMsg', 'អ្នកអស់បៀហើយ មិនអាចចុះបានទៀតទេ!');
+        if (player.hand.length === 0) return socket.emit('errorMsg', 'អ្នកអស់បៀហើយ!');
 
-        if (getComboType(cards, room.gameMode) && comparePlay(cards, room.playedCards, room.gameMode)) {
-            cards.forEach(c => {
-                const idx = player.hand.findIndex(pc => pc.value === c.value && pc.suit === c.suit);
-                if (idx !== -1) player.hand.splice(idx, 1);
-            });
+        if (room.gameType === 'catte') {
+            // --- CATTE GAME PLAY LOGIC ---
+            if (cards.length !== 1) return socket.emit('errorMsg', 'ហ្គេមកាតេត្រូវចុះបៀរម្ដងមួយសន្លឹកប៉ុណ្ណោះ!');
+            const targetCard = cards[0];
 
-            room.playedCards = cards;
-            room.lastPlayerId = socket.id;
-            player.passed = false; 
-
-            if (player.hand.length === 0) {
-                player.rank = room.nextRank;
-                room.nextRank++;
-                
-                if (player.rank === 1) {
-                    room.lastWinnerId = player.id;
-                }
-            }
-
-            // ពិនិត្យមើលបើបៀរសល់ ២ សន្លឹកគត់ ដើម្បីធ្វើការ Alert គុបទេ
-            if (player.hand.length === 2) {
-                io.to(roomId).emit('triggerKubTe', { name: player.name, id: player.id });
-            }
-
-            const remainingActivePlayers = room.players.filter(p => p.hand.length > 0);
-
-            if (remainingActivePlayers.length <= 1) {
-                if (remainingActivePlayers.length === 1) {
-                    remainingActivePlayers[0].rank = room.nextRank;
-                }
-
-                room.status = 'waiting'; 
-
-                const results = room.players.map(p => ({ 
-                    id: p.id,
-                    name: p.name, 
-                    remaining: [...p.hand], 
-                    isSpectator: p.hand.length === 0 && p.rank !== null ? false : p.isSpectator,
-                    rank: p.rank
-                }));
-
-                io.to(roomId).emit('cardPlayed', { 
-                    by: player.name, 
-                    cards, 
-                    nextTurn: room.currentTurnIndex,
-                    cardCount: player.hand.length,
-                    updatedHands: room.players 
-                });
-
-                setTimeout(() => {
-                    const finalWinner = room.players.find(p => p.rank === 1);
-                    io.to(roomId).emit('gameWon', { 
-                        winner: finalWinner ? finalWinner.name : 'រកមិនឃើញ', 
-                        winnerId: finalWinner ? finalWinner.id : null, 
-                        allHands: results 
-                    });
-                    broadcastRoomList();
-                }, 1500);
-
+            let isValidMove = false;
+            if (isFolded) {
+                isValidMove = true; // ធិបបៀរគឺអនុញ្ញាតជានិច្ច
             } else {
-                handleTurnAndRoundStatus(room);
-
-                io.to(roomId).emit('cardPlayed', { 
-                    by: player.name, 
-                    cards, 
-                    nextTurn: room.currentTurnIndex,
-                    cardCount: player.hand.length,
-                    updatedHands: room.players 
-                });
+                // បើវាយបើកមុខ៖ ត្រូវឆែកមើលថាតើនៅលើតុមានបៀរចាស់ដែលគេវាយមុនឬអត់
+                if (room.playedCards.length === 0) {
+                    isValidMove = true; // ហ្គេមដំបូង ឬតុទើបលាង
+                } else {
+                    const lastCard = room.playedCards[0];
+                    // ច្បាប់៖ ទឹកដូចគ្នា និងកម្លាំងធំជាង
+                    if (targetCard.suit === lastCard.suit && getCardPower(targetCard) > getCardPower(lastCard)) {
+                        isValidMove = true;
+                    }
+                }
             }
+
+            if (isValidMove) {
+                // ដកបៀរចេញពីដៃ
+                const idx = player.hand.findIndex(pc => pc.value === targetCard.value && pc.suit === targetCard.suit);
+                if (idx !== -1) player.hand.splice(idx, 1);
+
+                // បើវាយបើកមុខ ត្រូវធ្វើបច្ចុប្បន្នភាពបៀរនៅលើតុ
+                if (!isFolded) {
+                    room.playedCards = [targetCard];
+                    room.lastPlayerId = socket.id;
+                }
+
+                // ពិនិត្យមើលថាតើហ្គេមត្រូវបញ្ចប់ឬនៅ (ពេលគ្រប់គ្នាអស់បៀរទាំង ៦ សន្លឹក)
+                const remainingActivePlayers = room.players.filter(p => p.hand.length > 0);
+
+                if (remainingActivePlayers.length === 0) {
+                    // បញ្ចប់ហ្គេម៖ ស្វែងរកអ្នកឈ្នះចុងក្រោយ (អ្នកដែលវាយសន្លឹកធំជាងគេចុងក្រោយ)
+                    let winnerId = room.lastPlayerId || room.players[0].id;
+                    room.players.forEach(p => {
+                        if (p.id === winnerId) p.rank = 1;
+                        else p.rank = 2;
+                    });
+
+                    room.status = 'waiting';
+                    room.lastWinnerId = winnerId;
+
+                    const results = room.players.map(p => ({ 
+                        id: p.id,
+                        name: p.name, 
+                        remaining: [], 
+                        isSpectator: p.isSpectator,
+                        rank: p.rank
+                    }));
+
+                    io.to(roomId).emit('cardPlayed', { 
+                        by: player.name, 
+                        cards: isFolded ? [{value: '?', suit: '🔒'}] : cards, 
+                        nextTurn: room.currentTurnIndex,
+                        cardCount: player.hand.length,
+                        updatedHands: room.players,
+                        isFolded: isFolded,
+                        shoutOut: player.hand.length === 1 // សល់ ២ សន្លឹកមុនវាយ ចុះចេញសល់ ១
+                    });
+
+                    setTimeout(() => {
+                        const finalWinner = room.players.find(p => p.rank === 1);
+                        io.to(roomId).emit('gameWon', { 
+                            winner: finalWinner ? finalWinner.name : 'រកមិនឃើញ', 
+                            winnerId: finalWinner ? finalWinner.id : null, 
+                            allHands: results 
+                        });
+                        broadcastRoomList();
+                    }, 1500);
+
+                } else {
+                    let lastTurnIdx = room.currentTurnIndex;
+                    handleTurnAndRoundStatus(room);
+
+                    io.to(roomId).emit('cardPlayed', { 
+                        by: player.name, 
+                        cards: isFolded ? [{value: '?', suit: '🔒'}] : cards, 
+                        nextTurn: room.currentTurnIndex,
+                        cardCount: player.hand.length,
+                        updatedHands: room.players,
+                        isFolded: isFolded,
+                        shoutOut: player.hand.length === 1 
+                    });
+                }
+            } else {
+                socket.emit('errorMsg', 'ទឹកបៀរមិនត្រូវ ឬបៀរតូចជាងបៀរនៅលើតុ! បើគ្មានបៀរស៊ីទេ សូមចុច ធិបបៀរ!');
+            }
+
         } else {
-            socket.emit('errorMsg', room.gameMode === 'kate' ? 'ត្រូវចុះបៀរទឹកដូចគ្នា និងធំជាងនៅលើតុ!' : 'ចុះមិនត្រូវក្បួន ឬបៀតូចជាង!');
+            // --- TIEN LEN PLAY LOGIC ---
+            if (getComboType(cards) && comparePlay(cards, room.playedCards)) {
+                cards.forEach(c => {
+                    const idx = player.hand.findIndex(pc => pc.value === c.value && pc.suit === c.suit);
+                    if (idx !== -1) player.hand.splice(idx, 1);
+                });
+
+                room.playedCards = cards;
+                room.lastPlayerId = socket.id;
+                player.passed = false; 
+
+                if (player.hand.length === 0) {
+                    player.rank = room.nextRank;
+                    room.nextRank++;
+                    if (player.rank === 1) room.lastWinnerId = player.id;
+                }
+
+                const remainingActivePlayers = room.players.filter(p => p.hand.length > 0);
+
+                if (remainingActivePlayers.length <= 1) {
+                    if (remainingActivePlayers.length === 1) {
+                        remainingActivePlayers[0].rank = room.nextRank;
+                    }
+                    room.status = 'waiting'; 
+
+                    const results = room.players.map(p => ({ 
+                        id: p.id,
+                        name: p.name, 
+                        remaining: [...p.hand], 
+                        isSpectator: p.hand.length === 0 && p.rank !== null ? false : p.isSpectator,
+                        rank: p.rank
+                    }));
+
+                    io.to(roomId).emit('cardPlayed', { 
+                        by: player.name, 
+                        cards, 
+                        nextTurn: room.currentTurnIndex,
+                        cardCount: player.hand.length,
+                        updatedHands: room.players 
+                    });
+
+                    setTimeout(() => {
+                        const finalWinner = room.players.find(p => p.rank === 1);
+                        io.to(roomId).emit('gameWon', { 
+                            winner: finalWinner ? finalWinner.name : 'រកមិនឃើញ', 
+                            winnerId: finalWinner ? finalWinner.id : null, 
+                            allHands: results 
+                        });
+                        broadcastRoomList();
+                    }, 1500);
+
+                } else {
+                    handleTurnAndRoundStatus(room);
+                    io.to(roomId).emit('cardPlayed', { 
+                        by: player.name, 
+                        cards, 
+                        nextTurn: room.currentTurnIndex,
+                        cardCount: player.hand.length,
+                        updatedHands: room.players 
+                    });
+                }
+            } else {
+                socket.emit('errorMsg', 'ចុះមិនត្រូវក្បួន ឬបៀតូចជាង!');
+            }
         }
     });
 
     socket.on('passTurn', (roomId) => {
         const room = rooms[roomId];
-        if (!room) return;
+        if (!room || room.gameType === 'catte') return; // Catte គ្មាន Pass ទេ
         const player = room.players[room.currentTurnIndex];
         if (!player || player.id !== socket.id) return;
 
         player.passed = true;
-        
-        io.to(roomId).emit('playerPassed', { 
-            name: player.name, 
-            id: player.id,
-            message: "Pass"
-        });
+        io.to(roomId).emit('playerPassed', { name: player.name, id: player.id });
         
         handleTurnAndRoundStatus(room);
         io.to(roomId).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex });
