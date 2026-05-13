@@ -616,23 +616,29 @@ function updateControlsState() {
     
     if (playBtn && passBtn) {
         if (isMyTurn()) {
+            // ១. បើដល់វេនខ្លួនឯង គឺច្បាស់ជាអាចចុចប៊ូតុង "ចុះបៀរ (Play)" បានជានិច្ច
             playBtn.disabled = false;
             
-            // 🔐 ពិនិត្យមើលថាតើមានបៀរលើតុដែរឬទេ? ឬតើយើងជាម្ចាស់បៀរលើតុ (លេងមុនគេ) មែនទេ?
+            // ២. ពិនិត្យមើលស្ថានភាពតុ ដើម្បីគ្រប់គ្រងប៊ូតុង "រំលង (Pass)"
             const tableDiv = document.getElementById('table');
-            const isTableEmpty = tableDiv && (tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត!'));
+            const isTableEmpty = tableDiv && (
+                tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || 
+                tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || 
+                tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត!')
+            );
             
-            // ស្វែងរកទិន្នន័យខ្លួនឯងក្នុងចំណោមអ្នកលេងទាំងអស់ ដើម្បីឆែកមើលស្ថានភាព Pass របស់អ្នកដទៃ
-            const activePlayersCount = playersData.filter(p => p.hand && p.hand.length > 0).length;
-            const passedPlayersCount = playersData.filter(p => p.hand && p.hand.length > 0 && p.passed).length;
+            // គណនាចំនួនអ្នកលេងដែលមិនទាន់អស់បៀរ និងអ្នកលេងដែលបាន Pass រួច
+            const activePlayersCount = playersData.filter(p => p.hand && p.hand.length > 0 && !p.isSpectator).length;
+            const passedPlayersCount = playersData.filter(p => p.hand && p.hand.length > 0 && !p.isSpectator && p.passed).length;
 
-            // ប្រសិនបើតុទំនេរ ឬគ្រប់គ្នា Pass អស់ហើយសល់តែយើង គឺត្រូវបិទប៊ូតុង Pass មិនឱ្យចុចដាច់ខាត
+            // 🔐 លក្ខខណ្ឌចាក់សោ៖ បើជាជុំថ្មី (តុទំនេរ) ឬក៏អ្នកដទៃ Pass អស់ហើយសល់តែខ្លួនឯង គឺ "មិនអនុញ្ញាតឱ្យ Pass ឡើយ"
             if (isTableEmpty || passedPlayersCount >= (activePlayersCount - 1)) {
-                passBtn.disabled = true;
+                passBtn.disabled = true; // ឡុកប៊ូតុង Pass សម្រាប់អ្នកទី១ (ម្ចាស់បៀរ)
             } else {
-                passBtn.disabled = false;
+                passBtn.disabled = false; // អ្នកដទៃ (អ្នកទី២, ទី៣, ទី៤) ដែលត្រូវស៊ីវេនបន្ត គឺអាចចុច Pass បានធម្មតា!
             }
         } else {
+            // បើមិនមែនវេនខ្លួនឯងទេ គឺត្រូវបិទចោលទាំងពីរ
             playBtn.disabled = true;
             passBtn.disabled = true;
         }
@@ -783,7 +789,7 @@ function passTurn() {
 socket.on('turnChanged', ({ currentTurnIndex: turn, players }) => {
     currentTurnIndex = turn;
     if (players) {
-        playersData = players;
+        playersData = players; // ធ្វើបច្ចុប្បន្នភាពទិន្នន័យ Pass របស់អ្នកលេង
     }
     if (playersData[currentTurnIndex]) {
         document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
