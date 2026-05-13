@@ -646,7 +646,23 @@ function updateControlsState() {
     const turnState = !isMyTurn();
     if (playBtn) playBtn.disabled = turnState;
     if (passBtn) passBtn.disabled = turnState;
-    if (burnBtn) burnBtn.disabled = turnState;
+    
+    // 💡 ពិនិត្យមើលលក្ខខណ្ឌទឹកថ្មីនៅលើតុ
+    const tableDiv = document.getElementById('table');
+    const isNewRound = tableDiv && (
+        tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || 
+        tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || 
+        tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត!')
+    );
+
+    if (burnBtn) {
+        // បើមិនមែនវេនខ្លួនឯង ឬ ជាវេនដែលត្រូវបោះទឹកថ្មី គឺបិទប៊ូតុង Burn (Tip) ភ្លាម
+        if (turnState || isNewRound) {
+            burnBtn.disabled = true;
+        } else {
+            burnBtn.disabled = false;
+        }
+    }
 }
 
 function renderPlayers(players) {
@@ -827,19 +843,23 @@ function burnSelectedCard() {
     if (!isMyTurn()) return alert("មិនទាន់ដល់វេនរបស់អ្នកឡើយ!");
     if (selectedCards.length !== 1) return alert("សូមជ្រើសរើសសន្លឹកបៀរចំនួន ១ សន្លឹកដើម្បីធិបផ្កាប់!");
 
+    // 💡 បន្ថែមការការពារនៅលើ Client
+    const tableDiv = document.getElementById('table');
+    const isNewRound = tableDiv && (
+        tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || 
+        tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || 
+        tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត!')
+    );
+
+    if (isNewRound) {
+        return alert("⚠️ មិនអាចថែម tip/ធិប បានទេ! អ្នកដល់វេនត្រូវដាក់ទឹកថ្មីឱ្យគេស៊ីហើយ។ សូមជ្រើសរើសបៀរ រួចចុចប៊ូតុង [ចុះបៀរ (Play)]!");
+    }
+
     triggerSayMessage(myId, "ធិបផ្កាប់ 🃏");
     socket.emit('burnCard', { roomId: currentRoom, card: selectedCards[0] });
     
     // ធិបរួច លុបបៀរដែលទើបតែរើសចេញភ្លាមៗ ការពារការច្រឡំ
     selectedCards = [];
-}
-
-function burnSelectedCard() {
-    if (!isMyTurn()) return alert("មិនទាន់ដល់វេនរបស់អ្នកឡើយ!");
-    if (selectedCards.length !== 1) return alert("សូមជ្រើសរើសសន្លឹកបៀរចំនួន ១ សន្លឹកដើម្បីធិបផ្កាប់!");
-
-    triggerSayMessage(myId, "ធិបផ្កាប់ 🃏");
-    socket.emit('burnCard', { roomId: currentRoom, card: selectedCards[0] });
 }
 
 function passTurn() {
