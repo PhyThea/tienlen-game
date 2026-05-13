@@ -116,8 +116,12 @@ function comparePlay(newCards, oldCards) {
     
     if (!newType) return false; // បៀរថ្មីមិនត្រូវក្បួនច្បាប់
 
-    const newMax = getCardPower(sortCards([...newCards]).pop());
-    const oldMax = getCardPower(sortCards([...oldCards]).pop());
+    // 💡 ដំណោះស្រាយ៖ បង្កើត Array ថ្មី រួច Sort វាឱ្យបានត្រឹមត្រូវជាមុនសិន មុននឹងប្រើ .pop()
+    const sortedNew = sortCards([...newCards]);
+    const sortedOld = sortCards([...oldCards]);
+    
+    const newMax = getCardPower(sortedNew[sortedNew.length - 1]);
+    const oldMax = getCardPower(sortedOld[sortedOld.length - 1]);
 
     // =================================================================
     // 👑 ច្បាប់ពិសេស៖ ការកាត់ហាយ (Chop Rules) 👑
@@ -125,33 +129,28 @@ function comparePlay(newCards, oldCards) {
 
     // ១. បើនៅលើតុជាបៀរ ហាយទោល (សន្លឹក ២ មួយសន្លឹក)
     if (oldType === 'single' && oldCards[0].value === '2') {
-        // ៣ផែជាប់គ្នា, ៤ផែជាប់គ្នា ឬការ៉េ អាចកាត់បៀរ ២ មួយសន្លឹកបាន
         if (newType === 'triple_pair' || newType === 'quad_pair' || newType === 'bomb') return true;
     }
 
     // ២. បើនៅលើតុជាបៀរ គូហាយ (សន្លឹក ២ មួយគូ / ២សន្លឹក)
     if (oldType === 'pair' && oldCards[0].value === '2') {
-        // ៤ផែជាប់គ្នា ឬការ៉េ អាចកាត់បាន (៣ផែជាប់គ្នាកាត់គូ ២ មិនបានទេ)
         if (newType === 'quad_pair' || newType === 'bomb') return true;
     }
 
     // ៣. បើនៅលើតុជា ការ៉េ (Bomb)
     if (oldType === 'bomb') {
-        // ការ៉េដែលធំជាង ឬ ៤ផែជាប់គ្នា អាចស៊ីកាត់បាន
         if (newType === 'bomb' && newMax > oldMax) return true;
         if (newType === 'quad_pair') return true;
     }
 
     // ៤. បើនៅលើតុជា ៣ផែជាប់គ្នា (Triple Pair)
     if (oldType === 'triple_pair') {
-        // ៣ផែជាប់គ្នាដែលធំជាង, ៤ផែជាប់គ្នា ឬការ៉េ អាចស៊ីកាត់បាន
         if (newType === 'triple_pair' && newMax > oldMax) return true;
         if (newType === 'quad_pair' || newType === 'bomb') return true;
     }
 
     // ៥. បើនៅលើតុជា ៤ផែជាប់គ្នា (Quad Pair)
     if (oldType === 'quad_pair') {
-        // មានតែ ៤ផែជាប់គ្នាដែលធំជាងប៉ុណ្ណោះ ទើបអាចស៊ីបាន
         if (newType === 'quad_pair' && newMax > oldMax) return true;
     }
 
