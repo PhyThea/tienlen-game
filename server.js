@@ -317,7 +317,7 @@ io.on('connection', (socket) => {
         broadcastRoomList();
     });
 
-    socket.on('playCard', ({ roomId, cards }) => {
+    socket.on('playCards', ({ roomId, cards }) => {
         const room = rooms[roomId];
         if (!room) return;
         const player = room.players[room.currentTurnIndex];
