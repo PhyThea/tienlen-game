@@ -629,13 +629,17 @@ function renderPlayers(players) {
         el.className = 'player';
         el.id = `player-card-${p.id}`; 
         
-        const isCurrentTurn = (index === currentTurnIndex && !p.isSpectator && p.hand.length > 0);
+        // ✨ ការកែប្រែចំណុចគន្លឹះ៖ ផ្ទៀងផ្ទាត់វេនលេងឲ្យត្រូវតាម index របស់ server និងស្ថានភាពមិនទាន់អស់បៀរ
+        const isCurrentTurn = (currentTurnIndex !== null && index === currentTurnIndex && !p.isSpectator && p.hand && p.hand.length > 0);
         
         if (isCurrentTurn) {
             el.classList.add('active-turn'); 
         }
 
-        if (p.passed && p.hand.length > 0) {
+        // ឆែកមើលចំនួនបៀរដែលសល់ឲ្យបានត្រឹមត្រូវ
+        const count = p.hand ? p.hand.length : (p.cardCount !== undefined ? p.cardCount : 13);
+
+        if (p.passed && count > 0) {
             el.classList.add('player-passed'); 
         }
 
@@ -646,14 +650,14 @@ function renderPlayers(players) {
             let rankBadge = p.rank === 1 ? '🎉 លេខ ១' : `🥈 ទី ${p.rank}`;
             roleText = `<div style="color: #22c55e; font-weight: bold; margin-top:2px;">${rankBadge}</div>`;
         } else {
-            const count = p.hand ? p.hand.length : (p.cardCount !== undefined ? p.cardCount : 13);
             roleText = `<div class="card-counter">🃏 សល់៖ ${count}</div>`;
         }
 
-        if (p.passed && !p.isSpectator && p.hand.length > 0) {
+        if (p.passed && !p.isSpectator && count > 0) {
             roleText += '<br><span style="color: #ef4444; font-weight: bold; font-size: 11px;">❌ Pass</span>';
         }
 
+        // បង្ហាញ Badge ពណ៌បៃតង "វេនអ្នក" ឬ "កំពុងលេង" ឲ្យចំអ្នកដែលមានវេនពិតប្រាកដ
         let turnBadgeHTML = isCurrentTurn ? `<div class="turn-badge">${p.id === myId ? '🟢 វេនអ្នក' : '🎯 កំពុងលេង'}</div>` : '';
 
         el.innerHTML = `
