@@ -303,9 +303,8 @@ button:disabled {
     cursor: not-allowed;
     box-shadow: none !important;
     border: none !important;
-    pointer-events: none;
+    pointer-events: none; /* ❌ ជួរនេះហើយដែលធ្វើឱ្យចុច Select មិនកើត */
 }
-
 .table-card {
     background: white;
     color: black;
@@ -647,13 +646,13 @@ function updateControlsState() {
     if (playBtn) playBtn.disabled = turnState;
     if (passBtn) passBtn.disabled = turnState;
     
-    // 💡 ពិនិត្យមើលលក្ខខណ្ឌទឹកថ្មី៖ ប្រសិនបើនៅលើតុមិនទាន់មានបៀរចុះសោះ (កាតព្វកិច្ចត្រូវបោះទឹកថ្មី)
+    // 💡 ឆែកមើលលក្ខខណ្ឌទឹកថ្មី៖ ប្រសិនបើនៅលើតុមិនទាន់មានបៀរចុះសោះ ( table គ្មានកាត )
     const tableDiv = document.getElementById('table');
     const hasCardsOnTable = tableDiv && tableDiv.getElementsByClassName('table-card').length > 0;
-    const isNewRound = !hasCardsOnTable; // បើគ្មានបៀរលើតុទាល់តែសោះ មានន័យថាជាទឹកថ្មី
+    const isNewRound = !hasCardsOnTable; 
 
     if (burnBtn) {
-        // បើមិនមែនវេនខ្លួនឯង ឬ ដល់វេនត្រូវដាក់ទឹកថ្មី គឺបិទប៊ូតុង Burn (ផ្កាប់) ភ្លាម
+        // បើមិនមែនវេនខ្លួនឯង ឬ ដល់វេនត្រូវដាក់ទឹកថ្មី គឺចាក់សោប៊ូតុង Burn (ធិប) ភ្លាម
         if (turnState || isNewRound) {
             burnBtn.disabled = true;
         } else {
@@ -661,7 +660,6 @@ function updateControlsState() {
         }
     }
 }
-
 function renderPlayers(players) {
     playersData = players;
     const div = document.getElementById('players');
@@ -735,7 +733,6 @@ function renderMyCards() {
     
     const myTurn = isMyTurn();
     const tableDiv = document.getElementById('table');
-    // 💡 កែប្រែការឆែកលក្ខខណ្ឌទឹកថ្មីឱ្យត្រូវគ្នាជាមួយ updateControlsState
     const hasCardsOnTable = tableDiv && tableDiv.getElementsByClassName('table-card').length > 0;
     const isNewRound = !hasCardsOnTable;
 
@@ -744,8 +741,9 @@ function renderMyCards() {
         const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
         el.className = `card ${isRed}`;
         
+        // 💡 កែប្រែត្រង់នេះ៖ ទោះបីជាប្រព័ន្ធមិនទាន់សមស្របវេន ក៏មិនត្រូវចាក់សោ Pointer Events ដែរ ដើម្បីឱ្យចុច Select បាន
         if (!myTurn) {
-            el.classList.add('disabled-card');
+            el.style.opacity = "0.7"; // ឱ្យវារៀងស្រអាប់បន្តិចបង្ហាញថាខុសវេន ប៉ុន្តែនៅតែចុចបាន
         } else {
             if (isNewRound && currentGameMode === 'tienlen') {
                 if (!lastRoundWinnerId) {
@@ -771,8 +769,7 @@ function renderMyCards() {
         
         el.onclick = (e) => {
             if (!isMyTurn()) {
-                e.preventDefault();
-                e.stopPropagation();
+                alert("មិនទាន់ដល់វេនរបស់អ្នកឡើយ!");
                 return false; 
             }
             toggleCard(card);
@@ -780,6 +777,7 @@ function renderMyCards() {
         div.appendChild(el);
     });
 }
+
 function triggerSayMessage(playerId, msg) {
     const playerCard = document.getElementById(`player-card-${playerId}`);
     if (playerCard) {
@@ -800,14 +798,14 @@ function toggleCard(card) {
     const idx = selectedCards.findIndex(c => c.value === card.value && c.suit === card.suit);
     
     if (currentGameMode === 'catte') {
-        // សម្រាប់កាតេ៖ អនុញ្ញាតឱ្យ Select បានតែម្តង ១ សន្លឹកគត់ (ចុចយកអាថ្មី អាចាស់ដកចេញ)
+        // សម្រាប់កាតេ៖ រើសម្តងបានតែ ១ សន្លឹកគត់
         if (idx === -1) {
             selectedCards = [card]; 
         } else {
             selectedCards = [];
         }
     } else {
-        // សម្រាប់ទៀនឡេន៖ អាច Select ច្រើនសន្លឹកបាន
+        // សម្រាប់ទៀនឡេន៖ រើសបានច្រើនសន្លឹក
         if (idx === -1) {
             selectedCards.push(card);
         } else {
@@ -815,9 +813,7 @@ function toggleCard(card) {
         }
     }
     renderMyCards();
-    
-    // 💡 ថែមបន្ទាត់នេះ ដើម្បីឱ្យវា Update ស្ថានភាពប៊ូតុងបិទ/បើក ពេលយើងចុច Select បៀរ
-    updateControlsState();
+    updateControlsState(); // 💡 ធ្វើបច្ចុប្បន្នភាពប៊ូតុងបញ្ជាភ្លាមៗ
 }
 
 function playSelectedCards() {
