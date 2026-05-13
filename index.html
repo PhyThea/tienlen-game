@@ -559,22 +559,21 @@ function startGame() {
 }
 
 socket.on('gameStarted', ({ players, currentTurnIndex: turn, lastRoundWinnerId: serverWinnerId }) => {
+    // 1. រក្សាទុកទិន្នន័យទៅក្នុង global variables ឱ្យបានរៀបរយជាមុនសិន
     currentTurnIndex = turn;
     playersData = players;
     lastRoundWinnerId = serverWinnerId; 
+    
     const myData = players.find(p => p.id === myId);
     amISpectator = myData ? myData.isSpectator : false;
 
+    // 2. បង្ហាញផ្ទាំងហ្គេម
     document.body.classList.add('in-game');
-
     document.getElementById('lobbyArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'none';
     document.getElementById('gameArea').style.display = 'block';
     
     document.getElementById('table').innerHTML = '<div style="color: #a7f3d0;">ចាប់ផ្ដើមហ្គេម!</div>';
-    
-    renderPlayers(players);
-    updateControlsState();
     
     if (playersData[currentTurnIndex]) {
         document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
@@ -585,13 +584,24 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn, lastRoundWinnerId: 
     } else {
         document.getElementById('actionControls').style.display = 'flex';
     }
+
+    // 3. ✨ ហៅមុខងារ render តាមលំដាប់លំដោយត្រឹមត្រូវ (សំខាន់បំផុត!)
+    renderPlayers(players);
+    updateControlsState();
+    setTimeout(() => {
+        renderMyCards(); // ប្រើ Timeout បន្តិចដើម្បីធានាថា DOM និង Variables ដំណើរការស្របគ្នាឥតខ្ចោះ
+    }, 50);
 });
 
 socket.on('dealCards', ({ hand }) => {
     myHand = hand;
     selectedCards = [];
-    renderMyCards();
+    
+    // បន្ថែម ២ បន្ទាត់នេះដើម្បីធានាថាវា Update វេនបានច្បាស់លាស់ពេលចែកបៀរភ្លាម
+    renderPlayers(playersData);
     updateControlsState();
+    
+    renderMyCards();
 });
 
 function isMyTurn() {
@@ -609,7 +619,6 @@ function updateControlsState() {
             playBtn.disabled = false;
             passBtn.disabled = false;
         } else {
-            playBtn.disabled = true;
             playBtn.disabled = true;
             passBtn.disabled = true;
         }
@@ -691,7 +700,8 @@ function renderMyCards() {
         return;
     }
     
-    const myTurn = isMyTurn();
+    // 💡 ឆែកមើលឱ្យច្បាស់ថាជាវេនយើងពិតប្រាកដមែនឬអត់
+    const myTurn = isMyTurn(); 
     const tableDiv = document.getElementById('table');
     const isNewRound = tableDiv && (tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត!'));
 
@@ -700,9 +710,11 @@ function renderMyCards() {
         const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
         el.className = `card ${isRed}`;
         
+        // បើមិនមែនវេនយើងទេ ឱ្យដាក់ class ស្រអាប់ (disabled-card)
         if (!myTurn) {
             el.classList.add('disabled-card');
         } else {
+            // បើជាវេនយើង ហើយជាជុំដំបូង ឱ្យដៅពណ៌មាសលើបៀរ 3ប៊ិច ឬបៀរដែលត្រូវចេញមុន
             if (isNewRound) {
                 if (!lastRoundWinnerId) {
                     if (card.value === '3' && card.suit === '♠') {
