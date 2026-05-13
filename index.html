@@ -646,13 +646,18 @@ function updateControlsState() {
     if (playBtn) playBtn.disabled = turnState;
     if (passBtn) passBtn.disabled = turnState;
     
-    // 💡 ឆែកមើលលក្ខខណ្ឌទឹកថ្មី៖ ប្រសិនបើនៅលើតុមិនទាន់មានបៀរចុះសោះ ( table គ្មានកាត )
+    // 💡 ឆែករកមើលថាតើនៅលើតុមានបៀរវាយចេញពិតប្រាកដ (លេងទឹកថ្មីឬអត់)
     const tableDiv = document.getElementById('table');
-    const hasCardsOnTable = tableDiv && tableDiv.getElementsByClassName('table-card').length > 0;
-    const isNewRound = !hasCardsOnTable; 
+    
+    // បើសិនជាទើបតែសម្អាតតុ ឬមិនទាន់មាននរណាចុះបៀរនាំមុខសោះ
+    const isNewRound = tableDiv && (
+        tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || 
+        tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') ||
+        tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត!')
+    );
 
     if (burnBtn) {
-        // បើមិនមែនវេនខ្លួនឯង ឬ ដល់វេនត្រូវដាក់ទឹកថ្មី គឺចាក់សោប៊ូតុង Burn (ធិប) ភ្លាម
+        // បើមិនមែនវេនខ្លួនឯង ឬ ខ្លួនជាមេទឹកត្រូវនាំមុខគេ គឺមិនអនុញ្ញាតឱ្យធិបផ្កាប់ទេ
         if (turnState || isNewRound) {
             burnBtn.disabled = true;
         } else {
@@ -660,6 +665,7 @@ function updateControlsState() {
         }
     }
 }
+
 function renderPlayers(players) {
     playersData = players;
     const div = document.getElementById('players');
