@@ -760,7 +760,7 @@ function toggleCard(card) {
 function playSelectedCards() {
     if (!isMyTurn()) return alert("មិនទាន់ដល់វេនរបស់អ្នកឡើយ!");
     if (selectedCards.length === 0) return alert("សូមជ្រើសរើសសន្លឹកបៀរមុននឹងចុះ!");
-    socket.emit('playCards', { roomId: currentRoom, cards: selectedCards }); // 💡 កែចំណុច playCard ទៅ playCards ឱ្យត្រូវនឹង server
+    socket.emit('playCard', { roomId: currentRoom, cards: selectedCards }); // លុប s ចេញ
 }
 
 function passTurn() {
