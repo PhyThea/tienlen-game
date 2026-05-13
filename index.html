@@ -643,23 +643,17 @@ function updateControlsState() {
     const passBtn = document.getElementById('passBtn');
     const burnBtn = document.getElementById('burnBtn');
     
-    // ពិនិត្យមើលថាជាវេនយើងពិតប្រាកដឬអត់
     const turnState = !isMyTurn();
-    
-    // ១. សម្រាប់ប៊ូតុង ចុះបៀរ និង រំលង (Play & Pass) គឺផ្អែកលើវេនពិតប្រាកដ ( turnState )
     if (playBtn) playBtn.disabled = turnState;
     if (passBtn) passBtn.disabled = turnState;
     
-    // ២. ពិនិត្យមើលលក្ខខណ្ឌទឹកថ្មីនៅលើតុ ដើម្បីគ្រប់គ្រងតែប៊ូតុង Burn (ធិបផ្កាប់/Tip) ប៉ុណ្ណោះ
+    // 💡 ពិនិត្យមើលលក្ខខណ្ឌទឹកថ្មី៖ ប្រសិនបើនៅលើតុមិនទាន់មានបៀរចុះសោះ (កាតព្វកិច្ចត្រូវបោះទឹកថ្មី)
     const tableDiv = document.getElementById('table');
-    const isNewRound = tableDiv && (
-        tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || 
-        tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || 
-        tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត!')
-    );
+    const hasCardsOnTable = tableDiv && tableDiv.getElementsByClassName('table-card').length > 0;
+    const isNewRound = !hasCardsOnTable; // បើគ្មានបៀរលើតុទាល់តែសោះ មានន័យថាជាទឹកថ្មី
 
     if (burnBtn) {
-        // បើមិនមែនវេនខ្លួនឯង ឬ ដល់វេនត្រូវដាក់ទឹកថ្មី (isNewRound) គឺបិទប៊ូតុង Burn មិនឱ្យចុចឡើយ
+        // បើមិនមែនវេនខ្លួនឯង ឬ ដល់វេនត្រូវដាក់ទឹកថ្មី គឺបិទប៊ូតុង Burn (ផ្កាប់) ភ្លាម
         if (turnState || isNewRound) {
             burnBtn.disabled = true;
         } else {
@@ -741,7 +735,9 @@ function renderMyCards() {
     
     const myTurn = isMyTurn();
     const tableDiv = document.getElementById('table');
-    const isNewRound = tableDiv && (tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត!'));
+    // 💡 កែប្រែការឆែកលក្ខខណ្ឌទឹកថ្មីឱ្យត្រូវគ្នាជាមួយ updateControlsState
+    const hasCardsOnTable = tableDiv && tableDiv.getElementsByClassName('table-card').length > 0;
+    const isNewRound = !hasCardsOnTable;
 
     myHand.forEach(card => {
         const el = document.createElement('div');
@@ -784,7 +780,6 @@ function renderMyCards() {
         div.appendChild(el);
     });
 }
-
 function triggerSayMessage(playerId, msg) {
     const playerCard = document.getElementById(`player-card-${playerId}`);
     if (playerCard) {
@@ -812,7 +807,7 @@ function toggleCard(card) {
             selectedCards = [];
         }
     } else {
-        // សម្រាប់ទៀនឡេន៖ អាច Select ច្រើនសន្លឹកបាន (ដូចដើម)
+        // សម្រាប់ទៀនឡេន៖ អាច Select ច្រើនសន្លឹកបាន
         if (idx === -1) {
             selectedCards.push(card);
         } else {
@@ -820,6 +815,9 @@ function toggleCard(card) {
         }
     }
     renderMyCards();
+    
+    // 💡 ថែមបន្ទាត់នេះ ដើម្បីឱ្យវា Update ស្ថានភាពប៊ូតុងបិទ/បើក ពេលយើងចុច Select បៀរ
+    updateControlsState();
 }
 
 function playSelectedCards() {
