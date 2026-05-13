@@ -643,11 +643,14 @@ function updateControlsState() {
     const passBtn = document.getElementById('passBtn');
     const burnBtn = document.getElementById('burnBtn');
     
+    // ពិនិត្យមើលថាជាវេនយើងពិតប្រាកដឬអត់
     const turnState = !isMyTurn();
+    
+    // ១. សម្រាប់ប៊ូតុង ចុះបៀរ និង រំលង (Play & Pass) គឺផ្អែកលើវេនពិតប្រាកដ ( turnState )
     if (playBtn) playBtn.disabled = turnState;
     if (passBtn) passBtn.disabled = turnState;
     
-    // 💡 ពិនិត្យមើលលក្ខខណ្ឌទឹកថ្មីនៅលើតុ
+    // ២. ពិនិត្យមើលលក្ខខណ្ឌទឹកថ្មីនៅលើតុ ដើម្បីគ្រប់គ្រងតែប៊ូតុង Burn (ធិបផ្កាប់/Tip) ប៉ុណ្ណោះ
     const tableDiv = document.getElementById('table');
     const isNewRound = tableDiv && (
         tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || 
@@ -656,7 +659,7 @@ function updateControlsState() {
     );
 
     if (burnBtn) {
-        // បើមិនមែនវេនខ្លួនឯង ឬ ជាវេនដែលត្រូវបោះទឹកថ្មី គឺបិទប៊ូតុង Burn (Tip) ភ្លាម
+        // បើមិនមែនវេនខ្លួនឯង ឬ ដល់វេនត្រូវដាក់ទឹកថ្មី (isNewRound) គឺបិទប៊ូតុង Burn មិនឱ្យចុចឡើយ
         if (turnState || isNewRound) {
             burnBtn.disabled = true;
         } else {
