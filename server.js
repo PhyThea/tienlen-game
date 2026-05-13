@@ -406,8 +406,8 @@ io.on('connection', (socket) => {
             const player = room.players[room.currentTurnIndex];
             if (!player || player.id !== socket.id) return;
 
-            // 🔐 ច្បាប់បន្ថែម៖ បើខ្លួនឯងជាម្ចាស់បៀរចុងក្រោយនៅលើតុ (គ្រប់គ្នា Pass អស់ហើយសល់តែខ្លួនឯង) មិនអាចចុច Pass បានទេ
-            if (room.lastPlayerId === socket.id || room.playedCards.length === 0) {
+            // 🔐 ច្បាប់ការពារ៖ ប្រសិនបើតុទំនេរ ឬខ្លួនឯងជាម្ចាស់សន្លឹកបៀរចុងក្រោយលើតុ (គេ Pass ផុតអស់ហើយ) មិនអាច Pass ទៀតទេ
+            if (room.playedCards.length === 0 || room.lastPlayerId === socket.id) {
                 return socket.emit('errorMsg', 'អ្នកជាម្ចាស់បៀរលើតុ មិនអាចចុចរំលង (Pass) បានឡើយ! សូមចុះបៀរថ្មី។');
             }
 
@@ -420,9 +420,11 @@ io.on('connection', (socket) => {
             });
             
             handleTurnAndRoundStatus(room);
+            
+            // ផ្ញើស្ថានភាពទៅកាន់អ្នកគ្រប់គ្នា ដើម្បីឱ្យ UI បច្ចុប្បន្នភាពប៊ូតុង Pass/Play ឡើងវិញ
             io.to(roomId).emit('turnChanged', { 
                 currentTurnIndex: room.currentTurnIndex,
-                players: room.players 
+                players: room.players
             });
         });
 
