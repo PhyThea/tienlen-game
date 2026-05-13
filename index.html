@@ -172,109 +172,48 @@ button:disabled {
     background: #1e293b !important;
 }
 
+/* ស្ថានភាព Pass ធម្មតា */
 .player-passed {
     background: #451a1a !important;
     border: 2px solid #ef4444 !important;
     opacity: 0.6;
 }
 
-.turn-badge {
+/* ✨ បន្ថែមថ្មី៖ ស្ទីលសម្រាប់អ្នកអស់បៀរមុនគេ (លេខ ១ ពណ៌មាស) */
+.player-rank-1 {
+    background: linear-gradient(135deg, #1e293b, #451a03) !important;
+    border: 2px solid #eab308 !important;
+    box-shadow: 0 0 15px rgba(234, 179, 8, 0.4);
+    animation: goldGlow 2s infinite alternate;
+}
+
+/* ✨ បន្ថែមថ្មី៖ ស្ទីលសម្រាប់អ្នកអស់បៀរបន្ទាប់ (លេខ ២ ពណ៌ប្រាក់/ខៀវ) */
+.player-rank-2 {
+    background: linear-gradient(135deg, #1e293b, #172554) !important;
+    border: 2px solid #3b82f6 !important;
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+}
+
+/* Badge ពិសេសបង្ហាញពីលើកាត */
+.rank-badge-top {
     position: absolute;
     top: -10px;
     left: 50%;
     transform: translateX(-50%);
-    background: #22c55e;
     color: white;
-    font-size: 9px;
+    font-size: 10px;
     font-weight: bold;
-    padding: 1px 6px;
+    padding: 2px 8px;
     border-radius: 20px;
     white-space: nowrap;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
+.badge-gold { background: #eab308; color: #000; }
+.badge-silver { background: #3b82f6; }
 
-.card-counter {
-    margin-top: 4px;
-    background: #1e293b;
-    border-radius: 5px;
-    padding: 2px 5px;
-    font-weight: bold;
-    font-size: 11px;
-    color: #f59e0b;
-    border: 1px solid #475569;
-    display: inline-block;
-}
-
-.table-area {
-    background: #14532d; 
-    border: 2px dashed #22c55e;
-    border-radius: 12px;
-    flex: 1;
-    min-height: 110px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-wrap: nowrap;
-    overflow-x: auto;  
-    gap: 6px;
-    padding: 10px;
-    position: relative;
-}
-
-.hand-and-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    background: #1e293b;
-    padding: 10px;
-    border-radius: 12px;
-}
-
-.card-container {
-    display: flex;
-    justify-content: center;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding: 10px 0;
-    gap: -15px; 
-}
-
-.card {
-    background: white;
-    color: black;
-    width: 52px;
-    height: 76px;
-    border-radius: 6px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    padding: 4px 6px;
-    font-size: 15px;
-    font-weight: bold;
-    cursor: pointer;
-    user-select: none;
-    box-shadow: -2px 3px 5px rgba(0,0,0,0.3);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-    flex-shrink: 0;
-    margin-right: -12px; 
-}
-
-.card:last-child {
-    margin-right: 0;
-}
-
-.card.red {
-    color: #ef4444;
-}
-
-.card.first-turn-highlight {
-    box-shadow: 0 0 12px #eab308 !important;
-    border: 2px solid #eab308 !important;
-    animation: pulseGlow 1.5s infinite alternate;
-}
-
-@keyframes pulseGlow {
-    0% { box-shadow: 0 0 6px #eab308; border-color: #eab308; }
-    100% { box-shadow: 0 0 18px #eab308; border-color: #f59e0b; }
+@keyframes goldGlow {
+    0% { box-shadow: 0 0 5px rgba(234, 179, 8, 0.3); }
+    100% { box-shadow: 0 0 15px rgba(234, 179, 8, 0.6); }
 }
 
 .card.selected {
@@ -651,42 +590,49 @@ function renderPlayers(players) {
         el.className = 'player';
         el.id = `player-card-${p.id}`; 
         
-        // ✨ ការកែប្រែចំណុចគន្លឹះ៖ ផ្ទៀងផ្ទាត់វេនលេងឲ្យត្រូវតាម index របស់ server និងស្ថានភាពមិនទាន់អស់បៀរ
         const isCurrentTurn = (currentTurnIndex !== null && index === currentTurnIndex && !p.isSpectator && p.hand && p.hand.length > 0);
         
-        if (isCurrentTurn) {
-            el.classList.add('active-turn'); 
-        }
-
         // ឆែកមើលចំនួនបៀរដែលសល់ឲ្យបានត្រឹមត្រូវ
         const count = p.hand ? p.hand.length : (p.cardCount !== undefined ? p.cardCount : 13);
 
-        if (p.passed && count > 0) {
-            el.classList.add('player-passed'); 
-        }
+        // 💡 ផ្នែកពិនិត្យចំណាត់ថ្នាក់ និងរៀបចំស្ទីលពណ៌ (លេខ ១ និង លេខ ២)
+        let rankBadgeHTML = '';
+        let statusTextHTML = '';
 
-        let roleText = '';
-        if (p.isSpectator) {
-            roleText = '<span style="color: #ef4444;">(អ្នកមើល)</span>';
-        } else if (p.rank !== null && p.rank > 0) {
-            let rankBadge = p.rank === 1 ? '🎉 លេខ ១' : `🥈 ទី ${p.rank}`;
-            roleText = `<div style="color: #22c55e; font-weight: bold; margin-top:2px;">${rankBadge}</div>`;
+        if (p.rank === 1) {
+            el.classList.add('player-rank-1');
+            rankBadgeHTML = `<div class="rank-badge-top badge-gold">👑 លេខ ១ (ប៉េ)</div>`;
+            statusTextHTML = `<div style="color: #eab308; font-weight: bold; margin-top:4px; font-size:12px;">🎉 អស់បៀរមុនគេ!</div>`;
+        } else if (p.rank === 2) {
+            el.classList.add('player-rank-2');
+            rankBadgeHTML = `<div class="rank-badge-top badge-silver">🥈 លេខ ២</div>`;
+            statusTextHTML = `<div style="color: #3b82f6; font-weight: bold; margin-top:4px; font-size:12px;">🥈 ជាប់លេខ ២!</div>`;
         } else {
-            roleText = `<div class="card-counter">🃏 សល់៖ ${count}</div>`;
-        }
+            // ករណីមិនទាន់អស់បៀរ ឬលេងធម្មតា
+            if (isCurrentTurn) {
+                el.classList.add('active-turn'); 
+                rankBadgeHTML = `<div class="turn-badge">${p.id === myId ? '🟢 វេនអ្នក' : '🎯 កំពុងលេង'}</div>`;
+            }
 
-        if (p.passed && !p.isSpectator && count > 0) {
-            roleText += '<br><span style="color: #ef4444; font-weight: bold; font-size: 11px;">❌ Pass</span>';
-        }
+            if (p.passed && count > 0) {
+                el.classList.add('player-passed'); 
+            }
 
-        // បង្ហាញ Badge ពណ៌បៃតង "វេនអ្នក" ឬ "កំពុងលេង" ឲ្យចំអ្នកដែលមានវេនពិតប្រាកដ
-        let turnBadgeHTML = isCurrentTurn ? `<div class="turn-badge">${p.id === myId ? '🟢 វេនអ្នក' : '🎯 កំពុងលេង'}</div>` : '';
+            if (p.isSpectator) {
+                statusTextHTML = '<span style="color: #94a3b8;">(អ្នកមើល)</span>';
+            } else {
+                statusTextHTML = `<div class="card-counter">🃏 សល់៖ ${count}</div>`;
+                if (p.passed && count > 0) {
+                    statusTextHTML += '<br><span style="color: #ef4444; font-weight: bold; font-size: 11px;">❌ Pass</span>';
+                }
+            }
+        }
 
         el.innerHTML = `
-            ${turnBadgeHTML}
+            ${rankBadgeHTML}
             <strong>👤 ${p.name.substring(0, 8)} ${p.id === myId ? '(ខ្ញុំ)' : ''}</strong>
             <br>
-            ${roleText}
+            ${statusTextHTML}
         `;
         div.appendChild(el);
 
