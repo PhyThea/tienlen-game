@@ -51,17 +51,16 @@ function isConsecutivePairs(cards) {
     
     const sorted = sortCards([...cards]);
     
-    // ១. ពិនិត្យមើលថាវាជាគូៗពិតមែនឬអត់ (ឧទាហរណ៍៖ 3-3, 4-4)
+    // ១. ពិនិត្យមើលថាវាជាគូៗពិតមែនឬអត់
     for (let i = 0; i < len; i += 2) {
         if (sorted[i].value !== sorted[i+1].value) return false;
     }
     
-    // ២. ពិនិត្យមើលថាតើតម្លៃគូនីមួយៗវាជាប់គ្នា (Consecutive) ឬអត់
+    // ២. ពិនិត្យមើលថាតើតម្លៃគូនីមួយៗវាជាប់គ្នា ឬអត់
     for (let i = 0; i < len - 2; i += 2) {
         const currentIdx = CARD_ORDER.indexOf(sorted[i].value);
         const nextIdx = CARD_ORDER.indexOf(sorted[i+2].value);
         
-        // ក្នុងហ្គេមទៀនឡេន បៀរលេខ ២ មិនអាចបង្កើតជាស៊េរីផែអោបបានទេ
         if (sorted[i].value === '2' || sorted[i+2].value === '2') return false;
         if (nextIdx !== currentIdx + 1) return false;
     }
@@ -69,6 +68,7 @@ function isConsecutivePairs(cards) {
     return true;
 }
 
+// ✅ បានកែសម្រួល៖ មុខងារពិនិត្យប្រភេទបៀរឱ្យត្រឹមត្រូវ ១០០%
 function getComboType(cards) {
     const len = cards.length;
     if (len === 0) return null;
@@ -91,31 +91,32 @@ function getComboType(cards) {
         return 'consec_pairs';
     }
 
-    // ឆែកខ្សែ (Straight / ឡៅ)
-    let isStr = true;
-    for (let i = 1; i < len; i++) {
-        if (CARD_ORDER.indexOf(sorted[i].value) !== CARD_ORDER.indexOf(sorted[i-1].value) + 1) isStr = false;
-        if (sorted[i].value === '2') isStr = false; // លេខ ២ មិនអាចចូលខ្សែបានទេ
-    }
-
-    if (isStr && len >= 3) {
-        const sameSuit = cards.every(c => c.suit === cards[0].suit);
-        if (sameSuit) return 'straight_flush'; 
-        return 'straight'; 
+    // ឆែកខ្សែ (Straight / ឡៅ) តែក្នុងករណីមានបៀរចាប់ពី ៣ សន្លឹកឡើងទៅប៉ុណ្ណោះ
+    if (len >= 3) {
+        let isStr = true;
+        for (let i = 1; i < len; i++) {
+            if (CARD_ORDER.indexOf(sorted[i].value) !== CARD_ORDER.indexOf(sorted[i-1].value) + 1) isStr = false;
+            if (sorted[i].value === '2') isStr = false; // លេខ ២ មិនអាចចូលខ្សែបានទេ
+        }
+        if (isStr) {
+            const sameSuit = cards.every(c => c.suit === cards[0].suit);
+            if (sameSuit) return 'straight_flush'; 
+            return 'straight'; 
+        }
     }
 
     return null;
 }
 
+// ✅ បានកែសម្រួល៖ មុខងារប្រៀបធៀបបៀរលេងនៅលើតុ
 function comparePlay(newCards, oldCards) {
-    // បើតុទំនេរ គឺអាចចុះបានទាំងអស់ឱ្យតែត្រូវតាមក្បួនបៀរ
-    if (!oldCards || oldCards.length === 0) return true;
-    
     const newType = getComboType(newCards);
-    const oldType = getComboType(oldCards);
-    
     if (!newType) return false; // បៀរថ្មីមិនត្រូវក្បួនច្បាប់
 
+    // បើតុទំនេរ គឺអាចចុះបានទាំងអស់ឱ្យតែត្រូវតាមក្បួនបៀរដែលឆែកខាងលើរួច
+    if (!oldCards || oldCards.length === 0) return true;
+    
+    const oldType = getComboType(oldCards);
     const newMax = getCardPower(sortCards([...newCards]).pop());
     const oldMax = getCardPower(sortCards([...oldCards]).pop());
 
@@ -125,33 +126,28 @@ function comparePlay(newCards, oldCards) {
 
     // ១. បើនៅលើតុជាបៀរ ហាយទោល (សន្លឹក ២ មួយសន្លឹក)
     if (oldType === 'single' && oldCards[0].value === '2') {
-        // ៣ផែជាប់គ្នា, ៤ផែជាប់គ្នា ឬការ៉េ អាចកាត់បៀរ ២ មួយសន្លឹកបាន
         if (newType === 'triple_pair' || newType === 'quad_pair' || newType === 'bomb') return true;
     }
 
-    // ២. បើនៅលើតុជាបៀរ គូហាយ (សន្លឹក ២ មួយគូ / ២សន្លឹក)
+    // ២. បើនៅលើតុជាបៀរ គូហាយ (សន្លឹក ២ មួយគូ)
     if (oldType === 'pair' && oldCards[0].value === '2') {
-        // ៤ផែជាប់គ្នា ឬការ៉េ អាចកាត់បាន (៣ផែជាប់គ្នាកាត់គូ ២ មិនបានទេ)
         if (newType === 'quad_pair' || newType === 'bomb') return true;
     }
 
     // ៣. បើនៅលើតុជា ការ៉េ (Bomb)
     if (oldType === 'bomb') {
-        // ការ៉េដែលធំជាង ឬ ៤ផែជាប់គ្នា អាចស៊ីកាត់បាន
         if (newType === 'bomb' && newMax > oldMax) return true;
         if (newType === 'quad_pair') return true;
     }
 
     // ៤. បើនៅលើតុជា ៣ផែជាប់គ្នា (Triple Pair)
     if (oldType === 'triple_pair') {
-        // ៣ផែជាប់គ្នាដែលធំជាង, ៤ផែជាប់គ្នា ឬការ៉េ អាចស៊ីកាត់បាន
         if (newType === 'triple_pair' && newMax > oldMax) return true;
         if (newType === 'quad_pair' || newType === 'bomb') return true;
     }
 
     // ៥. បើនៅលើតុជា ៤ផែជាប់គ្នា (Quad Pair)
     if (oldType === 'quad_pair') {
-        // មានតែ ៤ផែជាប់គ្នាដែលធំជាងប៉ុណ្ណោះ ទើបអាចស៊ីបាន
         if (newType === 'quad_pair' && newMax > oldMax) return true;
     }
 
@@ -384,7 +380,6 @@ io.on('connection', (socket) => {
                 }, 1500);
 
             } else {
-                let lastTurnIdx = room.currentTurnIndex;
                 handleTurnAndRoundStatus(room);
 
                 io.to(roomId).emit('cardPlayed', { 
@@ -401,32 +396,30 @@ io.on('connection', (socket) => {
     });
 
     socket.on('passTurn', (roomId) => {
-            const room = rooms[roomId];
-            if (!room) return;
-            const player = room.players[room.currentTurnIndex];
-            if (!player || player.id !== socket.id) return;
+        const room = rooms[roomId];
+        if (!room) return;
+        const player = room.players[room.currentTurnIndex];
+        if (!player || player.id !== socket.id) return;
 
-            // 🔐 ច្បាប់ការពារ៖ ប្រសិនបើតុទំនេរ ឬខ្លួនឯងជាម្ចាស់សន្លឹកបៀរចុងក្រោយលើតុ (គេ Pass ផុតអស់ហើយ) មិនអាច Pass ទៀតទេ
-            if (room.playedCards.length === 0 || room.lastPlayerId === socket.id) {
-                return socket.emit('errorMsg', 'អ្នកជាម្ចាស់បៀរលើតុ មិនអាចចុចរំលង (Pass) បានឡើយ! សូមចុះបៀរថ្មី។');
-            }
+        if (room.playedCards.length === 0 || room.lastPlayerId === socket.id) {
+            return socket.emit('errorMsg', 'អ្នកជាម្ចាស់បៀរលើតុ មិនអាចចុចរំលង (Pass) បានឡើយ! សូមចុះបៀរថ្មី។');
+        }
 
-            player.passed = true;
-            
-            io.to(roomId).emit('playerPassed', { 
-                name: player.name, 
-                id: player.id,
-                message: "Pass ❌"
-            });
-            
-            handleTurnAndRoundStatus(room);
-            
-            // ផ្ញើស្ថានភាពទៅកាន់អ្នកគ្រប់គ្នា ដើម្បីឱ្យ UI បច្ចុប្បន្នភាពប៊ូតុង Pass/Play ឡើងវិញ
-            io.to(roomId).emit('turnChanged', { 
-                currentTurnIndex: room.currentTurnIndex,
-                players: room.players
-            });
+        player.passed = true;
+        
+        io.to(roomId).emit('playerPassed', { 
+            name: player.name, 
+            id: player.id,
+            message: "Pass ❌"
         });
+        
+        handleTurnAndRoundStatus(room);
+        
+        io.to(roomId).emit('turnChanged', { 
+            currentTurnIndex: room.currentTurnIndex,
+            players: room.players
+        });
+    });
 
     socket.on('leaveRoom', () => {
         for (const id in rooms) {
