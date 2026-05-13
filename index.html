@@ -617,7 +617,20 @@ function updateControlsState() {
     if (playBtn && passBtn) {
         if (isMyTurn()) {
             playBtn.disabled = false;
-            passBtn.disabled = false;
+            
+            // 💡 បន្ថែមលក្ខខណ្ឌត្រួតពិនិត្យដើម្បីបិទប៊ូតុង Pass
+            const tableDiv = document.getElementById('table');
+            const isNewRound = tableDiv && (
+                tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || 
+                tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || 
+                tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត!')
+            );
+
+            if (isNewRound) {
+                passBtn.disabled = true; // 🔒 បិទប៊ូតុង Pass មិនឱ្យចុចឡើយ បើជាជុំថ្មី ឬទើបស្តាតហ្គេម
+            } else {
+                passBtn.disabled = false; // បើកំពុងដេញបៀរគ្នា អាច Pass បានធម្មតា
+            }
         } else {
             playBtn.disabled = true;
             passBtn.disabled = true;
@@ -856,6 +869,7 @@ socket.on('playerPassed', ({ name, id, message }) => {
 
 socket.on('clearTable', ({ nextPlayer }) => {
     document.getElementById('table').innerHTML = '<div style="color: #64748b;">តុត្រូវបានសម្អាត! ជុំថ្មី...</div>';
+    updateControlsState(); // 👈 បន្ថែមបន្ទាត់នេះ ដើម្បីឱ្យវាបិទប៊ូតុង Pass ភ្លាមៗពេលលុបតុ
     renderMyCards();
 });
 
