@@ -766,8 +766,11 @@ function passTurn() {
     socket.emit('passTurn', currentRoom);
 }
 
-socket.on('turnChanged', ({ currentTurnIndex: turn }) => {
+socket.on('turnChanged', ({ currentTurnIndex: turn, players }) => {
     currentTurnIndex = turn;
+    if (players) {
+        playersData = players;
+    }
     if (playersData[currentTurnIndex]) {
         document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
     }
@@ -830,13 +833,24 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
 });
 
 socket.on('playerPassed', ({ name, id, message }) => {
+    // ស្វែងរក Element របស់កាតអ្នកលេងដែលបានចុច Pass
     const playerCard = document.getElementById(`player-card-${id}`);
     if (playerCard) {
+        // លុប Bubble ចាស់ចេញបើមាន
+        const oldBubble = playerCard.querySelector('.bubble-msg');
+        if (oldBubble) oldBubble.remove();
+
         const bubble = document.createElement('div');
         bubble.className = 'bubble-msg';
-        bubble.innerText = "Pass ❌";
+        bubble.style.cssText = "position: absolute; top: -25px; left: 50%; transform: translateX(-50%); background: #ef4444; color: white; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: bold; z-index: 99; box-shadow: 0 2px 5px rgba(0,0,0,0.5);";
+        bubble.innerText = "❌ Pass";
+        
         playerCard.appendChild(bubble);
-        setTimeout(() => bubble.remove(), 1500);
+        
+        // ទុកចោល ២ វិនាទីទើបលុបចេញ ដើម្បីឱ្យអ្នកលេងផ្សេងទៀតមើលឃើញទាន់
+        setTimeout(() => {
+            if (bubble) bubble.remove();
+        }, 2000);
     }
 });
 
