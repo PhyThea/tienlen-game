@@ -169,9 +169,11 @@ function moveToNextTurn(room) {
     let nextIndex = originalIndex;
     let found = false;
 
+    // រត់រកមើលអ្នកលេងបន្ទាប់តាមលំដាប់វង់ (១ ជុំតុ)
     for (let i = 1; i <= room.players.length; i++) {
         let checkIndex = (originalIndex + i) % room.players.length;
         let p = room.players[checkIndex];
+        // ត្រូវតែជាអ្នកនៅមានបៀរក្នុងដៃ និងមិនទាន់បានចុច Pass
         if (p && p.hand.length > 0 && !p.passed) {
             nextIndex = checkIndex;
             found = true;
@@ -182,14 +184,21 @@ function moveToNextTurn(room) {
         room.currentTurnIndex = nextIndex;
     }
 }
-
 function handleTurnAndRoundStatus(room) {
     // ១. រកមើលអ្នកលេងដែលនៅសល់បៀរក្នុងដៃ និងមិនទាន់បាន Pass ក្នុងជុំនេះ
     const stillPlayingAndNotPassed = room.players.filter(p => p.hand.length > 0 && !p.passed);
     
-    // ២. ប្រសិនបើនៅសល់អ្នកអាចលេងបានតែម្នាក់ ឬតិចជាង (មានន័យថាគ្រប់គ្នា Pass ជុំជិតអស់ហើយ)
-    if (stillPlayingAndNotPassed.length <= 1) {
-        
+    // 💡 ស្វែងរក Index របស់អ្នកដែលបានចុះបៀរចុងក្រោយបង្អស់នៅលើតុ
+    let lastPlayerIdx = room.players.findIndex(p => p.id === room.lastPlayerId);
+    const isLastPlayerOut = lastPlayerIdx !== -1 && room.players[lastPlayerIdx].hand.length === 0;
+
+    // ២. ពិនិត្យមើលលក្ខខណ្ឌដាច់ជុំ (គ្រប់គ្នា Pass អស់ ឬសល់តែម្នាក់មិនទាន់ Pass)
+    // ចំណុចគន្លឹះ៖ ប្រសិនបើអ្នកចុះចុងក្រោយអស់បៀរ (isLastPlayerOut) មានន័យថាគាត់លែងស្ថិតក្នុង active player ទៀតហើយ
+    // ដូច្នេះ យើងត្រូវរង់ចាំទាល់តែអ្នកលេងដែលនៅសល់ "ទាំងអស់គ្នា" ចុច Pass (stillPlayingAndNotPassed.length === 0) ទើបកាត់តុផ្ទេរមេ
+    
+    const isRoundOver = isLastPlayerOut ? (stillPlayingAndNotPassed.length === 0) : (stillPlayingAndNotPassed.length <= 1);
+
+    if (isRoundOver) {
         // 🧼 សម្អាតកាតនៅលើតុចោល
         room.playedCards = [];
         
@@ -198,38 +207,17 @@ function handleTurnAndRoundStatus(room) {
             if (p.hand.length > 0) p.passed = false;
         });
 
-        // 🔍 ស្វែងរក Index របស់អ្នកដែលបានចុះបៀរចុងក្រោយបង្អស់នៅលើតុ
-        let lastPlayerIdx = room.players.findIndex(p => p.id === room.lastPlayerId);
-        
-        // 💡 ចំណុចគន្លឹះ៖ ពិនិត្យមើលថាតើអ្នកចុះបៀរចុងក្រោយនោះ គាត់អស់បៀរ (ឈ្នះដាច់/អស់កាត) ហើយមែនទេ?
-        if (lastPlayerIdx !== -1 && room.players[lastPlayerIdx].hand.length === 0) {
-            
+        if (isLastPlayerOut) {
             // 👑 ច្បាប់ផ្ទេរមេ៖ ស្វែងរកអ្នកអង្គុយ "បន្ទាប់វេន" ពីអ្នកអស់បៀរនោះ (ដែលនៅមានកាតក្នុងដៃ)
             let nextIndex = (lastPlayerIdx + 1) % room.players.length;
             while (room.players[nextIndex].hand.length === 0) {
                 nextIndex = (nextIndex + 1) % room.players.length;
             }
-            
             // ផ្ទេរសិទ្ធិឡើងមេថ្មីទៅឱ្យគាត់
             room.currentTurnIndex = nextIndex;
-            
         } else {
             // ករណីធម្មតា៖ បើអ្នកចុះចុងក្រោយនៅសល់បៀរក្នុងដៃ គឺគាត់នៅតែជាមេដដែល
-            let nextWinnerIndex = lastPlayerIdx;
-            
-            // ការពារករណីរកមិនឃើញ lastPlayerId
-            if (nextWinnerIndex === -1 || room.players[nextWinnerIndex].hand.length === 0) {
-                let originalIdx = room.currentTurnIndex;
-                for (let i = 1; i <= room.players.length; i++) {
-                    let checkIdx = (originalIdx + i) % room.players.length;
-                    let checkP = room.players[checkIdx];
-                    if (checkP && checkP.hand.length > 0) {
-                        nextWinnerIndex = checkIdx;
-                        break;
-                    }
-                }
-            }
-            room.currentTurnIndex = nextWinnerIndex !== -1 ? nextWinnerIndex : 0;
+            room.currentTurnIndex = lastPlayerIdx !== -1 ? lastPlayerIdx : room.currentTurnIndex;
         }
 
         // 📢 បញ្ជូនទិន្នន័យទៅកាន់ Front-end ដើម្បីលុបតុ និងប្រកាសឈ្មោះមេថ្មី
