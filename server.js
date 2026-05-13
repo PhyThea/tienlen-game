@@ -187,7 +187,6 @@ function moveToNextTurn(room) {
 function handleTurnAndRoundStatus(room) {
     const stillPlayingAndNotPassed = room.players.filter(p => p.hand.length > 0 && !p.passed);
     
-    // ប្រសិនបើគ្រប់គ្នា Pass អស់ សល់តែម្ចាស់បៀរម្នាក់ឯង
     if (stillPlayingAndNotPassed.length <= 1) {
         room.playedCards = [];
         
@@ -210,12 +209,7 @@ function handleTurnAndRoundStatus(room) {
         }
 
         room.currentTurnIndex = nextWinnerIndex !== -1 ? nextWinnerIndex : 0;
-
-        // ✨ ដំណោះស្រាយ៖ ពន្យារពេល ១.២ វិនាទី (1200ms) ដើម្បីឱ្យគ្រប់គ្នាឃើញសញ្ញា Pass សិន ទើបលុបតុបៀរ
-        setTimeout(() => {
-            io.to(room.roomId).emit('clearTable', { nextPlayer: room.players[room.currentTurnIndex].name });
-        }, 1200); 
-        
+        io.to(room.roomId).emit('clearTable', { nextPlayer: room.players[room.currentTurnIndex].name });
     } else {
         moveToNextTurn(room);
     }
@@ -406,7 +400,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('passTurn', (roomId) => {
+socket.on('passTurn', (roomId) => {
         const room = rooms[roomId];
         if (!room) return;
         const player = room.players[room.currentTurnIndex];
@@ -414,14 +408,19 @@ io.on('connection', (socket) => {
 
         player.passed = true;
         
+        // បញ្ជូនទៅកាន់អ្នកគ្រប់គ្នាដើម្បីបង្ហាញផ្ទាំង Bubble Pass
         io.to(roomId).emit('playerPassed', { 
             name: player.name, 
             id: player.id,
-            message: "តោះខ្ញុំអត់ស៊ីទេ"
+            message: "Pass ❌"
         });
         
+        // ធ្វើបច្ចុប្បន្នភាពស្ថានភាពវេនទៅកាន់អ្នកលេងទាំងអស់គ្នាភ្លាមៗ
         handleTurnAndRoundStatus(room);
-        io.to(roomId).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex });
+        io.to(roomId).emit('turnChanged', { 
+            currentTurnIndex: room.currentTurnIndex,
+            players: room.players // បញ្ជូនបញ្ជីអ្នកលេងដែលមានស្ថានភាព passed ទៅជាមួយ
+        });
     });
 
     socket.on('leaveRoom', () => {
