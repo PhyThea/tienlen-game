@@ -184,33 +184,46 @@ function moveToNextTurn(room) {
 }
 
 function handleTurnAndRoundStatus(room) {
-    const stillPlayingAndNotPassed = room.players.filter(p => p.hand.length > 0 && !p.passed);
-    
-    if (stillPlayingAndNotPassed.length <= 1) {
+    const activePlayers = room.players.filter(p => p.hand.length > 0);
+    if (activePlayers.length <= 1) return; // ហ្គេមចប់ហើយ
+
+    // ស្វែងរកអ្នកលេងបន្ទាប់ដែលនៅមានបៀរក្នុងដៃ
+    let nextIdx = (room.currentTurnIndex + 1) % room.players.length;
+    while (room.players[nextIdx].hand.length === 0) {
+        nextIdx = (nextIdx + 1) % room.players.length;
+    }
+
+    // រាប់ចំនួនអ្នកលេងដែលនៅសល់បៀរ ហើយបានចុច Pass
+    const passedCount = activePlayers.filter(p => p.passed).length;
+
+    // 💡 ឆែកមើលថា តើអ្នកចុះបៀរមុននេះ គាត់អស់បៀរពីដៃហើយមែនទេ?
+    const currentPlayer = room.players[room.currentTurnIndex];
+    const isCurrentPlayerOut = currentPlayer.hand.length === 0;
+
+    // លក្ខខណ្ឌទី១៖ បើអ្នកលេងធម្មតា (មិនទាន់អស់បៀរ) ហើយគ្រប់គ្នា Pass អស់
+    // លក្ខខណ្ឌទី២៖ បើអ្នកចុះបៀរមុននេះអស់បៀរ (Out) ហើយអ្នកលេងដែលសល់ទាំងអស់ Pass ដែរ
+    if ((!isCurrentPlayerOut && passedCount === activePlayers.length - 1) || 
+        (isCurrentPlayerOut && passedCount === activePlayers.length)) {
+        
+        // 🧼 សម្អាតតុ
         room.playedCards = [];
         
-        room.players.forEach(p => {
-            if (p.hand.length > 0) p.passed = false;
-        });
+        // 🔄 Reset ស្ថានភាព Pass របស់អ្នកលេងដែលនៅសល់ទាំងអស់
+        room.players.forEach(p => p.passed = false);
 
-        let nextWinnerIndex = room.players.findIndex(p => p.id === room.lastPlayerId);
-        
-        if (nextWinnerIndex === -1 || room.players[nextWinnerIndex].hand.length === 0) {
-            let originalIdx = room.currentTurnIndex;
-            for (let i = 1; i <= room.players.length; i++) {
-                let checkIdx = (originalIdx + i) % room.players.length;
-                let checkP = room.players[checkIdx];
-                if (checkP && checkP.hand.length > 0) {
-                    nextWinnerIndex = checkIdx;
-                    break;
-                }
-            }
+        if (isCurrentPlayerOut) {
+            // 👑 ច្បាប់ពិសេស៖ បើដាច់មេ (អ្នកចុះអស់បៀរ) ហើយគ្រប់គ្នា Pass ទាំងអស់
+            // ផ្ទេរសិទ្ធិឡើងមេទៅឱ្យ "អ្នកបន្ទាប់វេន" ពីអ្នកអស់បៀរនោះភ្លាម
+            room.currentTurnIndex = nextIdx;
+        } else {
+            // បើករណីធម្មតា (មេមិនទាន់អស់បៀរ) គឺមេដដែលជាអ្នកឡើងមេបន្ត
+            // ទុក room.currentTurnIndex នៅដដែល (ព្រោះវាជាវេនមេស្រាប់)
         }
 
-        room.currentTurnIndex = nextWinnerIndex !== -1 ? nextWinnerIndex : 0;
-        io.to(room.roomId).emit('clearTable', { nextPlayer: room.players[room.currentTurnIndex].name });
+        io.to(room.id).emit('clearTable', { nextPlayer: room.currentTurnIndex });
     } else {
-        moveToNextTurn(room);
+        // បើមិនទាន់មានការ Pass ជុំជិតទេ គឺប្តូរវេនទៅអ្នកបន្ទាប់ធម្មតា
+        room.currentTurnIndex = nextIdx;
     }
 }
 
