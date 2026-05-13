@@ -1,5 +1,5 @@
 // =================================================================
-// server.js (កំណែទម្រង់លេងរហូតដល់សល់ម្នាក់ចុងក្រោយ - រត់រលូនឥតខ្ចោះ)
+// server.js (កំណែទម្រង់រួមបញ្ចូលច្បាប់កាត់ផែអោប និងហាយ - រត់រលូនឥតខ្ចោះ)
 // =================================================================
 
 const express = require('express');
@@ -44,6 +44,31 @@ function sortCards(cards) {
     return cards.sort((a, b) => getCardPower(a) - getCardPower(b));
 }
 
+// មុខងារជំនួយ៖ ពិនិត្យមើលថាតើបៀរជា "ផែអោប" (គូស៊េរីជាប់គ្នា) ឬអត់?
+function isConsecutivePairs(cards) {
+    const len = cards.length;
+    if (len < 4 || len % 2 !== 0) return false; // យ៉ាងហោចណាស់ ២ផែ (៤សន្លឹក) ឡើងទៅ
+    
+    const sorted = sortCards([...cards]);
+    
+    // ១. ពិនិត្យមើលថាវាជាគូៗពិតមែនឬអត់ (ឧទាហរណ៍៖ 3-3, 4-4)
+    for (let i = 0; i < len; i += 2) {
+        if (sorted[i].value !== sorted[i+1].value) return false;
+    }
+    
+    // ២. ពិនិត្យមើលថាតើតម្លៃគូនីមួយៗវាជាប់គ្នា (Consecutive) ឬអត់
+    for (let i = 0; i < len - 2; i += 2) {
+        const currentIdx = CARD_ORDER.indexOf(sorted[i].value);
+        const nextIdx = CARD_ORDER.indexOf(sorted[i+2].value);
+        
+        // ក្នុងហ្គេមទៀនឡេន បៀរលេខ ២ មិនអាចបង្កើតជាស៊េរីផែអោបបានទេ
+        if (sorted[i].value === '2' || sorted[i+2].value === '2') return false;
+        if (nextIdx !== currentIdx + 1) return false;
+    }
+    
+    return true;
+}
+
 function getComboType(cards) {
     const len = cards.length;
     if (len === 0) return null;
@@ -54,37 +79,23 @@ function getComboType(cards) {
     
     if (sameValue) {
         if (len === 2) return 'pair';
-        if (len === 3) return 'triple'; 
+        if (len === 3) return 'triple'; // កូយ
         if (len === 4) return 'bomb';   // ការ៉េ
     }
 
-    // ឆែក ៣ ផែជាប់គ្នា (៦ សន្លឹក)
-    if (len === 6) {
-        let is3Pair = true;
-        for (let i = 0; i < 6; i += 2) {
-            if (sorted[i].value !== sorted[i+1].value) is3Pair = false;
-            if (i > 0 && CARD_ORDER.indexOf(sorted[i].value) !== CARD_ORDER.indexOf(sorted[i-2].value) + 1) is3Pair = false;
-        }
-        if (sorted[4].value === '2') is3Pair = false; // ផែហាយមិនអាចចូលឡូបានទេ
-        if (is3Pair) return 'triple_pair';
+    // ឆែកមើល ផែអោបជាប់គ្នា (២ផែ, ៣ផែ, ៤ផែ...)
+    if (isConsecutivePairs(cards)) {
+        if (len === 4) return 'double_pair'; // ២ ផែអោប
+        if (len === 6) return 'triple_pair'; // ៣ ផែអោប
+        if (len === 8) return 'quad_pair';   // ៤ ផែអោប
+        return 'consec_pairs';
     }
 
-    // ឆែក ៤ ផែជាប់គ្នា (៨ សន្លឹក)
-    if (len === 8) {
-        let is4Pair = true;
-        for (let i = 0; i < 8; i += 2) {
-            if (sorted[i].value !== sorted[i+1].value) is4Pair = false;
-            if (i > 0 && CARD_ORDER.indexOf(sorted[i].value) !== CARD_ORDER.indexOf(sorted[i-2].value) + 1) is4Pair = false;
-        }
-        if (sorted[6].value === '2') is4Pair = false;
-        if (is4Pair) return 'quad_pair';
-    }
-
-    // ឆែកខ្សែ (Straight)
+    // ឆែកខ្សែ (Straight / ឡៅ)
     let isStr = true;
     for (let i = 1; i < len; i++) {
         if (CARD_ORDER.indexOf(sorted[i].value) !== CARD_ORDER.indexOf(sorted[i-1].value) + 1) isStr = false;
-        if (sorted[i].value === '2') isStr = false; 
+        if (sorted[i].value === '2') isStr = false; // លេខ ២ មិនអាចចូលខ្សែបានទេ
     }
 
     if (isStr && len >= 3) {
@@ -97,41 +108,56 @@ function getComboType(cards) {
 }
 
 function comparePlay(newCards, oldCards) {
+    // បើតុទំនេរ គឺអាចចុះបានទាំងអស់ឱ្យតែត្រូវតាមក្បួនបៀរ
     if (!oldCards || oldCards.length === 0) return true;
     
     const newType = getComboType(newCards);
     const oldType = getComboType(oldCards);
+    
+    if (!newType) return false; // បៀរថ្មីមិនត្រូវក្បួនច្បាប់
+
     const newMax = getCardPower(sortCards([...newCards]).pop());
     const oldMax = getCardPower(sortCards([...oldCards]).pop());
 
-    // --- ច្បាប់ស៊ីកាត់ពិសេស ---
-    
-    // ១. បើនៅលើតុជាបៀរ ហាយ (សន្លឹក ២ តែមួយសន្លឹក)
+    // =================================================================
+    // 👑 ច្បាប់ពិសេស៖ ការកាត់ហាយ (Chop Rules) 👑
+    // =================================================================
+
+    // ១. បើនៅលើតុជាបៀរ ហាយទោល (សន្លឹក ២ មួយសន្លឹក)
     if (oldType === 'single' && oldCards[0].value === '2') {
-        // ការ៉េ ឬ ៤ផែជាប់គ្នា អាចកាត់បាន (៣ផែជាប់គ្នា មិនអាចកាត់បានទេ)
-        if (newType === 'bomb' || newType === 'quad_pair') return true;
+        // ៣ផែជាប់គ្នា, ៤ផែជាប់គ្នា ឬការ៉េ អាចកាត់បៀរ ២ មួយសន្លឹកបាន
+        if (newType === 'triple_pair' || newType === 'quad_pair' || newType === 'bomb') return true;
     }
 
-    // ២. បើនៅលើតុជា ការ៉េ (Bomb)
+    // ២. បើនៅលើតុជាបៀរ គូហាយ (សន្លឹក ២ មួយគូ / ២សន្លឹក)
+    if (oldType === 'pair' && oldCards[0].value === '2') {
+        // ៤ផែជាប់គ្នា ឬការ៉េ អាចកាត់បាន (៣ផែជាប់គ្នាកាត់គូ ២ មិនបានទេ)
+        if (newType === 'quad_pair' || newType === 'bomb') return true;
+    }
+
+    // ៣. បើនៅលើតុជា ការ៉េ (Bomb)
     if (oldType === 'bomb') {
-        // ការ៉េធំជាង ឬ ៤ផែជាប់គ្នា អាចស៊ីបាន
+        // ការ៉េដែលធំជាង ឬ ៤ផែជាប់គ្នា អាចស៊ីកាត់បាន
         if (newType === 'bomb' && newMax > oldMax) return true;
         if (newType === 'quad_pair') return true;
     }
 
-    // ៣. បើនៅលើតុជា ៤ផែជាប់គ្នា (Quad Pair)
+    // ៤. បើនៅលើតុជា ៣ផែជាប់គ្នា (Triple Pair)
+    if (oldType === 'triple_pair') {
+        // ៣ផែជាប់គ្នាដែលធំជាង, ៤ផែជាប់គ្នា ឬការ៉េ អាចស៊ីកាត់បាន
+        if (newType === 'triple_pair' && newMax > oldMax) return true;
+        if (newType === 'quad_pair' || newType === 'bomb') return true;
+    }
+
+    // ៥. បើនៅលើតុជា ៤ផែជាប់គ្នា (Quad Pair)
     if (oldType === 'quad_pair') {
-        // មានតែ ៤ផែជាប់គ្នាដែលធំជាងទេ ទើបស៊ីបាន
+        // មានតែ ៤ផែជាប់គ្នាដែលធំជាងប៉ុណ្ណោះ ទើបអាចស៊ីបាន
         if (newType === 'quad_pair' && newMax > oldMax) return true;
     }
 
-    // ៤. បើនៅលើតុជា ៣ផែជាប់គ្នា (Triple Pair)
-    if (oldType === 'triple_pair') {
-        // តាមសំណូមពរ៖ ៣ផែ បានតែ៣ផែដូចគ្នាដែលធំជាងប៉ុណ្ណោះ (មិនអាចកាត់ហាយ ហើយក៏គ្មានអ្វីកាត់វាបាន)
-        if (newType === 'triple_pair' && newMax > oldMax) return true;
-    }
-
-    // ៥. ករណីបៀរក្បួនដូចគ្នា និងចំនួនសន្លឹកស្មើគ្នា (លេងធម្មតា)
+    // =================================================================
+    // ករណីលេងធម្មតា (ប្រភេទក្បាច់ដូចគ្នា និងចំនួនសន្លឹកស្មើគ្នា)
+    // =================================================================
     if (newType === oldType && newCards.length === oldCards.length) {
         return newMax > oldMax;
     }
