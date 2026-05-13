@@ -452,6 +452,7 @@ let currentTurnIndex = 0;
 let playersData = [];
 let amISpectator = false;
 let lastRoundWinnerId = null; 
+let lastPlayedCards = []; // ✨ បន្ថែមបង្កើត Variable រក្សាបៀរលើតុ ដើម្បីដោះស្រាយបញ្ហា Pass មិនកើត
 
 if (localStorage.getItem('tienlen_name')) {
     document.getElementById('playerName').value = localStorage.getItem('tienlen_name');
@@ -559,15 +560,14 @@ function startGame() {
 }
 
 socket.on('gameStarted', ({ players, currentTurnIndex: turn, lastRoundWinnerId: serverWinnerId }) => {
-    // 1. រក្សាទុកទិន្នន័យទៅក្នុង global variables ឱ្យបានរៀបរយជាមុនសិន
     currentTurnIndex = turn;
     playersData = players;
     lastRoundWinnerId = serverWinnerId; 
+    lastPlayedCards = []; // ជម្រះបៀរចាស់លើតុពេលចាប់ផ្តើមហ្គេមថ្មី
     
     const myData = players.find(p => p.id === myId);
     amISpectator = myData ? myData.isSpectator : false;
 
-    // 2. បង្ហាញផ្ទាំងហ្គេម
     document.body.classList.add('in-game');
     document.getElementById('lobbyArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'none';
@@ -585,11 +585,10 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn, lastRoundWinnerId: 
         document.getElementById('actionControls').style.display = 'flex';
     }
 
-    // 3. ✨ ហៅមុខងារ render តាមលំដាប់លំដោយត្រឹមត្រូវ (សំខាន់បំផុត!)
     renderPlayers(players);
     updateControlsState();
     setTimeout(() => {
-        renderMyCards(); // ប្រើ Timeout បន្តិចដើម្បីធានាថា DOM និង Variables ដំណើរការស្របគ្នាឥតខ្ចោះ
+        renderMyCards(); 
     }, 50);
 });
 
@@ -597,10 +596,8 @@ socket.on('dealCards', ({ hand }) => {
     myHand = hand;
     selectedCards = [];
     
-    // បន្ថែម ២ បន្ទាត់នេះដើម្បីធានាថាវា Update វេនបានច្បាស់លាស់ពេលចែកបៀរភ្លាម
     renderPlayers(playersData);
     updateControlsState();
-    
     renderMyCards();
 });
 
@@ -616,29 +613,21 @@ function updateControlsState() {
     
     if (playBtn && passBtn) {
         if (isMyTurn()) {
-            // ១. បើដល់វេនខ្លួនឯង គឺច្បាស់ជាអាចចុចប៊ូតុង "ចុះបៀរ (Play)" បានជានិច្ច
             playBtn.disabled = false;
             
-            // ២. ពិនិត្យមើលស្ថានភាពតុ ដើម្បីគ្រប់គ្រងប៊ូតុង "រំលង (Pass)"
-            const tableDiv = document.getElementById('table');
-            const isTableEmpty = tableDiv && (
-                tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || 
-                tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || 
-                tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត!')
-            );
+            // ✨ ឆែកតាមបៀរជាក់ស្តែងលើតុ (លែងឆែកអក្សរ HTML នាំឱ្យគាំង Pass ទៀតហើយ)
+            const isTableEmpty = (!lastPlayedCards || lastPlayedCards.length === 0);
             
-            // គណនាចំនួនអ្នកលេងដែលមិនទាន់អស់បៀរ និងអ្នកលេងដែលបាន Pass រួច
             const activePlayersCount = playersData.filter(p => p.hand && p.hand.length > 0 && !p.isSpectator).length;
             const passedPlayersCount = playersData.filter(p => p.hand && p.hand.length > 0 && !p.isSpectator && p.passed).length;
 
-            // 🔐 លក្ខខណ្ឌចាក់សោ៖ បើជាជុំថ្មី (តុទំនេរ) ឬក៏អ្នកដទៃ Pass អស់ហើយសល់តែខ្លួនឯង គឺ "មិនអនុញ្ញាតឱ្យ Pass ឡើយ"
+            // 🔐 លក្ខខណ្ឌការពារ៖ បើតុទំនេរ (ដូចជាវេនដំបូងបង្អស់) ឬគ្រប់គ្នា Pass សល់តែខ្លួនឯង គឺមិនឱ្យ Pass ដាច់ខាត
             if (isTableEmpty || passedPlayersCount >= (activePlayersCount - 1)) {
-                passBtn.disabled = true; // ឡុកប៊ូតុង Pass សម្រាប់អ្នកទី១ (ម្ចាស់បៀរ)
+                passBtn.disabled = true; 
             } else {
-                passBtn.disabled = false; // អ្នកដទៃ (អ្នកទី២, ទី៣, ទី៤) ដែលត្រូវស៊ីវេនបន្ត គឺអាចចុច Pass បានធម្មតា!
+                passBtn.disabled = false; // អ្នកបន្ទាប់គឺអាចចុច Pass បាន ១០០%
             }
         } else {
-            // បើមិនមែនវេនខ្លួនឯងទេ គឺត្រូវបិទចោលទាំងពីរ
             playBtn.disabled = true;
             passBtn.disabled = true;
         }
@@ -658,14 +647,12 @@ function renderPlayers(players) {
         el.className = 'player';
         el.id = `player-card-${p.id}`; 
         
-        // ✨ ការកែប្រែចំណុចគន្លឹះ៖ ផ្ទៀងផ្ទាត់វេនលេងឲ្យត្រូវតាម index របស់ server និងស្ថានភាពមិនទាន់អស់បៀរ
         const isCurrentTurn = (currentTurnIndex !== null && index === currentTurnIndex && !p.isSpectator && p.hand && p.hand.length > 0);
         
         if (isCurrentTurn) {
             el.classList.add('active-turn'); 
         }
 
-        // ឆែកមើលចំនួនបៀរដែលសល់ឲ្យបានត្រឹមត្រូវ
         const count = p.hand ? p.hand.length : (p.cardCount !== undefined ? p.cardCount : 13);
 
         if (p.passed && count > 0) {
@@ -686,7 +673,6 @@ function renderPlayers(players) {
             roleText += '<br><span style="color: #ef4444; font-weight: bold; font-size: 11px;">❌ Pass</span>';
         }
 
-        // បង្ហាញ Badge ពណ៌បៃតង "វេនអ្នក" ឬ "កំពុងលេង" ឲ្យចំអ្នកដែលមានវេនពិតប្រាកដ
         let turnBadgeHTML = isCurrentTurn ? `<div class="turn-badge">${p.id === myId ? '🟢 វេនអ្នក' : '🎯 កំពុងលេង'}</div>` : '';
 
         el.innerHTML = `
@@ -720,21 +706,17 @@ function renderMyCards() {
         return;
     }
     
-    // 💡 ឆែកមើលឱ្យច្បាស់ថាជាវេនយើងពិតប្រាកដមែនឬអត់
     const myTurn = isMyTurn(); 
-    const tableDiv = document.getElementById('table');
-    const isNewRound = tableDiv && (tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត!'));
+    const isNewRound = (!lastPlayedCards || lastPlayedCards.length === 0);
 
     myHand.forEach(card => {
         const el = document.createElement('div');
         const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
         el.className = `card ${isRed}`;
         
-        // បើមិនមែនវេនយើងទេ ឱ្យដាក់ class ស្រអាប់ (disabled-card)
         if (!myTurn) {
             el.classList.add('disabled-card');
         } else {
-            // បើជាវេនយើង ហើយជាជុំដំបូង ឱ្យដៅពណ៌មាសលើបៀរ 3ប៊ិច ឬបៀរដែលត្រូវចេញមុន
             if (isNewRound) {
                 if (!lastRoundWinnerId) {
                     if (card.value === '3' && card.suit === '♠') {
@@ -778,7 +760,7 @@ function toggleCard(card) {
 function playSelectedCards() {
     if (!isMyTurn()) return alert("មិនទាន់ដល់វេនរបស់អ្នកឡើយ!");
     if (selectedCards.length === 0) return alert("សូមជ្រើសរើសសន្លឹកបៀរមុននឹងចុះ!");
-    socket.emit('playCard', { roomId: currentRoom, cards: selectedCards });
+    socket.emit('playCards', { roomId: currentRoom, cards: selectedCards }); // 💡 កែចំណុច playCard ទៅ playCards ឱ្យត្រូវនឹង server
 }
 
 function passTurn() {
@@ -789,7 +771,7 @@ function passTurn() {
 socket.on('turnChanged', ({ currentTurnIndex: turn, players }) => {
     currentTurnIndex = turn;
     if (players) {
-        playersData = players; // ធ្វើបច្ចុប្បន្នភាពទិន្នន័យ Pass របស់អ្នកលេង
+        playersData = players; 
     }
     if (playersData[currentTurnIndex]) {
         document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
@@ -799,37 +781,12 @@ socket.on('turnChanged', ({ currentTurnIndex: turn, players }) => {
     renderMyCards(); 
 });
 
-socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
-    currentTurnIndex = nextTurn;
-    
-    updatedHands.forEach(p => {
-        const found = playersData.find(oldP => oldP.id === p.id);
-        if (found) {
-            found.cardCount = p.hand ? p.hand.length : p.cardCount;
-            found.rank = p.rank; 
-            found.passed = p.passed; 
-        }
-    });
-
-    playersData = updatedHands;
-    
-    const me = updatedHands.find(p => p.id === myId);
-    if (me && me.hand) {
-        myHand = me.hand;
-    }
-
-    renderPlayers(updatedHands);
-    updateControlsState();
-    renderMyCards();
-
-    if (playersData[currentTurnIndex]) {
-        document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
-    }
-
+function renderTableCards(cards, name) {
     const tableDiv = document.getElementById('table');
     tableDiv.innerHTML = '';
     
     if (cards && cards.length > 0) {
+        document.getElementById('status').innerHTML = `📢 <b>${name}</b> បានចុះបៀរ!`;
         cards.forEach((card, index) => {
             const el = document.createElement('div');
             const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
@@ -847,16 +804,44 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
     } else {
         tableDiv.innerHTML = '<div style="color: #a7f3d0;">មិនទាន់មានបៀរចុះឡើយ</div>';
     }
+}
+
+socket.on('cardsPlayed', ({ cards, nextTurn, id, name, roomPlayers }) => {
+    lastPlayedCards = cards; // ធ្វើបច្ចុប្បន្នភាពបៀរលើតុ
+    if (roomPlayers) playersData = roomPlayers;
     
-    selectedCards = [];
+    currentTurnIndex = nextTurn;
+    renderTableCards(cards, name);
+    renderPlayers(playersData);
+    updateControlsState(); 
+    if (id === socket.id) {
+        selectedCards = [];
+        // កាត់បៀរចេញពីដៃខ្លួនឯងភ្លាមៗ
+        myHand = myHand.filter(hc => !cards.some(c => c.value === hc.value && c.suit === hc.suit));
+    }
+    renderMyCards();
+});
+
+socket.on('clearTable', ({ nextTurn, message, roomPlayers }) => {
+    lastPlayedCards = []; // សម្អាតតុឱ្យទំនេរជុំថ្មី
+    if (roomPlayers) playersData = roomPlayers;
+    
+    currentTurnIndex = nextTurn;
+    const tableDiv = document.getElementById('table');
+    if (tableDiv) tableDiv.innerHTML = `<div style="color:#a8a29e; font-style:italic;">${message || 'តុត្រូវបានសម្អាត!'}</div>`;
+    
+    if (playersData[currentTurnIndex]) {
+        document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name} (ជុំថ្មី)`;
+    }
+    
+    renderPlayers(playersData);
+    updateControlsState(); 
     renderMyCards();
 });
 
 socket.on('playerPassed', ({ name, id, message }) => {
-    // ស្វែងរក Element របស់កាតអ្នកលេងដែលបានចុច Pass
     const playerCard = document.getElementById(`player-card-${id}`);
     if (playerCard) {
-        // លុប Bubble ចាស់ចេញបើមាន
         const oldBubble = playerCard.querySelector('.bubble-msg');
         if (oldBubble) oldBubble.remove();
 
@@ -867,16 +852,10 @@ socket.on('playerPassed', ({ name, id, message }) => {
         
         playerCard.appendChild(bubble);
         
-        // ទុកចោល ២ វិនាទីទើបលុបចេញ ដើម្បីឱ្យអ្នកលេងផ្សេងទៀតមើលឃើញទាន់
         setTimeout(() => {
             if (bubble) bubble.remove();
         }, 2000);
     }
-});
-
-socket.on('clearTable', ({ nextPlayer }) => {
-    document.getElementById('table').innerHTML = '<div style="color: #64748b;">តុត្រូវបានសម្អាត! ជុំថ្មី...</div>';
-    renderMyCards();
 });
 
 socket.on('errorMsg', (msg) => {
@@ -887,6 +866,7 @@ socket.on('errorMsg', (msg) => {
 
 socket.on('gameWon', ({ winner, winnerId, allHands }) => {
     lastRoundWinnerId = winnerId;
+    lastPlayedCards = [];
 
     document.body.classList.remove('in-game');
     document.getElementById('gameArea').style.display = 'none';
@@ -897,7 +877,6 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
     const resultList = document.getElementById('resultList');
     resultList.innerHTML = '';
 
-    // តម្រៀបអ្នកលេងតាមចំណាត់ថ្នាក់
     const sortedFinalResults = [...allHands].sort((a, b) => {
         const rankA = a.rank || 99;
         const rankB = b.rank || 99;
@@ -920,7 +899,6 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
             rankBadgeHTML = `<span style="color: #94a3b8; font-weight: bold;">👀 អ្នកមើលការប្រកួត</span>`;
             cardsHTML = `<span style="color: #64748b; font-style: italic;">(គ្មានសន្លឹកបៀរឡើយ)</span>`;
         } else {
-            // បង្ហាញមេដាយ ឬលំដាប់ពិន្ទុ
             if (p.rank === 1) {
                 rankBadgeHTML = `<span style="color: #eab308; font-weight: bold;">👑 លេខ ១ (🏆 អ្នកឈ្នះ)</span>`;
             } else if (p.rank === 2) {
@@ -931,7 +909,6 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
                 rankBadgeHTML = `<span style="color: #ef4444; font-weight: bold;">❌ ស្អុយបៀរ/ហាយ (អ្នកចាញ់)</span>`;
             }
 
-            // ✨ គន្លឹះ៖ Render បង្ហាញសន្លឹកបៀរទាំងអស់ដែលសល់ក្នុងដៃទោះបីជាស្អុយបៀរក៏ដោយ
             const remainingCards = p.remaining || p.hand || [];
             if (remainingCards.length > 0) {
                 remainingCards.forEach(card => {
@@ -966,7 +943,6 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
         resultList.appendChild(playerDiv);
     });
 
-    // គ្រប់គ្រងប៊ូតុងលេងម្ដងទៀតរបស់ Host
     const playAgainBtn = document.getElementById('hostPlayAgainBtn');
     const waitText = document.getElementById('waitHostText');
     if (isCreator) {
@@ -992,6 +968,7 @@ socket.on('leftRoom', () => {
     playersData = [];
     amISpectator = false;
     lastRoundWinnerId = null; 
+    lastPlayedCards = [];
     
     document.getElementById('loginArea').style.display = 'block';
     document.getElementById('lobbyArea').style.display = 'none';
