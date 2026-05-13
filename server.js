@@ -150,15 +150,13 @@ function moveToNextTurn(room) {
         let p = room.players[checkIndex];
         
         if (room.gameMode === 'catte') {
-            // សម្រាប់កាតេ៖ អ្នកមិនទាន់ងាប់ (មានបៀក្នុងដៃ) ទើបអាចលេងបាន
-            if (p && p.hand.length > 0) {
+            if (p && p.hand.length > 0 && !p.isSpectator) {
                 nextIndex = checkIndex;
                 found = true;
                 break;
             }
         } else {
-            // សម្រាប់លីនលែន
-            if (p && p.hand.length > 0 && !p.passed) {
+            if (p && p.hand.length > 0 && !p.passed && !p.isSpectator) {
                 nextIndex = checkIndex;
                 found = true;
                 break;
@@ -173,48 +171,62 @@ function moveToNextTurn(room) {
 function handleTurnAndRoundStatus(room) {
     if (room.gameMode === 'catte') {
         room.catteTurnCount++;
-        // ចប់មួយជុំ (គ្រប់ចំនួនអ្នកលេងដែលនៅមានបៀរ)
-        const activePlayersCount = room.players.filter(p => p.hand.length + p.burnedCards.length + p.wonRoundsCards.length > 0).length;
+        // ចំនួនអ្នកលេងពិតប្រាកដដែលកំពុងលេង (មិនមែន Spectator)
+        const activePlayersCount = room.players.filter(p => !p.isSpectator).length;
         
+        // បើវាយ ឬធិបគ្រប់ចំនួនមនុស្សក្នុងវគ្គនេះហើយ គឺត្រូវកាត់សេចក្តីរកអ្នកឈ្នះទឹក
         if (room.catteTurnCount >= activePlayersCount) {
-            // រកអ្នកឈ្នះក្នុងជុំនេះ (បៀរវាយចេញធំជាងគេ និងត្រូវទឹក)
+            // រកអ្នកឈ្នះក្នុងទឹកនេះ (បៀរវាយចេញដែលមិនមែនជាការធិបផ្កាប់ ធំជាងគេ និងត្រូវទឹកនាំមុខ)
             let winPlay = room.catteRoundPlays.reduce((maxPlay, currPlay) => {
+                if (currPlay.isBurned) return maxPlay; 
                 if (!maxPlay) return currPlay;
-                if (currPlay.card.suit === maxPlay.card.suit && getCattePower(currPlay.card) > getCattePower(maxPlay.card)) {
-                    return currPlay;
+                
+                const leadCard = room.catteRoundPlays.find(p => !p.isBurned);
+                if (!leadCard) return currPlay; 
+
+                if (currPlay.card.suit === leadCard.card.suit) {
+                    if (!maxPlay.card || (getCattePower(currPlay.card) > getCattePower(maxPlay.card))) {
+                        return currPlay;
+                    }
                 }
                 return maxPlay;
             }, null);
 
+            // បើគ្មាននរណាស៊ីកើតសោះ អ្នកនាំមុខគេ (Lead) ជាអ្នកឈ្នះទឹក
+            if (!winPlay) {
+                winPlay = room.catteRoundPlays.find(p => !p.isBurned);
+            }
+
             if (winPlay) {
                 const winner = room.players.find(p => p.id === winPlay.playerId);
-                winner.wonRoundsCards.push(winPlay.card);
-                room.lastPlayerId = winner.id;
-                room.currentTurnIndex = room.players.findIndex(p => p.id === winner.id);
+                if (winner) {
+                    winner.wonRoundsCards.push(winPlay.card);
+                    room.lastPlayerId = winner.id;
+                    room.currentTurnIndex = room.players.findIndex(p => p.id === winner.id);
+                }
             }
 
             room.catteRoundCount++;
             room.catteTurnCount = 0;
             room.catteRoundPlays = [];
-            room.playedCards = [];
+            room.playedCards = []; // សម្អាតតុពិតប្រាកដសម្រាប់ទឹកថ្មី
 
             // ប្រសិនបើលេងគ្រប់ ៤ ទឹកហើយ
             if (room.catteRoundCount === 4) {
-                // អ្នកអត់មានឈ្នះសោះក្នុង ៤ ទឹក ត្រូវងាប់ (Rank ចុងក្រោយ)
                 room.players.forEach(p => {
                     if (p.wonRoundsCards.length === 0 && !p.isSpectator) {
-                        p.hand = []; // អស់សិទ្ធចូលវគ្គ ៥ ៦
+                        p.hand = []; // អ្នកអត់ឈ្នះសោះគឺងាប់ (ខ្វះទឹក)
                     }
                 });
 
-                const qualifed = room.players.filter(p => p.wonRoundsCards.length > 0);
-                if (qualifed.length <= 1) {
+                const qualified = room.players.filter(p => p.wonRoundsCards.length > 0 && !p.isSpectator);
+                if (qualified.length <= 1) {
                     endCatteGame(room);
                     return;
                 }
             }
 
-            // ប្រសិនបើលេងដល់ទឹក ៥ ឬ ៦ (វគ្គខាំ និងផ្កាប់ទម្លាក់)
+            // បញ្ចប់ហ្គេមនៅទឹកទី ៦
             if (room.catteRoundCount >= 6) {
                 endCatteGame(room);
                 return;
@@ -226,7 +238,7 @@ function handleTurnAndRoundStatus(room) {
         }
     } else {
         // សម្រាប់ Tien Len
-        const stillPlayingAndNotPassed = room.players.filter(p => p.hand.length > 0 && !p.passed);
+        const stillPlayingAndNotPassed = room.players.filter(p => p.hand.length > 0 && !p.passed && !p.isSpectator);
         
         if (stillPlayingAndNotPassed.length <= 1) {
             room.playedCards = [];
@@ -242,7 +254,7 @@ function handleTurnAndRoundStatus(room) {
                 for (let i = 1; i <= room.players.length; i++) {
                     let checkIdx = (originalIdx + i) % room.players.length;
                     let checkP = room.players[checkIdx];
-                    if (checkP && checkP.hand.length > 0) {
+                    if (checkP && checkP.hand.length > 0 && !checkP.isSpectator) {
                         nextWinnerIndex = checkIdx;
                         break;
                     }
@@ -259,26 +271,23 @@ function handleTurnAndRoundStatus(room) {
 
 function endCatteGame(room) {
     room.status = 'waiting';
-    // រកអ្នកឈ្នះទឹកទី ៦ ឬអ្នកដែលសល់បៀរធំជាងគេ
     let finalWinner = null;
-    
-    // តម្រៀបរកអ្នកឈ្នះតាមច្បាប់ Catte
     let activePlayers = room.players.filter(p => !p.isSpectator);
     
-    // បើរកអ្នកឈ្នះទឹកចុងក្រោយ (ទឹក៦) ឃើញ
-    // ដើម្បីងាយស្រួល នរណាមានសន្លឹកបៀរឈ្នះទឹកចុងក្រោយគេ ឬមាន Rank ល្អជាងគេ
-    activePlayers.forEach(p => {
-        p.rank = p.wonRoundsCards.length > 0 ? 1 : 4;
-    });
+    // អ្នកឈ្នះទឹកចុងក្រោយ (ទឹក ៦) ឬទឹកទី ៥ គឺជាអ្នកឈ្នះក្រោន
+    if (room.lastPlayerId) {
+        finalWinner = room.players.find(p => p.id === room.lastPlayerId);
+    }
 
-    // កំណត់ Winner ច្បាស់លាស់ម្នាក់
-    let maxRounds = -1;
-    activePlayers.forEach(p => {
-        if (p.wonRoundsCards.length > maxRounds) {
-            maxRounds = p.wonRoundsCards.length;
-            finalWinner = p;
-        }
-    });
+    if (!finalWinner) {
+        let maxRounds = -1;
+        activePlayers.forEach(p => {
+            if (p.wonRoundsCards.length > maxRounds) {
+                maxRounds = p.wonRoundsCards.length;
+                finalWinner = p;
+            }
+        });
+    }
 
     if (finalWinner) {
         finalWinner.rank = 1;
@@ -334,7 +343,7 @@ io.on('connection', (socket) => {
             players: [{ id: socket.id, name: playerName || 'Player 1', hand: [], burnedCards: [], wonRoundsCards: [], passed: false, isSpectator: false, rank: null }],
             creatorId: socket.id,
             status: 'waiting', 
-            gameMode: gameMode || 'tienlen', // 'tienlen' ឬ 'catte'
+            gameMode: gameMode || 'tienlen',
             password: password || "",
             currentTurnIndex: 0,
             playedCards: [],
@@ -357,7 +366,6 @@ io.on('connection', (socket) => {
         if (!room) return socket.emit('errorMsg', 'រកមិនឃើញបន្ទប់នេះទេ!');
         if (room.password && room.password !== password) return socket.emit('errorMsg', 'លេខកូដសម្ងាត់មិនត្រឹមត្រូវ!');
         
-        // កាតេលេងបានដល់ ៦ នាក់, ទានលែនបាន ៤ នាក់
         const maxPlayers = room.gameMode === 'catte' ? 6 : 4;
         if (room.players.length >= maxPlayers) return socket.emit('errorMsg', 'បន្ទប់ពេញហើយ!');
 
@@ -444,12 +452,14 @@ io.on('connection', (socket) => {
             if (cards.length !== 1) return socket.emit('errorMsg', 'ហ្គេមកាតេអនុញ្ញាតឱ្យចុះបៀរម្ដងបានតែ ១ សន្លឹកប៉ុណ្ណោះ!');
             const targetCard = cards[0];
 
-            // ពិនិត្យលក្ខខណ្ឌស៊ីកាតេ
             let canPlay = false;
-            if (room.playedCards.length === 0) {
-                canPlay = true; // ដើមទឹកវាយសេរី
+            // រកមើលសន្លឹកបៀរនាំមុខ (Lead Card) ដំបូងគេបង្អស់នៅក្នុងទឹកនេះដែលមិនមែនជាការធិបផ្កាប់
+            const leadPlay = room.catteRoundPlays.find(p => !p.isBurned);
+
+            if (!leadPlay) {
+                canPlay = true; // ប្រសិនបើខ្លួនជាអ្នកបោះមុនគេ ឬអ្នកមុនៗសុទ្ធតែធិបផ្កាប់ទាំងអស់
             } else {
-                const leadCard = room.playedCards[0];
+                const leadCard = leadPlay.card;
                 if (targetCard.suit === leadCard.suit && getCattePower(targetCard) > getCattePower(leadCard)) {
                     canPlay = true; 
                 }
@@ -459,12 +469,11 @@ io.on('connection', (socket) => {
                 return socket.emit('errorMsg', 'មិនអាចចុះបានទេ! ទឹកបៀរមិនត្រូវ ឬតូចជាងបៀរនៅលើតុ។ (សូមប្រើប៊ូតុងធិបផ្កាប់វិញ បើគ្មានបៀរស៊ី)');
             }
 
-            // ដកបៀរចេញពីដៃ
             const idx = player.hand.findIndex(pc => pc.value === targetCard.value && pc.suit === targetCard.suit);
             if (idx !== -1) player.hand.splice(idx, 1);
 
             room.catteRoundPlays.push({ playerId: player.id, card: targetCard, isBurned: false });
-            room.playedCards = [targetCard]; // ក្លាយជាបៀរនាំមុខថ្មីនៅលើតុ
+            room.playedCards = [targetCard]; 
 
             io.to(roomId).emit('cardPlayed', { 
                 by: player.name, 
@@ -478,7 +487,7 @@ io.on('connection', (socket) => {
             io.to(roomId).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex });
 
         } else {
-            // ផ្នែកច្បាប់របស់ Tien Len ចាស់ដដែល
+            // ផ្នែក Tien Len
             if (getComboType(cards) && comparePlay(cards, room.playedCards)) {
                 cards.forEach(c => {
                     const idx = player.hand.findIndex(pc => pc.value === c.value && pc.suit === c.suit);
@@ -498,7 +507,7 @@ io.on('connection', (socket) => {
                     }
                 }
 
-                const remainingActivePlayers = room.players.filter(p => p.hand.length > 0);
+                const remainingActivePlayers = room.players.filter(p => p.hand.length > 0 && !p.isSpectator);
 
                 if (remainingActivePlayers.length <= 1) {
                     if (remainingActivePlayers.length === 1) {
@@ -550,17 +559,16 @@ io.on('connection', (socket) => {
         }
     });
 
-// មុខងារធិបបៀរផ្កាប់ (សម្រាប់ Catte) - កែសម្រួលថ្មីដើម្បីការពារការច្រឡំដៃ
     socket.on('burnCard', ({ roomId, card }) => {
         const room = rooms[roomId];
         if (!room || room.gameMode !== 'catte') return;
         const player = room.players[room.currentTurnIndex];
         if (!player || player.id !== socket.id) return;
 
-        // 💡 លក្ខខណ្ឌបន្ថែម៖ បើតុទទេ (លេងដើមទឹក) ឬ ដល់វេនត្រូវដាក់ទឹកថ្មី គឺមិនអនុញ្ញាតឱ្យធិបផ្កាប់ឡើយ
-        const isNewRound = room.playedCards.length === 0;
-        if (isNewRound) {
-            return socket.emit('errorMsg', 'មិនអាចធិបផ្កាប់បៀរបានទេ! ដល់វេនអ្នកត្រូវបោះបៀរទឹកថ្មីចេញទៅមុខ។');
+        // 💡 កែប្រែត្រង់នេះ៖ ឆែករកមើលថាតើមានសន្លឹកបៀរដែលមិនមែនជាការធិបផ្កាប់នៅលើតុដែរឬទេ
+        const hasActiveLead = room.catteRoundPlays.some(p => !p.isBurned);
+        if (!hasActiveLead) {
+            return socket.emit('errorMsg', 'មិនអាចធិបផ្កាប់បៀរបានទេ! វេនអ្នកត្រូវបោះបៀរទឹកថ្មីចេញទៅមុខគេបង្អស់។');
         }
 
         const idx = player.hand.findIndex(pc => pc.value === card.value && pc.suit === card.suit);
@@ -584,7 +592,7 @@ io.on('connection', (socket) => {
 
     socket.on('passTurn', (roomId) => {
         const room = rooms[roomId];
-        if (!room || room.gameMode === 'catte') return; // Catte គ្មាន Pass ទេ
+        if (!room || room.gameMode === 'catte') return; 
         const player = room.players[room.currentTurnIndex];
         if (!player || player.id !== socket.id) return;
 
