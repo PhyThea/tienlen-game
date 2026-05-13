@@ -550,12 +550,18 @@ io.on('connection', (socket) => {
         }
     });
 
-    // មុខងារធិបបៀរផ្កាប់ (សម្រាប់ Catte)
+// មុខងារធិបបៀរផ្កាប់ (សម្រាប់ Catte) - កែសម្រួលថ្មីដើម្បីការពារការច្រឡំដៃ
     socket.on('burnCard', ({ roomId, card }) => {
         const room = rooms[roomId];
         if (!room || room.gameMode !== 'catte') return;
         const player = room.players[room.currentTurnIndex];
         if (!player || player.id !== socket.id) return;
+
+        // 💡 លក្ខខណ្ឌបន្ថែម៖ បើតុទទេ (លេងដើមទឹក) ឬ ដល់វេនត្រូវដាក់ទឹកថ្មី គឺមិនអនុញ្ញាតឱ្យធិបផ្កាប់ឡើយ
+        const isNewRound = room.playedCards.length === 0;
+        if (isNewRound) {
+            return socket.emit('errorMsg', 'មិនអាចធិបផ្កាប់បៀរបានទេ! ដល់វេនអ្នកត្រូវបោះបៀរទឹកថ្មីចេញទៅមុខ។');
+        }
 
         const idx = player.hand.findIndex(pc => pc.value === card.value && pc.suit === card.suit);
         if (idx === -1) return socket.emit('errorMsg', 'រកមិនឃើញសន្លឹកបៀរនេះទេ!');
