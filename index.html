@@ -617,7 +617,21 @@ function updateControlsState() {
     if (playBtn && passBtn) {
         if (isMyTurn()) {
             playBtn.disabled = false;
-            passBtn.disabled = false;
+            
+            // 🔐 ពិនិត្យមើលថាតើមានបៀរលើតុដែរឬទេ? ឬតើយើងជាម្ចាស់បៀរលើតុ (លេងមុនគេ) មែនទេ?
+            const tableDiv = document.getElementById('table');
+            const isTableEmpty = tableDiv && (tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត!'));
+            
+            // ស្វែងរកទិន្នន័យខ្លួនឯងក្នុងចំណោមអ្នកលេងទាំងអស់ ដើម្បីឆែកមើលស្ថានភាព Pass របស់អ្នកដទៃ
+            const activePlayersCount = playersData.filter(p => p.hand && p.hand.length > 0).length;
+            const passedPlayersCount = playersData.filter(p => p.hand && p.hand.length > 0 && p.passed).length;
+
+            // ប្រសិនបើតុទំនេរ ឬគ្រប់គ្នា Pass អស់ហើយសល់តែយើង គឺត្រូវបិទប៊ូតុង Pass មិនឱ្យចុចដាច់ខាត
+            if (isTableEmpty || passedPlayersCount >= (activePlayersCount - 1)) {
+                passBtn.disabled = true;
+            } else {
+                passBtn.disabled = false;
+            }
         } else {
             playBtn.disabled = true;
             passBtn.disabled = true;
