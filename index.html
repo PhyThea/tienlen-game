@@ -812,15 +812,14 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
     }
 
     renderPlayers(updatedHands);
-    updateControlsState();
-    renderMyCards();
+    // លុប updateControlsState() ពីកន្លែងនេះចោល (ផ្ដោតលើការ Update ក្រោយពេលរៀបតុរួច)
 
     if (playersData[currentTurnIndex]) {
         document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
     }
 
     const tableDiv = document.getElementById('table');
-    tableDiv.innerHTML = '';
+    tableDiv.innerHTML = ''; // 🧼 សម្អាតអក្សរ "តុត្រូវបានសម្អាត" ចោលភ្លាម!
     
     if (cards && cards.length > 0) {
         cards.forEach((card, index) => {
@@ -842,9 +841,11 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
     }
     
     selectedCards = [];
+    
+    // 💡 ហៅមុខងារទាំង ២ នេះនៅចុងក្រោយគេបង្អស់ បន្ទាប់ពី HTML លើតុត្រូវបានដូរទៅជាសន្លឹកបៀរហើយ
+    updateControlsState(); 
     renderMyCards();
 });
-
 socket.on('playerPassed', ({ name, id, message }) => {
     // ស្វែងរក Element របស់កាតអ្នកលេងដែលបានចុច Pass
     const playerCard = document.getElementById(`player-card-${id}`);
