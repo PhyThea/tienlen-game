@@ -187,6 +187,7 @@ function moveToNextTurn(room) {
 function handleTurnAndRoundStatus(room) {
     const stillPlayingAndNotPassed = room.players.filter(p => p.hand.length > 0 && !p.passed);
     
+    // ប្រសិនបើគ្រប់គ្នា Pass អស់ សល់តែម្ចាស់បៀរម្នាក់ឯង
     if (stillPlayingAndNotPassed.length <= 1) {
         room.playedCards = [];
         
@@ -209,7 +210,12 @@ function handleTurnAndRoundStatus(room) {
         }
 
         room.currentTurnIndex = nextWinnerIndex !== -1 ? nextWinnerIndex : 0;
-        io.to(room.roomId).emit('clearTable', { nextPlayer: room.players[room.currentTurnIndex].name });
+
+        // ✨ ដំណោះស្រាយ៖ ពន្យារពេល ១.២ វិនាទី (1200ms) ដើម្បីឱ្យគ្រប់គ្នាឃើញសញ្ញា Pass សិន ទើបលុបតុបៀរ
+        setTimeout(() => {
+            io.to(room.roomId).emit('clearTable', { nextPlayer: room.players[room.currentTurnIndex].name });
+        }, 1200); 
+        
     } else {
         moveToNextTurn(room);
     }
