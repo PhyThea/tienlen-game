@@ -210,33 +210,61 @@ function broadcastRoomList() {
         const room = rooms[roomId];
         if (!room) return;
 
-        // ១. ពិនិត្យលក្ខខណ្ឌ៖ បើជាវគ្គដំបូង (មិនទាន់មានអ្នកឈ្នះចាស់) មានតែអ្នកបង្កើតបន្ទប់ (Creator) ទេទើបចុចបាន
+        // 🛠️ លក្ខខណ្ឌថ្មី៖ ពិនិត្យសិទ្ធិអ្នកចុច Start Game / Play Again
         if (!room.lastWinnerId) {
+            // ក្ដារដំបូងបង្អស់៖ មានតែអ្នកបង្កើតបន្ទប់ (Creator) ទេទើបចុចបាន
             if (room.creatorId !== socket.id) {
                 return socket.emit('errorMsg', 'មានតែមេបន្ទប់ (Host) ទេទើបអាចចាប់ផ្ដើមហ្គេមដំបូងបាន!');
             }
-        } 
-        // ២. បើមានវគ្គបន្ទាប់ (មានអ្នកឈ្នះចាស់) មានតែអ្នកឈ្នះលេខ ១ វគ្គមុនទេទើបចុចបាន
-        else {
+        } else {
+            // ក្ដារបន្ទាប់ៗ៖ មានតែអ្នកដែលឈ្នះលេខ ១ វគ្គមុនទេទើបចុចបាន
             if (room.lastWinnerId !== socket.id) {
                 return socket.emit('errorMsg', 'មានតែអ្នកឈ្នះវគ្គមុនទេ ទើបមានសិទ្ធិចាប់ផ្ដើមវគ្គថ្មីបាន!');
             }
         }
 
-        // --- កូដចែកបៀរ និង setup ហ្គេមចាស់របស់អ្នក (ឧទាហរណ៍ខាងក្រោម) ---
-        room.status = 'playing';
-        // រៀបចំបោកបៀរ ចែកបៀរ និងកំណត់វេនលេង...
-        // ...
-        
-        // ⚠️ ចំណុចសំខាន់៖ ពេល emit 'gameStarted' ត្រូវប្រាកដថាផ្ញើ lastRoundWinnerId ទៅឱ្យ Client ផង
-        io.to(roomId).emit('gameStarted', {
-            players: room.players,
-            currentTurnIndex: room.currentTurnIndex,
-            lastRoundWinnerId: room.lastWinnerId // បញ្ជូន variable នេះទៅ Client
+        room.players.forEach(p => {
+            p.isSpectator = false;
+            p.hand = [];
+            p.passed = false;
+            p.rank = null;
         });
+
+        const playerCount = room.players.length;
+        if (playerCount < 2) return socket.emit('errorMsg', 'ត្រូវការអ្នកលេងយ៉ាងតិច ២ នាក់!');
+
+        const deck = shuffleDeck(createDeck());
+        room.status = 'playing'; 
+        room.playedCards = [];
+        room.lastPlayerId = null;
+        room.nextRank = 1; 
         
+        room.players.forEach((p, i) => {
+            p.hand = sortCards(deck.slice(i * 13, (i + 1) * 13));
+            io.to(p.id).emit('dealCards', { hand: p.hand });
+        });
+
+        let startingIndex = -1;
+        if (room.lastWinnerId) {
+            startingIndex = room.players.findIndex(p => p.id === room.lastWinnerId);
+        }
+        if (startingIndex === -1) {
+            startingIndex = room.players.findIndex(p => p.hand.some(c => c.value === '3' && c.suit === '♠'));
+        }
+        if (startingIndex === -1) startingIndex = 0;
+
+        room.currentTurnIndex = startingIndex;
+
+        // ផ្ញើសញ្ញាចាប់ផ្តើមហ្គេមទៅគ្រប់គ្នា
+        io.to(roomId).emit('gameStarted', { 
+            players: room.players, 
+            currentTurnIndex: room.currentTurnIndex,
+            lastRoundWinnerId: room.lastWinnerId,
+            playedCards: [] 
+        });
         broadcastRoomList();
     });
+
     // server.js (ជំនួសផ្នែក joinRoom និង startGame)
 
     socket.on('joinRoom', ({ roomId, password, playerName }) => {
