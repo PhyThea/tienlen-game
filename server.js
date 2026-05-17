@@ -210,7 +210,7 @@ function broadcastRoomList() {
         const room = rooms[roomId];
         if (!room) return;
 
-        // 🛠️ លក្ខខណ្ឌថ្មី៖ ពិនិត្យសិទ្ធិអ្នកចុច Start Game / Play Again
+        // 🛠️ លក្ខខណ្ឌពិនិត្យសិទ្ធិអ្នកចុច Start Game ឬ Play Again
         if (!room.lastWinnerId) {
             // ក្ដារដំបូងបង្អស់៖ មានតែអ្នកបង្កើតបន្ទប់ (Creator) ទេទើបចុចបាន
             if (room.creatorId !== socket.id) {
@@ -234,11 +234,11 @@ function broadcastRoomList() {
         if (playerCount < 2) return socket.emit('errorMsg', 'ត្រូវការអ្នកលេងយ៉ាងតិច ២ នាក់!');
 
         const deck = shuffleDeck(createDeck());
-        room.status = 'playing'; 
+        room.status = 'playing';
         room.playedCards = [];
         room.lastPlayerId = null;
-        room.nextRank = 1; 
-        
+        room.nextRank = 1;
+
         room.players.forEach((p, i) => {
             p.hand = sortCards(deck.slice(i * 13, (i + 1) * 13));
             io.to(p.id).emit('dealCards', { hand: p.hand });
@@ -255,12 +255,12 @@ function broadcastRoomList() {
 
         room.currentTurnIndex = startingIndex;
 
-        // ផ្ញើសញ្ញាចាប់ផ្តើមហ្គេមទៅគ្រប់គ្នា
-        io.to(roomId).emit('gameStarted', { 
-            players: room.players, 
+        // ផ្ញើ lastRoundWinnerId ទៅឱ្យ Client គ្រប់គ្នាដឹងពីសិទ្ធិលេងក្ដារក្រោយ
+        io.to(roomId).emit('gameStarted', {
+            players: room.players,
             currentTurnIndex: room.currentTurnIndex,
             lastRoundWinnerId: room.lastWinnerId,
-            playedCards: [] 
+            playedCards: []
         });
         broadcastRoomList();
     });
@@ -301,53 +301,6 @@ function broadcastRoomList() {
         });
 
         io.to(roomId).emit('updatePlayers', room.players);
-        broadcastRoomList();
-    });
-
-    socket.on('startGame', (roomId) => {
-        const room = rooms[roomId];
-        if (!room || room.creatorId !== socket.id) return;
-
-        room.players.forEach(p => {
-            p.isSpectator = false;
-            p.hand = [];
-            p.passed = false;
-            p.rank = null;
-        });
-
-        const playerCount = room.players.length;
-        if (playerCount < 2) return socket.emit('errorMsg', 'ត្រូវការអ្នកលេងយ៉ាងតិច ២ នាក់!');
-
-        const deck = shuffleDeck(createDeck());
-        room.status = 'playing'; 
-        room.playedCards = [];
-        room.lastPlayerId = null;
-        room.nextRank = 1; 
-        
-        room.players.forEach((p, i) => {
-            p.hand = sortCards(deck.slice(i * 13, (i + 1) * 13));
-            // ផ្ញើបៀទៅកាន់អ្នកលេងម្នាក់ៗ
-            io.to(p.id).emit('dealCards', { hand: p.hand });
-        });
-
-        let startingIndex = -1;
-        if (room.lastWinnerId) {
-            startingIndex = room.players.findIndex(p => p.id === room.lastWinnerId);
-        }
-        if (startingIndex === -1) {
-            startingIndex = room.players.findIndex(p => p.hand.some(c => c.value === '3' && c.suit === '♠'));
-        }
-        if (startingIndex === -1) startingIndex = 0;
-
-        room.currentTurnIndex = startingIndex;
-
-        // ផ្ញើសញ្ញាចាប់ផ្តើមហ្គេមទៅគ្រប់គ្នា
-        io.to(roomId).emit('gameStarted', { 
-            players: room.players, 
-            currentTurnIndex: room.currentTurnIndex,
-            lastRoundWinnerId: room.lastWinnerId,
-            playedCards: [] // ប្រាកដថាតុទទេនៅពេលចាប់ផ្តើម
-        });
         broadcastRoomList();
     });
 
