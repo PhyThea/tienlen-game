@@ -206,33 +206,37 @@ function broadcastRoomList() {
     io.emit('roomList', list);
 }
 
-io.on('connection', (socket) => {
-    broadcastRoomList();
+    socket.on('startGame', (roomId) => {
+        const room = rooms[roomId];
+        if (!room) return;
 
-    socket.on('createRoom', ({ roomId, password, playerName }) => {
-        if (rooms[roomId]) {
-            return socket.emit('errorMsg', 'បន្ទប់នេះមានរួចហើយ!');
+        // ១. ពិនិត្យលក្ខខណ្ឌ៖ បើជាវគ្គដំបូង (មិនទាន់មានអ្នកឈ្នះចាស់) មានតែអ្នកបង្កើតបន្ទប់ (Creator) ទេទើបចុចបាន
+        if (!room.lastWinnerId) {
+            if (room.creatorId !== socket.id) {
+                return socket.emit('errorMsg', 'មានតែមេបន្ទប់ (Host) ទេទើបអាចចាប់ផ្ដើមហ្គេមដំបូងបាន!');
+            }
+        } 
+        // ២. បើមានវគ្គបន្ទាប់ (មានអ្នកឈ្នះចាស់) មានតែអ្នកឈ្នះលេខ ១ វគ្គមុនទេទើបចុចបាន
+        else {
+            if (room.lastWinnerId !== socket.id) {
+                return socket.emit('errorMsg', 'មានតែអ្នកឈ្នះវគ្គមុនទេ ទើបមានសិទ្ធិចាប់ផ្ដើមវគ្គថ្មីបាន!');
+            }
         }
+
+        // --- កូដចែកបៀរ និង setup ហ្គេមចាស់របស់អ្នក (ឧទាហរណ៍ខាងក្រោម) ---
+        room.status = 'playing';
+        // រៀបចំបោកបៀរ ចែកបៀរ និងកំណត់វេនលេង...
+        // ...
         
-        rooms[roomId] = {
-            roomId: roomId,
-            players: [{ id: socket.id, name: playerName || 'Player 1', hand: [], passed: false, isSpectator: false, rank: null }],
-            creatorId: socket.id,
-            status: 'waiting', 
-            password: password || "",
-            currentTurnIndex: 0,
-            playedCards: [],
-            lastPlayerId: null,
-            lastWinnerId: null,
-            nextRank: 1
-        };
+        // ⚠️ ចំណុចសំខាន់៖ ពេល emit 'gameStarted' ត្រូវប្រាកដថាផ្ញើ lastRoundWinnerId ទៅឱ្យ Client ផង
+        io.to(roomId).emit('gameStarted', {
+            players: room.players,
+            currentTurnIndex: room.currentTurnIndex,
+            lastRoundWinnerId: room.lastWinnerId // បញ្ជូន variable នេះទៅ Client
+        });
         
-        socket.join(roomId);
-        socket.emit('roomCreated', { roomId, playerId: socket.id });
-        io.to(roomId).emit('updatePlayers', rooms[roomId].players);
         broadcastRoomList();
     });
-
     // server.js (ជំនួសផ្នែក joinRoom និង startGame)
 
     socket.on('joinRoom', ({ roomId, password, playerName }) => {
