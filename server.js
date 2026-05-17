@@ -253,6 +253,17 @@ io.on('connection', (socket) => {
         socket.join(roomId);
         socket.emit('roomJoined', { roomId, playerId: socket.id, isSpectator });
         io.to(roomId).emit('updatePlayers', room.players);
+
+        // ប្រសិនបើហ្គេមកំពុងលេង បញ្ជូនស្ថានភាពបៀនៅលើតុទៅកាន់ Spectator ភ្លាមៗ
+        if (isSpectator) {
+            socket.emit('gameStarted', {
+                players: room.players,
+                currentTurnIndex: room.currentTurnIndex,
+                lastRoundWinnerId: room.lastWinnerId,
+                playedCards: room.playedCards
+            });
+        }
+
         broadcastRoomList();
     });
 
@@ -295,7 +306,8 @@ io.on('connection', (socket) => {
         io.to(roomId).emit('gameStarted', { 
             players: room.players, 
             currentTurnIndex: room.currentTurnIndex,
-            lastRoundWinnerId: room.lastWinnerId
+            lastRoundWinnerId: room.lastWinnerId,
+            playedCards: room.playedCards
         });
         broadcastRoomList();
     });
@@ -321,7 +333,6 @@ io.on('connection', (socket) => {
             if (player.hand.length === 0) {
                 player.rank = room.nextRank;
                 room.nextRank++;
-                
                 if (player.rank === 1) {
                     room.lastWinnerId = player.id;
                 }
@@ -333,7 +344,6 @@ io.on('connection', (socket) => {
                 if (remainingActivePlayers.length === 1) {
                     remainingActivePlayers[0].rank = room.nextRank;
                 }
-
                 room.status = 'waiting'; 
 
                 const results = room.players.map(p => ({ 
@@ -386,7 +396,6 @@ io.on('connection', (socket) => {
         if (!player || player.id !== socket.id) return;
 
         player.passed = true;
-        
         io.to(roomId).emit('playerPassed', { 
             name: player.name, 
             id: player.id,
