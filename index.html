@@ -1001,8 +1001,6 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
 
     const playAgainBtn = document.getElementById('hostPlayAgainBtn');
     const waitText = document.getElementById('waitHostText');
-    
-    // ផ្តល់សិទ្ធិផ្តាច់មុខជូនអ្នកឈ្នះ (Winner) ជាអ្នកចុចចាប់ផ្ដើមវគ្គថ្មី
     if (myId === lastRoundWinnerId) {
         playAgainBtn.style.display = 'block';
         waitText.style.display = 'none';
