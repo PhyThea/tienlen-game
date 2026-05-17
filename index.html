@@ -96,7 +96,7 @@ button:disabled {
     height: 100%;
 }
 
-/* កែប្រែត្រង់ចំណុចនេះ ដោយបន្ថែម (pointer: coarse) */
+/* បន្ថែម (pointer: coarse) ដើម្បីឲ្យដំណើរការតែលើទូរសព្ទដៃដែលប្រើ Touchscreen ប៉ុណ្ណោះ */
 @media screen and (max-width: 932px) and (orientation: portrait) and (pointer: coarse) {
     body.in-game {
         overflow: hidden;
@@ -116,19 +116,18 @@ button:disabled {
         position: fixed;
         top: 50%;
         left: 50%;
-        width: 100vh;
+        width: 100vh; /* រក្សាលំនឹងប្រវែងពេលបង្វិល */
         height: 100vw;
         transform: translate(-50%, -50%) rotate(90deg);
         transform-origin: center center;
         background: #0f172a;
-        padding: 10px;
+        padding: 15px;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        overflow: hidden; 
+        overflow: hidden; /* ការពារកុំឲ្យបាត់ប៊ូតុង */
     }
 }
-
     body.in-game .container {
         padding: 0;
         max-width: 100%;
@@ -153,13 +152,16 @@ button:disabled {
         overflow: hidden; /* ការពារកុំឲ្យបាត់ប៊ូតុង */
     }
 
-@media screen and (min-width: 600px) and (orientation: landscape), screen and (min-width: 933px) {
+@media screen and (min-width: 600px) and (orientation: landscape), screen and (min-width: 933px), screen and (pointer: fine) {
     body.in-game #gameArea {
         display: grid;
         grid-template-rows: auto 1fr auto auto;
         height: 92vh;
         max-height: 700px;
         gap: 10px;
+        transform: none !important; /* បង្ខំកុំព្យូទ័រកុំឲ្យបង្វិលដាច់ខាត */
+        position: static !important;
+        width: 100% !important;
     }
 }
 
