@@ -745,7 +745,8 @@ function renderPlayers(players) {
     });
 
     const startBtn = document.getElementById('startBtn');
-    if (isCreator) {
+    // បង្ហាញប៊ូតុង Start Game តែក្នុងវគ្គដំបូងបង្អស់សម្រាប់ Host (Creator) ប៉ុណ្ណោះ
+    if (isCreator && !lastRoundWinnerId) {
         startBtn.style.display = 'inline-block';
     } else {
         startBtn.style.display = 'none';
@@ -1000,12 +1001,16 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
 
     const playAgainBtn = document.getElementById('hostPlayAgainBtn');
     const waitText = document.getElementById('waitHostText');
-    if (isCreator) {
+    
+    // ផ្តល់សិទ្ធិផ្តាច់មុខជូនអ្នកឈ្នះ (Winner) ជាអ្នកចុចចាប់ផ្ដើមវគ្គថ្មី
+    if (myId === lastRoundWinnerId) {
         playAgainBtn.style.display = 'block';
         waitText.style.display = 'none';
+        playAgainBtn.innerText = "🔄 ចាប់ផ្ដើមវគ្គថ្មី (Start Next Round)";
     } else {
         playAgainBtn.style.display = 'none';
         waitText.style.display = 'block';
+        waitText.innerText = `សូមរង់ចាំអ្នកឈ្នះ (${winner}) ចាប់ផ្ដើមវគ្គថ្មី...`;
     }
 });
 
