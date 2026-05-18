@@ -606,7 +606,7 @@ function closeAllVoiceConnections() {
         localStream = null;
     }
     isMicMuted = false;
-    const micBtn = document.getElementById('micBtn');
+    const micBtn = document.getElementById('globalMicBtn'); // 👈 ដូរត្រង់នេះ
     if (micBtn) {
         micBtn.innerText = "🎙️ Mic: On";
         micBtn.style.background = "#ea580c";
