@@ -231,41 +231,31 @@ function broadcastRoomList() {
     io.emit('roomList', list);
 }
 
-// =================================================================
-    // 🎙️ ផ្នែកពេញលេញសម្រាប់ VOICE CHAT (WEBRTC SIGNALING)
-    // =================================================================
-    
-    // ១. ទទួលសញ្ញាសំឡេង (Offer, Answer, ICE Candidate) ពីអ្នកលេងម្នាក់ ហើយបញ្ជូនទៅអ្នកលេងម្នាក់ទៀតចំៗ
-    socket.on('voice-signal', ({ roomId, to, signal, from }) => {
-            io.to(to).emit('voice-signal', { signal, from });
-        });
+io.on('connection', (socket) => {
+    broadcastRoomList();
 
-        socket.on('request-voice-peers', (roomId) => {
-            const room = rooms[roomId];
-            if (room) {
-                const peerIds = room.players.filter(p => p.id !== socket.id).map(p => p.id);
-                socket.emit('voice-peers-list', peerIds);
-            }
-        });
-
-    // មុខងារជំនួយសម្រាប់ប្រាប់ទៅកាន់អ្នកលេងផ្សេងទៀត (ដាក់ក្រៅ io.on បាន)
-    function notifyVoicePeerDisconnect(socketId) {
-        for (const roomId in rooms) {
-            const room = rooms[roomId];
-            const isPlayerInRoom = room.players.some(p => p.id === socketId);
-            if (isPlayerInRoom) {
-                room.players.forEach(p => {
-                    if (p.id !== socketId) {
-                        io.to(p.id).emit('voice-peer-disconnected', socketId);
-                    }
-                });
-            }
+    socket.on('createRoom', ({ roomId, password, playerName }) => {
+        if (rooms[roomId]) {
+            return socket.emit('errorMsg', 'បន្ទប់នេះមានរួចហើយ!');
         }
-    }
-
-    // ដំណើរការ Server
-    server.listen(PORT, () => {
-        console.log(`Server is running on port ${PORT}`);
+        
+        rooms[roomId] = {
+            roomId: roomId,
+            players: [{ id: socket.id, name: playerName || 'Player 1', hand: [], passed: false, isSpectator: false, rank: null }],
+            creatorId: socket.id,
+            status: 'waiting', 
+            password: password || "",
+            currentTurnIndex: 0,
+            playedCards: [],
+            lastPlayerId: null,
+            lastWinnerId: null,
+            nextRank: 1
+        };
+        
+        socket.join(roomId);
+        socket.emit('roomCreated', { roomId, playerId: socket.id });
+        io.to(roomId).emit('updatePlayers', rooms[roomId].players);
+        broadcastRoomList();
     });
 
     socket.on('joinRoom', ({ roomId, password, playerName }) => {
@@ -485,163 +475,27 @@ function broadcastRoomList() {
         }
     });
 
-// =================================================================
-// 🎙️ VOICE CHAT SYSTEM (WEBRTC PEER-TO-PEER)
-// =================================================================
-let localStream = null;
-let peerConnections = {}; // រក្សាទុកការតភ្ជាប់ជាមួយអ្នកលេងផ្សេងៗ { socketId: RTCPeerConnection }
-let isMicMuted = false;
-
-// កំណត់ទម្រង់ទំនាក់ទំនង (ប្រើប្រាស់ Public STUN Server របស់ Google ដោយឥតគិតថ្លៃ)
-const rtcConfig = {
-    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-};
-
-// មុខងារទាមទារបើក Mic ពេលហ្គេមចាប់ផ្តើម
-async function initVoiceChat() {
-    try {
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        console.log("🎙️ ចាប់ផ្តើមប្រើប្រាស់ម៉ាយក្រូហ្វូនជោគជ័យ");
-        
-        // ប្រាប់ Server ថាខ្ញុំចង់បានបញ្ជីអ្នកនៅក្នុងបន្ទប់ដើម្បីតភ្ជាប់សំឡេង
-        socket.emit('request-voice-peers', currentRoom);
-    } catch (err) {
-        console.error("❌ មិនអាចបើក Mic បានទេ៖ ", err);
-        alert("ដើម្បីនិយាយគ្នាលេងបាន សូមអនុញ្ញាតឱ្យហ្គេមប្រើប្រាស់ Mic របស់អ្នក!");
-    }
-}
-
-// ទទួលបញ្ជី ID អ្នកលេងចាស់ៗ ដើម្បីបង្កើតការ Call ទៅកាន់ពួកគាត់
-socket.on('voice-peers-list', async (peerIds) => {
-    for (const peerId of peerIds) {
-        createPeerConnection(peerId, true);
-    }
-});
-
-// ទទួលសញ្ញា Call ចូល ឬឆ្លើយតបពីអ្នកដទៃ
-socket.on('voice-signal', async ({ signal, from }) => {
-    if (!peerConnections[from]) {
-        createPeerConnection(from, false);
-    }
-    
-    const pc = peerConnections[from];
-    if (signal.sdp) {
-        await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
-        if (signal.sdp.type === 'offer') {
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            socket.emit('voice-signal', { roomId: currentRoom, to: from, signal: { sdp: pc.localDescription }, from: myId });
-        }
-    } else if (signal.ice) {
-        await pc.addIceCandidate(new RTCIceCandidate(signal.ice));
-    }
-});
-
-// បង្កើតការតភ្ជាប់ WebRTC រវាងទូរស័ព្ទយើង និងទូរស័ព្ទដៃគូ
-function createPeerConnection(peerId, isInitiator) {
-    const pc = new RTCPeerConnection(rtcConfig);
-    peerConnections[peerId] = pc;
-
-    // បញ្ជូនសំឡេងរបស់យើងទៅកាន់ដៃគូ
-    if (localStream) {
-        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-    }
-
-    // បង្កើតផ្លូវបញ្ជូនទិន្នន័យបណ្តាញ (ICE Candidate)
-    pc.onicecandidate = (event) => {
-        if (event.candidate) {
-            socket.emit('voice-signal', { roomId: currentRoom, to: peerId, signal: { ice: event.candidate }, from: myId });
-        }
-    };
-
-    // ពេលទទួលបានរលកសំឡេងពីដៃគូ ត្រូវបង្កើតកាសស្តាប់បង្កប់ក្នុងទូរស័ព្ទដើម្បីបន្លឺសំឡេងចេញមក
-    pc.ontrack = (event) => {
-        let audioEl = document.getElementById(`audio-${peerId}`);
-        if (!audioEl) {
-            audioEl = document.createElement('audio');
-            audioEl.id = `audio-${peerId}`;
-            audioEl.autoplay = true;
-            document.body.appendChild(audioEl);
-        }
-        audioEl.srcObject = event.streams[0];
-    };
-
-    // បើជាអ្នកចូលថ្មី (Initiator) ត្រូវបង្កើតការ Offer ហៅទៅមុន
-    if (isInitiator) {
-        pc.onnegotiationneeded = async () => {
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            socket.emit('voice-signal', { roomId: currentRoom, to: peerId, signal: { sdp: pc.localDescription }, from: myId });
-        };
-    }
-}
-
-// មុខងារ បិទ/បើក សំឡេងខ្លួនឯង (Mute/Unmute)
-function toggleMic() {
-    if (!localStream) return alert("មិនទាន់មានការអនុញ្ញាតឱ្យប្រើ Mic ឡើយ!");
-    
-    isMicMuted = !isMicMuted;
-    localStream.getAudioTracks().forEach(track => track.enabled = !isMicMuted);
-    
-    const micBtn = document.getElementById('micBtn');
-    if (isMicMuted) {
-        micBtn.innerText = "🔇 Mic: Off";
-        micBtn.style.background = "#ef4444"; // ប្តូរពណ៌ក្រហមពេលបិទ
-    } else {
-        micBtn.innerText = "🎙️ Mic: On";
-        micBtn.style.background = "#ea580c"; // ពណ៌ទឹកក្រូចពេលបើក
-    }
-}
-
-// រកមើលកូដត្រង់នេះ (ភាគច្រើននៅផ្នែកខាងក្រោមនៃ server.js)
-function closeAllVoiceConnections() {
-    for (const id in peerConnections) {
-        if (peerConnections[id]) peerConnections[id].close(); 
-        const audioEl = document.getElementById(`audio-${id}`);
-        if (audioEl) audioEl.remove();
-    }
-    peerConnections = {};
-    if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-        localStream = null;
-    }
-    isMicMuted = false;
-
-    // 🛑 កែត្រង់នេះ៖ ដូរពី 'globalMicBtn' ទៅជា 'micBtn'
-    const micBtn = document.getElementById('micBtn'); 
-    if (micBtn) {
-        micBtn.innerText = "🎙️ Mic: On";
-        micBtn.style.background = "#ea580c";
-    }
-}
-
-
-socket.on('disconnect', () => {
-        console.log(`User disconnected: ${socket.id}`);
-        
-        // 🎙️ ថែមបន្ទាត់នេះ៖ ប្រាប់គេឯងឱ្យផ្តាច់ Voice Chat ពីបុគ្គលនេះ
-        notifyVoicePeerDisconnect(socket.id);
-
-        for (const roomId in rooms) {
-            const room = rooms[roomId];
-            const playerIndex = room.players.findIndex(p => p.id === socket.id);
-            
-            if (playerIndex !== -1) {
-                const player = room.players[playerIndex];
-                room.players.splice(playerIndex, 1);
-                
-                if (room.hostId === socket.id && room.players.length > 0) {
-                    room.hostId = room.players[0].id;
-                }
-                
-                io.to(roomId).emit('roomUpdated', room);
-                
+    socket.on('disconnect', () => {
+        for (const id in rooms) {
+            const room = rooms[id];
+            const pIdx = room.players.findIndex(p => p.id === socket.id);
+            if (pIdx !== -1) {
+                const wasSpectator = room.players[pIdx].isSpectator;
+                room.players.splice(pIdx, 1);
                 if (room.players.length === 0) {
-                    delete rooms[roomId];
+                    delete rooms[id]; 
+                } else {
+                    if (room.creatorId === socket.id) room.creatorId = room.players[0].id;
+                    if (room.status === 'playing' && !wasSpectator && room.currentTurnIndex === pIdx) {
+                        handleTurnAndRoundStatus(room);
+                        io.to(id).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex });
+                    }
+                    io.to(id).emit('updatePlayers', room.players);
                 }
-                break;
+                broadcastRoomList();
             }
         }
     });
+});
 
 server.listen(3000, () => console.log('Server is running on port 3000'));
