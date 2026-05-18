@@ -343,17 +343,26 @@ button:disabled {
     align-items: center;
 }
 
-/* 🎙️ ប្រអប់បង្ហាញ Mic ស្អាតប្លែកគេ */
-.voice-controls {
-    display: flex;
-    gap: 8px;
-    justify-content: center;
-    margin: 10px auto;
-    background: rgba(30, 41, 59, 0.85);
-    padding: 8px 16px;
-    border-radius: 12px;
-    border: 1px solid #475569;
-    max-width: 180px;
+/* 🎙️ ស្ទីលប៊ូតុង Mic ថ្មី៖ ឱ្យវាអណ្តែតជាប់ជ្រុងខាងលើខាងស្តាំរហូត មិនបាត់ទៅណាឡើយ */
+.global-mic-container {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    z-index: 99999; /* ធានាថាវាស្ថិតនៅលើគេបង្អស់ជានិច្ច */
+}
+
+.global-mic-btn {
+    background: #ea580c;
+    color: white;
+    border: 1px solid #f97316;
+    border-radius: 50px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    width: auto;
+    margin: 0;
 }
 
 .bubble-msg {
@@ -407,6 +416,10 @@ button:disabled {
 </head>
 <body>
 
+<div class="global-mic-container">
+    <button id="globalMicBtn" class="global-mic-btn" onclick="toggleMic()">🎙️ Mic: On</button>
+</div>
+
 <div class="container">
     <div id="loginArea" class="panel">
         <h1>🃏 Tien Len Online</h1>
@@ -427,11 +440,7 @@ button:disabled {
     <div id="lobbyArea" class="panel" style="display: none;">
         <h1>🃏 Tien Len Online</h1>
         <h2>Room: <span id="showRoom" style="color: #3b82f6;"></span></h2>
-        
-        <div class="voice-controls" style="text-align: center; margin: 15px 0;">
-            <button id="lobbyMicBtn" class="btn-blue" onclick="toggleMic()" style="margin-top: 0; background: #ea580c; width: auto; padding: 8px 20px;">🎙️ Mic: On</button>
-        </div>
-
+        <br>
         <div id="lobbyPlayers" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;"></div>
         <button id="startBtn" class="btn-green" onclick="startGame()" style="display: none;">🚀 Start Game</button>
         <button class="btn-red" onclick="leaveRoom()">🚪 ចាកចេញ (Leave)</button>
@@ -440,8 +449,7 @@ button:disabled {
     <div id="gameArea">
         <div class="game-header">
             <div id="status" style="font-weight: bold; color: #22c55e; font-size: 12px;">Waiting...</div>
-            <div style="display: flex; gap: 5px; align-items: center;">
-                <button id="micBtn" class="btn-blue" onclick="toggleMic()" style="margin-top: 0; padding: 2px 8px; font-size: 11px; width: auto; height: 24px; background: #ea580c;">🎙️ Mic: On</button>
+            <div>
                 <button class="btn-red" onclick="leaveRoom()" style="margin-top: 0; padding: 2px 8px; font-size: 11px; width: auto; height: 24px;">🚪 ផ្ទះដើម</button>
             </div>
         </div>
@@ -589,17 +597,6 @@ function showLobby(roomId) {
     document.getElementById('gameArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'none';
     document.getElementById('showRoom').innerText = roomId;
-}
-    
-    // 🎙️ បង្ខំឱ្យប៊ូតុង Mic បង្ហាញខ្លួនតាំងពីពេលនៅក្នុង Lobby រង់ចាំ
-    const micBtn = document.getElementById('micBtn');
-    if (micBtn) {
-        micBtn.style.display = 'inline-block';
-        micBtn.style.position = 'fixed';
-        micBtn.style.top = '15px';
-        micBtn.style.right = '15px';
-        micBtn.style.zIndex = '9999';
-    }
 }
 
 socket.on('updatePlayers', (players) => {
@@ -1017,7 +1014,7 @@ const rtcConfig = {
 };
 
 async function initVoiceChat() {
-    if (localStream) return; // បើបើករួចហើយ មិនបាច់បើកម្ដងទៀតទេ
+    if (localStream) return; 
     try {
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
         console.log("🎙️ ចាប់ផ្តើមប្រើប្រាស់ម៉ាយក្រូហ្វូនជោគជ័យ");
@@ -1102,21 +1099,18 @@ function toggleMic() {
     isMicMuted = !isMicMuted;
     localStream.getAudioTracks().forEach(track => track.enabled = !isMicMuted);
     
-    // ប្ដូរពណ៌ និងអក្សរទាំងប៊ូតុងក្នុង Lobby និងប៊ូតុងក្នុង Game រួមគ្នា
-    const micBtnGame = document.getElementById('micBtn');
-    const micBtnLobby = document.getElementById('lobbyMicBtn');
-    
-    [micBtnGame, micBtnLobby].forEach(btn => {
-        if (btn) {
-            if (isMicMuted) {
-                btn.innerText = "🔇 Mic: Off";
-                btn.style.background = "#ef4444";
-            } else {
-                btn.innerText = "🎙️ Mic: On";
-                btn.style.background = "#ea580c";
-            }
+    const globalBtn = document.getElementById('globalMicBtn');
+    if (globalBtn) {
+        if (isMicMuted) {
+            globalBtn.innerText = "🔇 Mic: Off";
+            globalBtn.style.background = "#ef4444";
+            globalBtn.style.borderColor = "#f87171";
+        } else {
+            globalBtn.innerText = "🎙️ Mic: On";
+            globalBtn.style.background = "#ea580c";
+            globalBtn.style.borderColor = "#f97316";
         }
-    });
+    }
 }
 
 function closeAllVoiceConnections() {
@@ -1132,14 +1126,12 @@ function closeAllVoiceConnections() {
     }
     isMicMuted = false;
 
-    const micBtnGame = document.getElementById('micBtn');
-    const micBtnLobby = document.getElementById('lobbyMicBtn');
-    [micBtnGame, micBtnLobby].forEach(btn => {
-        if (btn) {
-            btn.innerText = "🎙️ Mic: On";
-            btn.style.background = "#ea580c";
-        }
-    });
+    const globalBtn = document.getElementById('globalMicBtn');
+    if (globalBtn) {
+        globalBtn.innerText = "🎙️ Mic: On";
+        globalBtn.style.background = "#ea580c";
+        globalBtn.style.borderColor = "#f97316";
+    }
 }
 
 function leaveRoom() {
