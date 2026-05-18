@@ -104,7 +104,7 @@ button:disabled {
 
 /* 📱 របៀបបង្វិលអេក្រង់ស្វ័យប្រវត្តិកែសម្រួលពិសេសសម្រាប់ទូរសព្ទគ្រប់ប្រភេទ (Portrait) */
 @media screen and (max-width: 932px) and (orientation: portrait) {
-    body.in-game .container {
+    body.in-game .container, body.round-over .container {
         padding: 0;
         max-width: 100%;
         width: 100%;
@@ -127,8 +127,8 @@ button:disabled {
         overflow: hidden; 
     }
 
-    /* រៀបចំផ្នែកបង្ហាញលទ្ធផលពេលបង្វិលអេក្រង់ កុំឱ្យសល់ផ្ទៃខ្មៅ */
-    #resultArea {
+    /* 🎯 កែសម្រួលឱ្យបង្វិលដេកស្អាតដូចពេលលេងដំបូង និងមិនឱ្យធ្លាយផ្ទាំងខ្មៅ */
+    body.round-over #resultArea {
         position: fixed;
         top: 50%;
         left: 50%;
@@ -137,8 +137,10 @@ button:disabled {
         transform: translate(-50%, -50%) rotate(90deg);
         transform-origin: center center;
         max-height: 100dvw !important;
-        margin-bottom: 0 !important;
+        background: #0f172a;
         box-sizing: border-box;
+        padding: 15px;
+        display: block; /* បង្ខំឱ្យបង្ហាញលក្ខណៈ Rotate */
     }
 }
 
@@ -593,15 +595,13 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn, lastRoundWinnerId: 
     const myData = players.find(p => p.id === myId);
     amISpectator = myData ? myData.isSpectator : false;
 
-    // 🎯 បង្ខំលុបផ្ទាំងលទ្ធផលចាស់ចោលឱ្យដាច់ម៉ាត់ ដើម្បីកុំឱ្យជាន់គ្នាបង្កើតផ្ទាំងខ្មៅ
-    document.getElementById('resultArea').style.display = 'none';
-    
-    // បន្ថែម Class លេងហ្គេមទៅ body
+    // 🎯 ដក Class ផ្ទាំងលទ្ធផល និងប្តូរមក Class លេងហ្គេមវិញភ្លាមៗ ដើម្បីកុំឱ្យទាក់អេក្រង់
+    document.body.classList.remove('round-over'); 
     document.body.classList.add('in-game');
     
-    // បើកតែ gameArea មួយគត់
-    document.getElementById('loginArea').style.display = 'none';
+    // បិទបើកផ្ទាំង Area ឱ្យត្រូវទម្រង់
     document.getElementById('lobbyArea').style.display = 'none';
+    document.getElementById('resultArea').style.display = 'none';
     document.getElementById('gameArea').style.display = 'block';
     
     document.getElementById('table').innerHTML = '<div style="color: #a7f3d0; font-size:12px;">ចាប់ផ្ដើមហ្គេម!</div>';
@@ -619,10 +619,9 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn, lastRoundWinnerId: 
     renderPlayers(players);
     updateControlsState();
     
-    // 🎯 ប្រើ setTimeout បន្តិចដើម្បីធានាថា Browser render កាតបានត្រឹមត្រូវដោយមិនទាក់
     setTimeout(() => {
         renderMyCards(); 
-    }, 60);
+    }, 50);
 });
 
 socket.on('dealCards', ({ hand }) => {
