@@ -244,9 +244,21 @@ io.on('connection', (socket) => {
         };
         
         socket.join(roomId);
+        
+        // ➕ បន្ថែមបន្ទាត់នេះចូល ដើម្បីឱ្យអ្នកបង្កើតបន្ទប់ចាប់ផ្ដើមដំណើរការ Voice ដែរ
+        socket.emit('voice_user_joined', { id: socket.id }); 
+
         socket.emit('roomCreated', { roomId, playerId: socket.id });
         io.to(roomId).emit('updatePlayers', rooms[roomId].players);
         broadcastRoomList();
+    });
+
+    socket.on('voice_signal', ({ to, signal }) => {
+        // បញ្ជូនសញ្ញាពីម្ខាង ទៅកាន់ទិសដៅ Socket ID របស់ម្ខាងទៀតចំៗ
+        io.to(to).emit('voice_signal', {
+            from: socket.id,
+            signal: signal
+        });
     });
 
     socket.on('joinRoom', ({ roomId, password, playerName }) => {
