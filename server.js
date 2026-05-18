@@ -86,10 +86,11 @@ function getComboType(cards) {
         return 'consec_pairs';
     }
 
+    // 🛠️ ជួសជុលឡើងវិញ៖ លក្ខខណ្ឌពិនិត្យខ្សែ (Straight) ដែលដាច់កាលពីមុន
     let isStr = true;
     for (let i = 1; i < len; i++) {
         if (CARD_ORDER.indexOf(sorted[i].value) !== CARD_ORDER.indexOf(sorted[i-1].value) + 1) isStr = false;
-        if (sorted[i].value === '2') isStr = false; 
+        if (sorted[i].value === '2' || sorted[i-1].value === '2') isStr = false; 
     }
 
     if (isStr && len >= 3) {
@@ -115,28 +116,34 @@ function comparePlay(newCards, oldCards) {
     const newMax = getCardPower(sortedNew[sortedNew.length - 1]);
     const oldMax = getCardPower(sortedOld[sortedOld.length - 1]);
 
+    // ច្បាប់វាយកាត់បៀរ ២ (Single 2)
     if (oldType === 'single' && oldCards[0].value === '2') {
         if (newType === 'triple_pair' || newType === 'quad_pair' || newType === 'bomb') return true;
     }
 
+    // ច្បាប់វាយកាត់បៀរគូ ២ (Pair 2)
     if (oldType === 'pair' && oldCards[0].value === '2') {
         if (newType === 'quad_pair' || newType === 'bomb') return true;
     }
 
+    // ច្បាប់ប៊ុម (Bomb) កាត់ប៊ុម ឬកាត់គូរៀប
     if (oldType === 'bomb') {
         if (newType === 'bomb' && newMax > oldMax) return true;
         if (newType === 'quad_pair') return true;
     }
 
+    // ៣ គូរៀប កាត់គ្នា ឬត្រូវប៊ុមកាត់
     if (oldType === 'triple_pair') {
         if (newType === 'triple_pair' && newMax > oldMax) return true;
         if (newType === 'quad_pair' || newType === 'bomb') return true;
     }
 
+    // ៤ គូរៀប
     if (oldType === 'quad_pair') {
         if (newType === 'quad_pair' && newMax > oldMax) return true;
     }
 
+    // ករណីប្រភេទ Combo ដូចគ្នា និងចំនួនសន្លឹកស្មើគ្នា គឺវាស់កម្លាំងសន្លឹកធំបំផុត
     if (newType === oldType && newCards.length === oldCards.length) {
         return newMax > oldMax;
     }
@@ -164,32 +171,50 @@ function moveToNextTurn(room) {
 }
 
 function handleTurnAndRoundStatus(room) {
-    const stillPlayingAndNotPassed = room.players.filter(p => p.hand.length > 0 && !p.passed);
+    // ១. រកមើលចំនួនអ្នកលេងដែលមានបៀរ និងមិនទាន់បាន Pass ក្នុងជុំនេះ
+    const activePlayersInRound = room.players.filter(p => p.hand.length > 0 && !p.passed);
     
+    // ២. ពិនិត្យមើលថាតើអ្នកវាយចុងក្រោយបង្អស់ (Last Player) អស់បៀរពីដៃឬនៅ
     let lastPlayerIdx = room.players.findIndex(p => p.id === room.lastPlayerId);
-    const isLastPlayerOut = lastPlayerIdx !== -1 && room.players[lastPlayerIdx].hand.length === 0;
+    const isLastPlayerOut = (lastPlayerIdx !== -1 && room.players[lastPlayerIdx].hand.length === 0);
 
-    const isRoundOver = isLastPlayerOut ? (stillPlayingAndNotPassed.length === 0) : (stillPlayingAndNotPassed.length <= 1);
+    // ៣. លក្ខខណ្ឌដាច់ទឹក (Reset ឡើងជុំថ្មី)
+    const isRoundOver = isLastPlayerOut ? (activePlayersInRound.length === 0) : (activePlayersInRound.length <= 1);
 
     if (isRoundOver) {
+        // សម្អាតបៀរនៅលើតុរបស់ Server
         room.playedCards = [];
         
+        // 🔄 Reset ស្ថានភាពរបស់អ្នកលេងដែលនៅសល់បៀ ឱ្យលែងជាប់ Pass សម្រាប់ជុំថ្មី
         room.players.forEach(p => {
             if (p.hand.length > 0) p.passed = false;
         });
 
+        // 🎯 កំណត់វេនអ្នកចុះបៀរថ្មី
         if (isLastPlayerOut) {
+            // បើអ្នកស៊ីផ្តាច់ដាច់បៀរអស់ពីដៃ វេនត្រូវធ្លាក់ទៅលើអ្នកបន្ទាប់ (តាមលំដាប់កៅអី) ដែលនៅមានបៀរក្នុងដៃ
             let nextIndex = (lastPlayerIdx + 1) % room.players.length;
             while (room.players[nextIndex].hand.length === 0) {
                 nextIndex = (nextIndex + 1) % room.players.length;
             }
             room.currentTurnIndex = nextIndex;
+            // សំខាន់បំផុត៖ ត្រូវប្តូរម្ចាស់បៀរចុងក្រោយទៅឱ្យអ្នកវេនថ្មីនេះ ដើម្បីកុំឱ្យគាំង Logic កាត់បៀរ ២
+            room.lastPlayerId = room.players[nextIndex].id;
         } else {
+            // បើនៅមានបៀក្នុងដៃ គឺអ្នកស៊ីផ្តាច់នោះឯងជាអ្នកបានវេនចុះមុនគេក្នុងជុំថ្មី
             room.currentTurnIndex = lastPlayerIdx !== -1 ? lastPlayerIdx : room.currentTurnIndex;
         }
 
+        // 📢 ផ្ញើសញ្ញាទៅប្រាប់ទូរសព្ទ/កុំព្យូទ័រទាំងអស់ឱ្យសម្អាតតុ និងបង្ហាញឈ្មោះអ្នកបានវេនថ្មី
         io.to(room.roomId).emit('clearTable', { nextPlayer: room.players[room.currentTurnIndex].name });
+        
+        // ធ្វើបច្ចុប្បន្នភាព Turn ទៅឱ្យគ្រប់គ្នាបានដឹង
+        io.to(room.roomId).emit('turnChanged', { 
+            currentTurnIndex: room.currentTurnIndex,
+            players: room.players 
+        });
     } else {
+        // បើមិនទាន់ដាច់ទឹកទេ ហៅ Function រំលងវេនទៅអ្នកបន្ទាប់ធម្មតា
         moveToNextTurn(room);
     }
 }
@@ -363,7 +388,6 @@ io.on('connection', (socket) => {
                 }, 1500);
 
             } else {
-                let lastTurnIdx = room.currentTurnIndex;
                 handleTurnAndRoundStatus(room);
 
                 io.to(roomId).emit('cardPlayed', { 
