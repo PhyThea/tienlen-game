@@ -272,22 +272,22 @@ button:disabled {
     flex-wrap: nowrap;
     overflow-x: auto;
     padding: 2px 0;
-    height: 130px;       
+    height: 130px;       /* បង្កើនពី 95px ទៅ 130px ដើម្បីទុកលំហពេលចុចឱ្យបៀរអណ្តែតឡើង */
     align-items: flex-end;
 }
 
 .card {
-    width: 65px;         
-    height: 95px;        
+    width: 65px;         /* ដូរពី 44px ទៅ 65px (ឬធំជាងនេះតាមចិត្ត) */
+    height: 95px;        /* ដូរពី 64px ទៅ 95px */
     background-size: cover;
     background-position: center;
-    border-radius: 6px;  
+    border-radius: 6px;  /* បង្កើនកោងគែមបន្តិចឱ្យស្អាត */
     cursor: pointer;
     user-select: none;
     box-shadow: -2px 2px 4px rgba(0,0,0,0.4);
     transition: transform 0.1s ease, box-shadow 0.1s ease;
     flex-shrink: 0;
-    margin-right: -28px; 
+    margin-right: -28px; /* ដូរពី -17px ទៅ -28px ដើម្បីកុំឱ្យបៀររីកធំហើយធ្លាក់ជួរ */
     position: relative; 
 }
 
@@ -487,6 +487,7 @@ let localStream = null;
 let peers = {};
 let micEnabled = true;
 
+// 🔗 បង្កើតប្រព័ន្ធគ្រប់គ្រង Ice Servers រួមដើម្បីជួយទម្លុះប្រព័ន្ធការពារ 4G/5G លេងឆ្លងអ៊ីនធឺណិតឱ្យឮច្បាស់
 const iceConfig = {
     config: {
         iceServers: [
@@ -1013,7 +1014,6 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
 function leaveRoom() {
     if (confirm("តើអ្នកពិតជាចង់ចាកចេញពីបន្ទប់នេះមែនទេ?")) {
         socket.emit('leaveRoom');
-        closeAllVoiceConnections(); // 🛠️ ជួសជុល៖ ហៅមុខងារសម្អាតភ្លាមៗពេលចុចចាកចេញ
     }
 }
 
@@ -1026,7 +1026,7 @@ socket.on('leftRoom', () => {
     amISpectator = false;
     lastRoundWinnerId = null; 
     
-    closeAllVoiceConnections(); // 🛠️ ជួសជុល៖ ធានាសម្អាតខ្សែតភ្ជាប់ទាំងអស់ពេលត្រឡប់មកអេក្រង់ដើម
+    closeAllVoiceConnections();
 
     document.getElementById('loginArea').style.display = 'block';
     document.getElementById('lobbyArea').style.display = 'none';
@@ -1044,6 +1044,7 @@ function initVoiceAndExecute(callback) {
         return;
     }
 
+    // វានឹងសួររកច្បាប់ Mic តែពេលដែលអ្នកលេងចុច "បង្កើតបន្ទប់" ឬ "ចូលរួមបន្ទប់" ប៉ុណ្ណោះ
     navigator.mediaDevices.getUserMedia({ audio: true, video: false })
         .then(stream => {
             localStream = stream;
@@ -1052,43 +1053,48 @@ function initVoiceAndExecute(callback) {
             callback();
         })
         .catch(err => {
+            // បើទោះជាគេចងកំហឹងមិន Allow ក៏នៅតែអនុញ្ញាតឱ្យគេចូលលេងហ្គេមបានធម្មតា (គ្រាន់តែមិនឮសំឡេង)
             console.warn("User denied mic permission or error occurred:", err);
             callback(); 
         });
 }
 
 socket.on('voice_user_joined', ({ id }) => {
-    if (peers[id]) return;
-
+    if (!localStream) return;
+    
     const peer = new SimplePeer({
-        initiator: false,
-        trickle: true, // 👈 ដូរទៅជា true
+        initiator: true,
+        trickle: false,
         stream: localStream,
-        config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] }
+        config: iceConfig.config
     });
 
     peer.on('signal', signal => {
-        socket.emit('voice_signal', { to: id, signal: signal });
+        socket.emit('voice_signal', { to: id, signal });
     });
 
     peer.on('stream', stream => {
-        console.log("ទទួលបានខ្សែសំឡេងពី៖", id);
         createAudioElement(id, stream);
     });
 
-    // 🛠️ បន្ថែម៖ ការពារករណី Error គាំងដាច់ Connection
-    peer.on('error', err => console.error('Peer error:', err));
+    peer.on('close', () => {
+        removeAudioElement(id);
+    });
+
+    peer.on('error', (err) => console.error("Peer error:", err));
 
     peers[id] = peer;
 });
 
 socket.on('voice_signal', ({ from, signal }) => {
+    if (!localStream) return;
+
     if (!peers[from]) {
         const peer = new SimplePeer({
-            initiator: true,
-            trickle: true, // 👈 ដូរទៅជា true
+            initiator: false,
+            trickle: false,
             stream: localStream,
-            config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] }
+            config: iceConfig.config
         });
 
         peer.on('signal', sig => {
@@ -1096,19 +1102,19 @@ socket.on('voice_signal', ({ from, signal }) => {
         });
 
         peer.on('stream', stream => {
-            console.log("ទទួលបានខ្សែសំឡេងពី៖", from);
             createAudioElement(from, stream);
         });
 
-        peer.on('error', err => console.error('Peer error:', err));
+        peer.on('close', () => {
+            removeAudioElement(from);
+        });
+
+        peer.on('error', (err) => console.error("Peer error:", err));
 
         peers[from] = peer;
     }
 
-    // 🛠️ ត្រូវប្រាកដថាផ្ញើទិន្នន័យ Signal ទៅកាន់ Peer ទោះបីជាមកតិចៗក៏ដោយ
-    if (signal) {
-        peers[from].signal(signal);
-    }
+    peers[from].signal(signal);
 });
 
 socket.on('voice_user_left', ({ id }) => {
@@ -1125,18 +1131,9 @@ function createAudioElement(id, stream) {
         audio = document.createElement('audio');
         audio.id = `audio-${id}`;
         audio.autoplay = true;
-        
-        // 🛠️ បន្ថែម Attribute ទាំងនេះដើម្បីធានាការចាក់សំឡេងលើទូរសព្ទ និងកុំព្យូទ័រ
-        audio.setAttribute('playsinline', 'true');
-        audio.setAttribute('autoplay', 'true');
-        audio.controls = false; // លាក់របារ Control
-        
         document.body.appendChild(audio);
     }
     audio.srcObject = stream;
-    
-    // 🛠️ បង្ខំឱ្យវា Play ទោះបីជាមាន Autoplay Policy ក៏ដោយ
-    audio.play().catch(e => console.log("Autoplay ត្រូវបានទប់ស្កាត់៖ ត្រូវការចុចលើអេក្រង់សិន", e));
 }
 
 function removeAudioElement(id) {
@@ -1146,11 +1143,13 @@ function removeAudioElement(id) {
 
 function toggleMic() {
     if (!localStream) {
+        // បើដំបូងគេអត់បាន Allow ទេ ពេលគេចុចប៊ូតុង Mic នេះ យើងលោតសួរម្ដងទៀត
         navigator.mediaDevices.getUserMedia({ audio: true, video: false })
             .then(stream => {
                 localStream = stream;
                 micEnabled = true;
                 updateMicButtonUI();
+                // ភ្ជាប់ទៅកាន់អ្នកផ្សេងឡើងវិញ
                 socket.emit('leaveRoom'); 
                 alert("ម៉ៃក្រូហ្វូនបើកហើយ! សូមចូលបន្ទប់ម្ដងទៀតដើម្បីនិយាយរកគ្នា។");
             })
@@ -1181,11 +1180,7 @@ function updateMicButtonUI() {
 
 function closeAllVoiceConnections() {
     for (let id in peers) {
-        try {
-            peers[id].destroy();
-        } catch (e) {
-            console.log("Error destroying peer:", e);
-        }
+        peers[id].destroy();
     }
     peers = {};
     
