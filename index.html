@@ -96,7 +96,6 @@ button:disabled {
     height: 100%;
 }
 
-/* បន្ថែម (pointer: coarse) ដើម្បីឲ្យដំណើរការតែលើទូរសព្ទដៃដែលប្រើ Touchscreen ប៉ុណ្ណោះ */
 @media screen and (max-width: 932px) and (orientation: portrait) and (pointer: coarse) {
     body.in-game {
         overflow: hidden;
@@ -116,30 +115,6 @@ button:disabled {
         position: fixed;
         top: 50%;
         left: 50%;
-        width: 100vh; /* រក្សាលំនឹងប្រវែងពេលបង្វិល */
-        height: 100vw;
-        transform: translate(-50%, -50%) rotate(90deg);
-        transform-origin: center center;
-        background: #0f172a;
-        padding: 15px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        overflow: hidden; /* ការពារកុំឲ្យបាត់ប៊ូតុង */
-    }
-}
-    body.in-game .container {
-        padding: 0;
-        max-width: 100%;
-        width: 100%;
-        height: 100%;
-    }
-
-    body.in-game #gameArea {
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        /* កែសម្រួលប្រវែងដើម្បីកុំឲ្យធ្លាក់ប៊ូតុង */
         width: 100vh; 
         height: 100vw;
         transform: translate(-50%, -50%) rotate(90deg);
@@ -149,8 +124,9 @@ button:disabled {
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        overflow: hidden; /* ការពារកុំឲ្យបាត់ប៊ូតុង */
+        overflow: hidden; 
     }
+}
 
 @media screen and (min-width: 600px) and (orientation: landscape), screen and (min-width: 933px), screen and (pointer: fine) {
     body.in-game #gameArea {
@@ -159,7 +135,7 @@ button:disabled {
         height: 92vh;
         max-height: 700px;
         gap: 10px;
-        transform: none !important; /* បង្ខំកុំព្យូទ័រកុំឲ្យបង្វិលដាច់ខាត */
+        transform: none !important; 
         position: static !important;
         width: 100% !important;
     }
@@ -208,14 +184,12 @@ button:disabled {
     opacity: 0.6;
 }
 
-/* បន្ថែម Style ពណ៌មាសសម្រាប់លេខ ១ */
 .player-rank-1 {
     background: #422006 !important;
     border: 2px solid #eab308 !important;
     box-shadow: 0 0 12px rgba(234, 179, 8, 0.5) !important;
 }
 
-/* បន្ថែម Style ពណ៌ខៀវ/ប្រាក់សម្រាប់លេខ ២ */
 .player-rank-2 {
     background: #1e293b !important;
     border: 2px solid #3b82f6 !important;
@@ -252,8 +226,8 @@ button:disabled {
     background: #14532d; 
     border: 2px dashed #22c55e;
     border-radius: 12px;
-    flex: 1; /* ឲ្យវាទាញទំហំដែលនៅសល់ */
-    min-height: 80px; /* បន្ថយ min-height បន្តិចសម្រាប់អេក្រង់ទូរសព្ទតូចៗ */
+    flex: 1; 
+    min-height: 80px; 
     display: flex;
     justify-content: center;
     align-items: center;
@@ -263,6 +237,7 @@ button:disabled {
     padding: 10px;
     position: relative;
 }
+
 .hand-and-controls {
     display: flex;
     flex-direction: column;
@@ -270,7 +245,7 @@ button:disabled {
     background: #1e293b;
     padding: 10px;
     border-radius: 12px;
-    flex-shrink: 0; /* ការពារកុំឲ្យរួមតូចពេក ឬធ្លាក់បាត់ប៊ូតុង */
+    flex-shrink: 0; 
 }
 
 .card-container {
@@ -278,36 +253,29 @@ button:disabled {
     justify-content: center;
     flex-wrap: nowrap;
     overflow-x: auto;
-    padding: 10px 0;
-    gap: -15px; 
+    padding: 15px 0; /* បន្ថែម padding លើក្រោមការពារកុំអោយដាច់ពេលកាត selected រុញឡើងលើ */
+    gap: -25px; 
 }
 
+/* 🎯 កែសម្រួល Style សម្រាប់កាតបៀររូបភាព PNG */
 .card {
-    background: white;
-    color: black;
-    width: 52px;
-    height: 76px;
+    width: 60px;
+    height: 88px;
     border-radius: 6px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    padding: 4px 6px;
-    font-size: 15px;
-    font-weight: bold;
     cursor: pointer;
     user-select: none;
-    box-shadow: -2px 3px 5px rgba(0,0,0,0.3);
+    box-shadow: -3px 3px 6px rgba(0,0,0,0.4);
     transition: transform 0.15s ease, box-shadow 0.15s ease;
     flex-shrink: 0;
-    margin-right: -12px; 
+    margin-right: -25px; 
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    border: 1px solid #cbd5e1;
 }
 
 .card:last-child {
     margin-right: 0;
-}
-
-.card.red {
-    color: #ef4444;
 }
 
 .card.first-turn-highlight {
@@ -322,37 +290,29 @@ button:disabled {
 }
 
 .card.selected {
-    transform: translateY(-15px);
-    box-shadow: 0 5px 10px #3b82f6;
+    transform: translateY(-20px);
+    box-shadow: 0 8px 15px rgba(59, 130, 246, 0.8);
     border: 2px solid #3b82f6;
-    margin-right: -6px;
 }
 
 .card.disabled-card {
-    opacity: 0.4;
+    opacity: 0.5;
     cursor: not-allowed;
     box-shadow: none !important;
-    border: none !important;
+    border: 1px solid #64748b !important;
 }
 
 .table-card {
-    background: white;
-    color: black;
-    width: 52px;
-    height: 76px;
+    width: 60px;
+    height: 88px;
     border-radius: 6px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    padding: 4px 6px;
-    font-size: 15px;
-    font-weight: bold;
-    box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.5);
     flex-shrink: 0;
     user-select: none;
-}
-.table-card.red {
-    color: #ef4444;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    border: 1px solid #cbd5e1;
 }
 
 .controls {
@@ -702,7 +662,6 @@ function renderPlayers(players) {
             el.classList.add('player-passed'); 
         }
 
-        // ✨ បន្ថែមលក្ខខណ្ឌផ្លាស់ប្តូរពណ៌កាតភ្លាមៗពេលអស់បៀរ (ប៉េលេខ១ ឬ លេខ២)
         if (!p.isSpectator && p.rank !== null && p.rank > 0) {
             if (p.rank === 1) {
                 el.classList.add('player-rank-1');
@@ -715,7 +674,6 @@ function renderPlayers(players) {
         if (p.isSpectator) {
             roleText = '<span style="color: #94a3b8;">(អ្នកមើល)</span>';
         } else if (p.rank !== null && p.rank > 0) {
-            // ប្តូរអក្សរទៅជា "ប៉េហើយ" តាមការចង់បានរបស់អ្នក
             let rankBadge = p.rank === 1 ? '👑 ប៉េហើយ (លំដាប់ ១)' : `🥈 ប៉េហើយ (លំដាប់ ២)`;
             let badgeColor = p.rank === 1 ? '#eab308' : '#3b82f6';
             roleText = `<div style="color: ${badgeColor}; font-weight: bold; margin-top:2px;">${rankBadge}</div>`;
@@ -745,7 +703,6 @@ function renderPlayers(players) {
     });
 
     const startBtn = document.getElementById('startBtn');
-    // បង្ហាញប៊ូតុង Start Game តែក្នុងវគ្គដំបូងបង្អស់សម្រាប់ Host (Creator) ប៉ុណ្ណោះ
     if (isCreator && !lastRoundWinnerId) {
         startBtn.style.display = 'inline-block';
     } else {
@@ -753,6 +710,7 @@ function renderPlayers(players) {
     }
 }
 
+// 🎯 បង្ហាញរូបភាពបៀររបស់ខ្លួនឯង
 function renderMyCards() {
     const div = document.getElementById('myCards');
     div.innerHTML = '';
@@ -767,8 +725,10 @@ function renderMyCards() {
 
     myHand.forEach(card => {
         const el = document.createElement('div');
-        const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
-        el.className = `card ${isRed}`;
+        el.className = 'card';
+        
+        // ចាក់រូបភាព PNG ចូលទៅក្នុង background របស់កាត
+        el.style.backgroundImage = `url('PNG-cards/${card.image}.png')`;
         
         if (!myTurn) {
             el.classList.add('disabled-card');
@@ -788,12 +748,6 @@ function renderMyCards() {
         
         const isSelected = selectedCards.some(c => c.value === card.value && c.suit === card.suit);
         if (isSelected && myTurn) el.classList.add('selected');
-
-        el.innerHTML = `
-            <div>${card.value}</div>
-            <div style="align-self: center; font-size: 20px;">${card.suit}</div>
-            <div style="align-self: flex-end; transform: rotate(180deg);">${card.value}</div>
-        `;
         
         el.onclick = () => {
             if (!isMyTurn()) return; 
@@ -824,7 +778,7 @@ function passTurn() {
     socket.emit('passTurn', currentRoom);
 }
 
-socket.on('turnChanged', ({ currentTurnIndex: turn, players }) => {
+socket.on('turnChanged', ({ turn, players }) => {
     currentTurnIndex = turn;
     if (players) {
         playersData = players;
@@ -837,6 +791,7 @@ socket.on('turnChanged', ({ currentTurnIndex: turn, players }) => {
     renderMyCards(); 
 });
 
+// 🎯 បង្ហាញរូបភាពបៀរនៅលើតុ (ពេលមានគេលេងរួច)
 socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
     currentTurnIndex = nextTurn;
     
@@ -868,16 +823,9 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
     if (cards && cards.length > 0) {
         cards.forEach((card, index) => {
             const el = document.createElement('div');
-            const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
-            
-            el.className = `table-card ${isRed} animate-play-card`;
+            el.className = `table-card animate-play-card`;
+            el.style.backgroundImage = `url('PNG-cards/${card.image}.png')`;
             el.style.animationDelay = `${index * 0.05}s`;
-            
-            el.innerHTML = `
-                <div>${card.value}</div>
-                <div style="align-self: center; font-size: 20px;">${card.suit}</div>
-                <div style="align-self: flex-end; transform: rotate(180deg);">${card.value}</div>
-            `;
             tableDiv.appendChild(el);
         });
     } else {
@@ -885,7 +833,6 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
     }
     
     selectedCards = [];
-    
     updateControlsState(); 
     renderMyCards();
 });
@@ -902,7 +849,6 @@ socket.on('playerPassed', ({ name, id, message }) => {
         bubble.innerText = "❌ Pass";
         
         playerCard.appendChild(bubble);
-        
         setTimeout(() => {
             if (bubble) bubble.remove();
         }, 2000);
@@ -921,6 +867,7 @@ socket.on('errorMsg', (msg) => {
     renderMyCards();
 });
 
+// 🎯 បង្ហាញរូបភាពបៀរនៅលើផ្ទាំងបង្ហាញលទ្ធផលឈ្នះចាញ់
 socket.on('gameWon', ({ winner, winnerId, allHands }) => {
     lastRoundWinnerId = winnerId;
 
@@ -968,12 +915,8 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
             const remainingCards = p.remaining || p.hand || [];
             if (remainingCards.length > 0) {
                 remainingCards.forEach(card => {
-                    const isRed = card.suit === '♥' || card.suit === '♦' ? 'red' : '';
                     cardsHTML += `
-                        <div class="table-card ${isRed}" style="display: inline-flex; flex-direction: column; justify-content: space-between; width: 44px; height: 64px; background: white; color: black; border-radius: 6px; padding: 4px; font-size: 13px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.3); text-align: center; margin-right: 6px; margin-bottom: 6px;">
-                            <div style="text-align: left; line-height: 1;">${card.value}</div>
-                            <div style="font-size: 16px; align-self: center; line-height: 1;">${card.suit}</div>
-                        </div>
+                        <div class="table-card" style="display: inline-block; width: 44px; height: 64px; background-image: url('PNG-cards/${card.image}.png'); background-size: cover; margin-right: 6px; margin-bottom: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); border: 1px solid #cbd5e1; border-radius: 4px;"></div>
                     `;
                 });
             } else {
