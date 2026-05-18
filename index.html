@@ -301,10 +301,11 @@ button:disabled {
 }
 
 .card-img.selected {
-    transform: translateY(-20px); /* រក្សាការហោះឡើងលើ ២០ភិចសែលរបស់បងដដែល */
-    box-shadow: 0 8px 15px rgba(59, 130, 246, 0.8); /* រក្សាដដែល */
-    border: 2px solid #3b82f6; /* រក្សាដដែល */
-    position: relative; /* 💡 បន្ថែមចំណុចនេះដើម្បីឱ្យ z-index ដំណើរការ */
+    transform: translateY(-20px); /* រំកិលឡើងលើ */
+    box-shadow: 0 6px 12px rgba(59, 130, 246, 0.5); /* ថែមស្រមោលឱ្យឃើញកាន់តែអណ្តែតស្អាត */
+    margin-right: -17px; 
+    position: relative; /* ចាំបាច់ត្រូវមានដើម្បីឱ្យ z-index ដំណើរការ */
+    z-index: 999 !important; /* 🔥 បង្ខំឱ្យមកនៅពីលើសន្លឹកបៀរផ្សេងៗទាំងអស់ */
 }
 
 .card-img.disabled-card {
@@ -714,12 +715,11 @@ function renderPlayers(players) {
     }
 }
 
-// 🎯 បង្ហាញរូបភាពបៀររបស់ខ្លួនឯង (កូដកែសម្រួលរួច)
 function renderMyCards() {
     const div = document.getElementById('myCards');
     div.innerHTML = '';
     if (amISpectator) {
-        div.innerHTML = '<div style="color: #94a3b8; font-style: italic; font-size:13px;">អ្នកកំពុងចូលរួមមើលការប្រកួត...</div>';
+        div.innerHTML = '<div style="color: #94a3b8; font-style: italic; font-size:12px;">អ្នកកំពុងចូលរួមមើលការប្រកួត...</div>';
         return;
     }
     
@@ -727,15 +727,13 @@ function renderMyCards() {
     const tableDiv = document.getElementById('table');
     const isNewRound = tableDiv && (tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត!'));
 
-    // 💡 បន្ថែម index ទៅក្នុង loop ដើម្បីដឹងពីលំដាប់សន្លឹកបៀរពីឆ្វេងទៅស្តាំ
+    // 🔥 កែប្រែត្រង់ loop នេះដោយបន្ថែម index ចូលដើម្បីគណនា z-index
     myHand.forEach((card, index) => {
-        const el = document.createElement('div');
-        el.className = 'card';
+        const el = document.createElement('img');
+        el.src = getCardFileName(card);
+        el.className = 'card-img';
         
-        // ចាក់រូបភាព PNG ចូលទៅក្នុង background របស់កាត (រក្សាកូដចាស់របស់បង)
-        el.style.backgroundImage = `url('PNG-cards/${card.image}.png')`;
-        
-        // 1. ជាទូទៅ កំណត់ឱ្យបៀរធម្មតាមាន z-index កើនឡើងពីឆ្វេងទៅស្តាំ (ស្តង់ដារ)
+        // 1. បៀរធម្មតាមិនទាន់ Select៖ ឱ្យបៀរខាងស្តាំនៅពីលើបៀរខាងឆ្វេង (ស្តង់ដារ)
         el.style.position = 'relative';
         el.style.zIndex = index + 1;
         
@@ -744,13 +742,9 @@ function renderMyCards() {
         } else {
             if (isNewRound) {
                 if (!lastRoundWinnerId) {
-                    if (card.value === '3' && card.suit === '♠') {
-                        el.classList.add('first-turn-highlight');
-                    }
+                    if (card.value === '3' && card.suit === '♠') el.classList.add('first-turn-highlight');
                 } else {
-                    if (myId === lastRoundWinnerId) {
-                        el.classList.add('first-turn-highlight');
-                    }
+                    if (myId === lastRoundWinnerId) el.classList.add('first-turn-highlight');
                 }
             }
         }
@@ -759,9 +753,10 @@ function renderMyCards() {
         if (isSelected && myTurn) {
             el.classList.add('selected');
             
-            // 🎯 កូដមន្តអាគម៖ ពេលចុច Select គឺយើងបញ្ច្រាស z-index ឱ្យបៀរខាងឆ្វេង (index តូច) មានតម្លៃខ្ពស់ជាងបៀរខាងស្តាំវិញ
-            // រូបមន្ត (100 - index) ធានាថាបៀរខាងឆ្វេងនឹងលយមកនៅលើគេជានិច្ច លែងត្រូវបៀរខាងស្តាំបាំងទៀតហើយ
-            el.style.zIndex = 100 - index;
+            // 🎯 កូដមន្តអាគមត្រង់នេះ៖ 
+            // ឱ្យតែបៀរណា Select គឺយើងបញ្ច្រាស z-index ឱ្យបៀរខាងឆ្វេង (index តូច) មាន z-index ខ្ពស់ជាងបៀរខាងស្តាំវិញ
+            // រូបមន្ត៖ 100 ដក index ថយក្រោយ
+            el.style.zIndex = 100 - index; 
         }
         
         el.onclick = () => {
