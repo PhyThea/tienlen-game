@@ -713,6 +713,7 @@ function renderPlayers(players) {
     });
 
     const startBtn = document.getElementById('startBtn');
+    // បើទើបតែបង្កើតបន្ទប់ដំបូង មិនទាន់មានអ្នកឈ្នះវគ្គមុន (lastRoundWinnerId == null) គឺម្ចាស់បន្ទប់ (isCreator) ជាអ្នកមានសិទ្ធិចុច Start
     if (isCreator && !lastRoundWinnerId) {
         startBtn.style.display = 'inline-block';
     } else {
