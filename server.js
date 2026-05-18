@@ -244,23 +244,9 @@ io.on('connection', (socket) => {
         };
         
         socket.join(roomId);
-        
-        // ➕ បន្ថែមបន្ទាត់នេះចូល ដើម្បីឱ្យអ្នកបង្កើតបន្ទប់ចាប់ផ្ដើមដំណើរការ Voice ដែរ
-        socket.emit('voice_user_joined', { id: socket.id }); 
-
         socket.emit('roomCreated', { roomId, playerId: socket.id });
         io.to(roomId).emit('updatePlayers', rooms[roomId].players);
         broadcastRoomList();
-    });
-
-    // ប្ដូរទៅជាការបោះបន្តរាល់ទិន្នន័យសញ្ញាទាំងអស់ដែលហូរចូលមក (Support Trickle ICE)
-    socket.on('voice_signal', (data) => {
-        if (data && data.to) {
-            io.to(data.to).emit('voice_signal', {
-                from: socket.id,
-                signal: data.signal
-            });
-        }
     });
 
     socket.on('joinRoom', ({ roomId, password, playerName }) => {
@@ -287,6 +273,11 @@ io.on('connection', (socket) => {
         socket.emit('roomJoined', { roomId, playerId: socket.id, isSpectator });
         io.to(roomId).emit('updatePlayers', room.players);
         broadcastRoomList();
+    });
+
+    // ➕ បញ្ជូនសញ្ញា WebRTC Voice ទៅមករវាងអ្នកលេង
+    socket.on('voice_signal', ({ to, signal }) => {
+        io.to(to).emit('voice_signal', { from: socket.id, signal });
     });
 
     socket.on('startGame', (roomId) => {
@@ -502,5 +493,5 @@ io.on('connection', (socket) => {
     });
 });
 
-// 🛠️ ជួសជុលរួចរាល់៖ បើកដំណើរការ Server ត្រឹមត្រូវតាមស្ដង់ដារ Node.js
+// 🛠️ ជួសជុល៖ សម្អាតសញ្ញា "}" ដែលលើស និងបិទ Server ត្រឹមត្រូវតាមស្ដង់ដារ
 server.listen(3000, () => console.log('Server is running on port 3000'));
