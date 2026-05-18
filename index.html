@@ -424,7 +424,10 @@ button:disabled {
     <div id="gameArea">
         <div class="game-header">
             <div id="status" style="font-weight: bold; color: #22c55e; font-size: 12px;">Waiting...</div>
-            <button class="btn-red" onclick="leaveRoom()" style="margin-top: 0; padding: 2px 8px; font-size: 11px; width: auto; height: 24px;">🚪 ផ្ទះដើម</button>
+            <div style="display: flex; gap: 5px; align-items: center;">
+                <button id="micBtn" class="btn-blue" onclick="toggleMic()" style="margin-top: 0; padding: 2px 8px; font-size: 11px; width: auto; height: 24px; background: #ea580c;">🎙️ Mic: On</button>
+                <button class="btn-red" onclick="leaveRoom()" style="margin-top: 0; padding: 2px 8px; font-size: 11px; width: auto; height: 24px;">🚪 ផ្ទះដើម</button>
+            </div>
         </div>
 
         <div id="players"></div>
@@ -556,12 +559,12 @@ socket.on('roomCreated', ({ roomId, playerId }) => {
     showLobby(roomId);
 });
 
-socket.on('roomJoined', ({ roomId, playerId, isSpectator }) => {
-    myId = playerId;
+socket.on('roomJoined', (roomId) => {
     currentRoom = roomId;
-    isCreator = false;
-    amISpectator = isSpectator;
-    showLobby(roomId);
+    document.body.classList.add('in-game');
+    showStatus("បានចូលរួមបន្ទប់: " + roomId);
+    // 👉 ថែមបន្ទាត់ខាងក្រោមនេះចូល៖
+    initVoiceChat(); 
 });
 
 function showLobby(roomId) {
@@ -987,6 +990,135 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
     }
 });
 
+// =================================================================
+// 🎙️ VOICE CHAT SYSTEM (WEBRTC PEER-TO-PEER)
+// =================================================================
+let localStream = null;
+let peerConnections = {}; // រក្សាទុកការតភ្ជាប់ជាមួយអ្នកលេងផ្សេងៗ
+let isMicMuted = false;
+
+const rtcConfig = {
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] //  កែជា iceServers (ថែម s)
+};
+
+// មុខងារទាមទារបើក Mic ពេលហ្គេមចាប់ផ្តើម
+async function initVoiceChat() {
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        console.log("🎙️ ចាប់ផ្តើមប្រើប្រាស់ម៉ាយក្រូហ្វូនជោគជ័យ");
+        socket.emit('request-voice-peers', currentRoom);
+    } catch (err) {
+        console.error("❌ មិនអាចបើក Mic បានទេ៖ ", err);
+        alert("ដើម្បីនិយាយគ្នាលេងបាន សូមអនុញ្ញាតឱ្យហ្គេមប្រើប្រាស់ Mic របស់អ្នក!");
+    }
+}
+
+// ទទួលបញ្ជី ID អ្នកលេងចាស់ៗ ដើម្បីបង្កើតការ Call
+socket.on('voice-peers-list', async (peerIds) => {
+    for (const peerId of peerIds) {
+        createPeerConnection(peerId, true);
+    }
+});
+
+// ទទួលសញ្ញា Call ចូល ឬឆ្លើយតប
+socket.on('voice-signal', async ({ signal, from }) => {
+    if (!peerConnections[from]) {
+        createPeerConnection(from, false);
+    }
+    
+    const pc = peerConnections[from];
+    if (signal.sdp) {
+        await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+        if (signal.sdp.type === 'offer') {
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            socket.emit('voice-signal', { roomId: currentRoom, to: from, signal: { sdp: pc.localDescription }, from: myId });
+        }
+    } else if (signal.ice) {
+        await pc.addIceCandidate(new RTCIceCandidate(signal.ice));
+    }
+});
+
+// ទទួលសញ្ញាផ្តាច់សំឡេងពី Server ពេលមានអ្នកចាកចេញ
+socket.on('voice-peer-disconnected', (peerId) => {
+    if (peerConnections[peerId]) {
+        peerConnections[peerId].close();
+        delete peerConnections[peerId];
+    }
+    const audioEl = document.getElementById(`audio-${peerId}`);
+    if (audioEl) audioEl.remove();
+    console.log(`🔇 បានផ្តាច់សំឡេងអ្នកលេង ID: ${peerId}`);
+});
+
+function createPeerConnection(peerId, isInitiator) {
+    const pc = new RTCPeerConnection(rtcConfig);
+    peerConnections[peerId] = pc; // កែត្រង់នេះឱ្យត្រូវជាមួយឈ្មោះ Variable
+
+    if (localStream) {
+        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+    }
+
+    pc.onicecandidate = (event) => {
+        if (event.candidate) {
+            socket.emit('voice-signal', { roomId: currentRoom, to: peerId, signal: { ice: event.candidate }, from: myId });
+        }
+    };
+
+    pc.ontrack = (event) => {
+        let audioEl = document.getElementById(`audio-${peerId}`);
+        if (!audioEl) {
+            audioEl = document.createElement('audio');
+            audioEl.id = `audio-${peerId}`;
+            audioEl.autoplay = true;
+            document.body.appendChild(audioEl);
+        }
+        audioEl.srcObject = event.streams[0];
+    };
+
+    if (isInitiator) {
+        pc.onnegotiationneeded = async () => {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            socket.emit('voice-signal', { roomId: currentRoom, to: peerId, signal: { sdp: pc.localDescription }, from: myId });
+        };
+    }
+}
+
+function toggleMic() {
+    if (!localStream) return alert("មិនទាន់មានការអនុញ្ញាតឱ្យប្រើ Mic ឡើយ!");
+    
+    isMicMuted = !isMicMuted;
+    localStream.getAudioTracks().forEach(track => track.enabled = !isMicMuted);
+    
+    const micBtn = document.getElementById('micBtn');
+    if (isMicMuted) {
+        micBtn.innerText = "🔇 Mic: Off";
+        micBtn.style.background = "#ef4444";
+    } else {
+        micBtn.innerText = "🎙️ Mic: On";
+        micBtn.style.background = "#ea580c";
+    }
+}
+
+function closeAllVoiceConnections() {
+    for (const id in peerConnections) {
+        if (peerConnections[id]) peerConnections[id].close(); //  កែជា peerConnections (ថែម s)
+        const audioEl = document.getElementById(`audio-${id}`);
+        if (audioEl) audioEl.remove();
+    }
+    peerConnections = {};
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+    }
+    isMicMuted = false;
+    const micBtn = document.getElementById('micBtn');
+    if (micBtn) {
+        micBtn.innerText = "🎙️ Mic: On";
+        micBtn.style.background = "#ea580c";
+    }
+}
+
 function leaveRoom() {
     if (confirm("តើអ្នកពិតជាចង់ចាកចេញពីបន្ទប់នេះមែនទេ?")) {
         socket.emit('leaveRoom');
@@ -999,13 +1131,10 @@ socket.on('leftRoom', () => {
     myHand = [];
     selectedCards = [];
     playersData = [];
-    amISpectator = false;
-    lastRoundWinnerId = null; 
+    // 👉 ថែមបន្ទាត់ខាងក្រោមនេះចូល៖
+    closeAllVoiceConnections();
     
-    document.getElementById('loginArea').style.display = 'block';
-    document.getElementById('lobbyArea').style.display = 'none';
-    document.getElementById('gameArea').style.display = 'none';
-    document.getElementById('resultArea').style.display = 'none';
+    renderLobby();
 });
 </script>
 </body>
