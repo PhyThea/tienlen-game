@@ -946,12 +946,32 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
         resultList.appendChild(playerDiv);
     });
 
+    // 🛠️ ផ្នែកកែសម្រួលបន្ថែម Event ចុចសម្រាប់ទូរស័ព្ទ (Mobile Touch) និង PC
     const playAgainBtn = document.getElementById('hostPlayAgainBtn');
     const waitText = document.getElementById('waitHostText');
+    
     if (myId === lastRoundWinnerId) {
         playAgainBtn.style.display = 'block';
         waitText.style.display = 'none';
         playAgainBtn.innerText = "🔄 ចាប់ផ្ដើមវគ្គថ្មី (Start Next Round)";
+        
+        // លុប Event ចាស់ចេញ ដើម្បីកុំឱ្យស្ទួនពេលលេងច្រើនដង
+        playAgainBtn.onclick = null;
+        playAgainBtn.ontouchstart = null;
+
+        // កូដដំណើរការសម្រាប់កុំព្យូទ័រ (PC)
+        playAgainBtn.onclick = function() {
+            if (currentRoom) {
+                socket.emit('startGame', currentRoom);
+            }
+        };
+        // កូដដំណើរការល្បឿនលឿនសម្រាប់ទូរស័ព្ទ (Mobile Touch)
+        playAgainBtn.ontouchstart = function(e) {
+            e.preventDefault(); // ការពារកុំឱ្យ Double Click
+            if (currentRoom) {
+                socket.emit('startGame', currentRoom);
+            }
+        };
     } else {
         playAgainBtn.style.display = 'none';
         waitText.style.display = 'block';
