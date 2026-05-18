@@ -592,7 +592,11 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn, lastRoundWinnerId: 
     const myData = players.find(p => p.id === myId);
     amISpectator = myData ? myData.isSpectator : false;
 
+    // 🎯 បង្ខំលុប Class មិនចាំបាច់ និងបិទផ្ទាំងលទ្ធផលចាស់ឱ្យដាច់ម៉ាត់
+    document.body.classList.remove('round-over'); 
     document.body.classList.add('in-game');
+    
+    // បិទផ្ទាំងដែលមិនពាក់ព័ន្ធទាំងអស់ និងបើកតែផ្ទាំងលេងហ្គេម
     document.getElementById('lobbyArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'none';
     document.getElementById('gameArea').style.display = 'block';
@@ -611,7 +615,10 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn, lastRoundWinnerId: 
 
     renderPlayers(players);
     updateControlsState();
+    
+    // 🎯 ថែមការបង្ខំបិទ resultArea ម្តងទៀតបន្ទាប់ពី Render រួច ដើម្បីការពារកូដផ្សេងទៅបើកវាវិញ
     setTimeout(() => {
+        document.getElementById('resultArea').style.display = 'none';
         renderMyCards(); 
     }, 50);
 });
