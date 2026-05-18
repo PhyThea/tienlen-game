@@ -10,7 +10,15 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
+// កូដថ្មីដែលត្រូវដាក់ជំនួស
+const path = require('path'); // ➕ បន្ថែមបណ្ណាល័យគ្រប់គ្រងផ្លូវឯកសារ (ដាក់នៅខាងលើបង្អស់ក៏បាន)
+
 app.use(express.static(__dirname));
+
+// 🎯 ➕ បន្ថែមកូដខាងក្រោមនេះ ដើម្បីប្រាប់ Server ឱ្យបើក index.html ពេលមានអ្នកចូលលីង
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 const rooms = {};
 
