@@ -290,7 +290,8 @@ button:disabled {
     box-shadow: -2px 2px 4px rgba(0,0,0,0.4);
     transition: transform 0.1s ease, box-shadow 0.1s ease;
     flex-shrink: 0;
-    margin-right: -17px; /* រក្សាគម្លាតជង់គ្នាដដែល */
+    margin-right: -17px;
+    position: relative; /* <--- បន្ថែមបន្ទាត់នេះ */
 }
 
 .card:last-child {
@@ -757,7 +758,7 @@ function renderMyCards() {
         const isSelected = selectedCards.some(c => c.value === card.value && c.suit === card.suit);
         if (isSelected && myTurn) {
             el.classList.add('selected'); 
-            el.style.zIndex = 100 - index; 
+            el.style.zIndex = 200 + index; // ធ្វើឱ្យសន្លឹកបៀរដែល select ហោះមកនៅខាងលើគេជានិច្ចតាមលំដាប់ពីឆ្វេងទៅស្តាំ
         }
         
         el.onclick = () => {
