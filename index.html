@@ -127,7 +127,7 @@ button:disabled {
         overflow: hidden; 
     }
 
-    /* រៀបចំផ្នែកបង្ហាញលទ្ធផលពេលបង្វិលអេក្រង់ដើម្បីកុំឱ្យដាច់ប៊ូតុង */
+    /* រៀបចំផ្នែកបង្ហាញលទ្ធផលពេលបង្វិលអេក្រង់ កុំឱ្យសល់ផ្ទៃខ្មៅ */
     #resultArea {
         position: fixed;
         top: 50%;
@@ -138,6 +138,7 @@ button:disabled {
         transform-origin: center center;
         max-height: 100dvw !important;
         margin-bottom: 0 !important;
+        box-sizing: border-box;
     }
 }
 
@@ -592,13 +593,15 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn, lastRoundWinnerId: 
     const myData = players.find(p => p.id === myId);
     amISpectator = myData ? myData.isSpectator : false;
 
-    // 🎯 បង្ខំលុប Class មិនចាំបាច់ និងបិទផ្ទាំងលទ្ធផលចាស់ឱ្យដាច់ម៉ាត់
-    document.body.classList.remove('round-over'); 
+    // 🎯 បង្ខំលុបផ្ទាំងលទ្ធផលចាស់ចោលឱ្យដាច់ម៉ាត់ ដើម្បីកុំឱ្យជាន់គ្នាបង្កើតផ្ទាំងខ្មៅ
+    document.getElementById('resultArea').style.display = 'none';
+    
+    // បន្ថែម Class លេងហ្គេមទៅ body
     document.body.classList.add('in-game');
     
-    // បិទផ្ទាំងដែលមិនពាក់ព័ន្ធទាំងអស់ និងបើកតែផ្ទាំងលេងហ្គេម
+    // បើកតែ gameArea មួយគត់
+    document.getElementById('loginArea').style.display = 'none';
     document.getElementById('lobbyArea').style.display = 'none';
-    document.getElementById('resultArea').style.display = 'none';
     document.getElementById('gameArea').style.display = 'block';
     
     document.getElementById('table').innerHTML = '<div style="color: #a7f3d0; font-size:12px;">ចាប់ផ្ដើមហ្គេម!</div>';
@@ -616,11 +619,10 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn, lastRoundWinnerId: 
     renderPlayers(players);
     updateControlsState();
     
-    // 🎯 ថែមការបង្ខំបិទ resultArea ម្តងទៀតបន្ទាប់ពី Render រួច ដើម្បីការពារកូដផ្សេងទៅបើកវាវិញ
+    // 🎯 ប្រើ setTimeout បន្តិចដើម្បីធានាថា Browser render កាតបានត្រឹមត្រូវដោយមិនទាក់
     setTimeout(() => {
-        document.getElementById('resultArea').style.display = 'none';
         renderMyCards(); 
-    }, 50);
+    }, 60);
 });
 
 socket.on('dealCards', ({ hand }) => {
