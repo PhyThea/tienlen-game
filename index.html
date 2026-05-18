@@ -303,11 +303,10 @@ button:disabled {
 }
 
 .card-img.selected {
-    transform: translateY(-12px); /* រំកិលឡើងលើ */
-    box-shadow: 0 6px 12px rgba(59, 130, 246, 0.5); /* ថែមស្រមោលឱ្យឃើញកាន់តែអណ្តែតស្អាត */
+    transform: translateY(-14px); /* រក្សាការហោះឡើងលើ */
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.5); /* ថែមស្រមោលខៀវជុំវិញឱ្យស្អាត */
     margin-right: -17px; 
-    position: relative; /* ចាំបាច់ត្រូវមានដើម្បីឱ្យ z-index ដំណើរការ */
-    z-index: 999 !important; /* 🔥 បង្ខំឱ្យមកនៅពីលើសន្លឹកបៀរផ្សេងៗទាំងអស់ */
+    position: relative; /* ចាំបាច់ត្រូវមាន */
 }
 
 .card-img.disabled-card {
@@ -729,10 +728,15 @@ function renderMyCards() {
     const tableDiv = document.getElementById('table');
     const isNewRound = tableDiv && (tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត!'));
 
-    myHand.forEach(card => {
+    // 🔥 កែប្រែត្រង់ loop នេះដោយបន្ថែម index ចូលដើម្បីគណនា z-index
+    myHand.forEach((card, index) => {
         const el = document.createElement('img');
         el.src = getCardFileName(card);
         el.className = 'card-img';
+        
+        // 1. បៀរធម្មតាមិនទាន់ Select៖ ឱ្យបៀរខាងស្តាំនៅពីលើបៀរខាងឆ្វេង (ស្តង់ដារ)
+        el.style.position = 'relative';
+        el.style.zIndex = index + 1;
         
         if (!myTurn) {
             el.classList.add('disabled-card');
@@ -749,6 +753,11 @@ function renderMyCards() {
         const isSelected = selectedCards.some(c => c.value === card.value && c.suit === card.suit);
         if (isSelected && myTurn) {
             el.classList.add('selected');
+            
+            // 🎯 កូដមន្តអាគមត្រង់នេះ៖ 
+            // ឱ្យតែបៀរណា Select គឺយើងបញ្ច្រាស z-index ឱ្យបៀរខាងឆ្វេង (index តូច) មាន z-index ខ្ពស់ជាងបៀរខាងស្តាំវិញ
+            // រូបមន្ត៖ 100 ដក index ថយក្រោយ
+            el.style.zIndex = 100 - index; 
         }
         
         el.onclick = () => {
