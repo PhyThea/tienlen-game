@@ -427,10 +427,9 @@ button:disabled {
     <div id="lobbyArea" class="panel" style="display: none;">
         <h1>🃏 Tien Len Online</h1>
         <h2>Room: <span id="showRoom" style="color: #3b82f6;"></span></h2>
-        <br>
         
-        <div class="voice-controls">
-            <button id="lobbyMicBtn" class="btn-blue" onclick="toggleMic()" style="margin-top: 0; background: #ea580c; font-size: 13px; padding: 6px 12px; width: auto;">🎙️ Mic: On</button>
+        <div class="voice-controls" style="text-align: center; margin: 15px 0;">
+            <button id="lobbyMicBtn" class="btn-blue" onclick="toggleMic()" style="margin-top: 0; background: #ea580c; width: auto; padding: 8px 20px;">🎙️ Mic: On</button>
         </div>
 
         <div id="lobbyPlayers" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;"></div>
@@ -590,6 +589,7 @@ function showLobby(roomId) {
     document.getElementById('gameArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'none';
     document.getElementById('showRoom').innerText = roomId;
+}
     
     // 🎙️ បង្ខំឱ្យប៊ូតុង Mic បង្ហាញខ្លួនតាំងពីពេលនៅក្នុង Lobby រង់ចាំ
     const micBtn = document.getElementById('micBtn');
