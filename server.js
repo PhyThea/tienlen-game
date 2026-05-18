@@ -593,7 +593,7 @@ function toggleMic() {
     }
 }
 
-// ✂️ ស្វែងរក និងលុបដុំកូដនេះចោលចេញពី server.js៖
+// រកមើលកូដត្រង់នេះ (ភាគច្រើននៅផ្នែកខាងក្រោមនៃ server.js)
 function closeAllVoiceConnections() {
     for (const id in peerConnections) {
         if (peerConnections[id]) peerConnections[id].close(); 
@@ -606,7 +606,9 @@ function closeAllVoiceConnections() {
         localStream = null;
     }
     isMicMuted = false;
-    const micBtn = document.getElementById('globalMicBtn'); 
+
+    // 🛑 កែត្រង់នេះ៖ ដូរពី 'globalMicBtn' ទៅជា 'micBtn'
+    const micBtn = document.getElementById('micBtn'); 
     if (micBtn) {
         micBtn.innerText = "🎙️ Mic: On";
         micBtn.style.background = "#ea580c";
