@@ -285,15 +285,20 @@ io.on('connection', (socket) => {
         const room = rooms[roomId];
         if (!room) return;
 
-        // ពិនិត្យលក្ខខណ្ឌសិទ្ធិចុច៖ 
+        // 🛠️ ពិនិត្យលក្ខខណ្ឌសិទ្ធិចុច៖ 
         // - បើគ្មានអ្នកឈ្នះវគ្គមុន (វគ្គទី១)៖ ទាល់តែម្ចាស់បន្ទប់ (creatorId) ទើបចុចបាន
         // - បើមានអ្នកឈ្នះវគ្គមុន៖ ទាល់តែអ្នកឈ្នះវគ្គមុននោះ (lastWinnerId) ទើបចុចបាន
         if (!room.lastWinnerId) {
-            if (room.creatorId !== socket.id) return socket.emit('errorMsg', 'មានតែម្ចាស់បន្ទប់ទេដែលអាចចាប់ផ្ដើមហ្គេមបាន!');
+            if (room.creatorId !== socket.id) {
+                return socket.emit('errorMsg', 'មានតែម្ចាស់បន្ទប់ទេដែលអាចចាប់ផ្ដើមហ្គេមបាន!');
+            }
         } else {
-            if (room.lastWinnerId !== socket.id) return socket.emit('errorMsg', 'មានតែអ្នកឈ្នះវគ្គមុនទេដែលអាចចាប់ផ្ដើមវគ្គថ្មីបាន!');
+            if (room.lastWinnerId !== socket.id) {
+                return socket.emit('errorMsg', 'មានតែអ្នកជាប់លេខ ១ ទេដែលអាចចុចចាប់ផ្ដើមវគ្គថ្មីបាន!');
+            }
         }
 
+        // សម្អាតទិន្នន័យចាស់ដើម្បីរៀបចំចែកបៀរថ្មី
         room.players.forEach(p => {
             p.isSpectator = false;
             p.hand = [];
@@ -302,35 +307,44 @@ io.on('connection', (socket) => {
         });
 
         const playerCount = room.players.filter(p => !p.isSpectator).length;
-        if (playerCount < 2) return socket.emit('errorMsg', 'ត្រូវការអ្នកលេងយ៉ាងតិច ២ នាក់!');
+        if (playerCount < 2) {
+            return socket.emit('errorMsg', 'ត្រូវការអ្នកលេងយ៉ាងតិច ២ នាក់!');
+        }
 
+        // បង្កើតបៀរ និងលាយបៀរថ្មី
         const deck = shuffleDeck(createDeck());
         room.status = 'playing'; 
         room.playedCards = [];
         room.lastPlayerId = null;
         room.nextRank = 1; 
         
+        // ចែកបៀរឱ្យអ្នកលេងម្នាក់ៗ ១៣ សន្លឹក
         room.players.forEach((p, i) => {
             p.hand = sortCards(deck.slice(i * 13, (i + 1) * 13));
             io.to(p.id).emit('dealCards', { hand: p.hand });
         });
 
+        // កំណត់រកអ្នកលេងមុនគេ (Turn ទី១)
         let startingIndex = -1;
         if (room.lastWinnerId) {
+            // បើមានអ្នកឈ្នះវគ្គមុន គឺលេខ ១ នោះជាអ្នកលេងមុនគេ
             startingIndex = room.players.findIndex(p => p.id === room.lastWinnerId);
         }
         if (startingIndex === -1) {
+            // បើវគ្គដំបូងបង្អស់ គឺអ្នកណាមាន ៣ប៊ិច (3 ♠) ជាអ្នកលេងមុនគេ
             startingIndex = room.players.findIndex(p => p.hand.some(c => c.value === '3' && c.suit === '♠'));
         }
         if (startingIndex === -1) startingIndex = 0;
 
         room.currentTurnIndex = startingIndex;
 
+        // ផ្ញើទៅកាន់ទូរស័ព្ទ/កុំព្យូទ័រទាំងអស់នៅក្នុងបន្ទប់ឱ្យដឹងថាហ្គេមចាប់ផ្ដើមហើយ
         io.to(roomId).emit('gameStarted', { 
             players: room.players, 
             currentTurnIndex: room.currentTurnIndex,
             lastRoundWinnerId: room.lastWinnerId
         });
+        
         broadcastRoomList();
     });
 
@@ -388,6 +402,10 @@ io.on('connection', (socket) => {
 
                 setTimeout(() => {
                     const finalWinner = room.players.find(p => p.rank === 1);
+                    
+                    // 🎯 ថែមបន្ទាត់នេះ ដើម្បីឱ្យ Server ចងចាំ ID អ្នកជាប់លេខ ១ សម្រាប់ផ្តល់សិទ្ធិវគ្គក្រោយ
+                    room.lastWinnerId = finalWinner ? finalWinner.id : null;
+
                     io.to(roomId).emit('gameWon', { 
                         winner: finalWinner ? finalWinner.name : 'រកមិនឃើញ', 
                         winnerId: finalWinner ? finalWinner.id : null, 
