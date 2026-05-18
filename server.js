@@ -17,12 +17,21 @@ const rooms = {};
 const CARD_ORDER = ['3','4','5','6','7','8','9','10','J','Q','K','A','2'];
 const SUIT_ORDER = { '♠': 0, '♣': 1, '♦': 2, '♥': 3 };
 
+// ម៉ាបសម្រាប់បម្លែងសញ្ញាបៀរទៅជាឈ្មោះជាភាសាអង់គ្លេសស្របតាមឈ្មោះរូបភាព PNG
+const SUIT_NAME_MAP = { '♠': 'spades', '♣': 'clubs', '♦': 'diamonds', '♥': 'hearts' };
+const VALUE_NAME_MAP = { 
+    '2': '2', '3': '3', '4': '4', '5': '5', '6': '6', '7': '7', '8': '8', '9': '9', '10': '10',
+    'J': 'jack', 'Q': 'queen', 'K': 'king', 'A': 'ace' 
+};
+
 function createDeck() {
     const suits = ['♠', '♣', '♦', '♥'];
     const deck = [];
     for (const suit of suits) {
         for (const value of CARD_ORDER) {
-            deck.push({ suit, value });
+            // បង្កើតឈ្មោះឯកសាររូបភាព ឧទាហរណ៍៖ ace_of_hearts
+            const imageName = `${VALUE_NAME_MAP[value]}_of_${SUIT_NAME_MAP[suit]}`;
+            deck.push({ suit, value, image: imageName });
         }
     }
     return deck;
@@ -206,22 +215,59 @@ function broadcastRoomList() {
     io.emit('roomList', list);
 }
 
+io.on('connection', (socket) => {
+    broadcastRoomList();
+
+    socket.on('createRoom', ({ roomId, password, playerName }) => {
+        if (rooms[roomId]) {
+            return socket.emit('errorMsg', 'បន្ទប់នេះមានរួចហើយ!');
+        }
+        
+        rooms[roomId] = {
+            roomId: roomId,
+            players: [{ id: socket.id, name: playerName || 'Player 1', hand: [], passed: false, isSpectator: false, rank: null }],
+            creatorId: socket.id,
+            status: 'waiting', 
+            password: password || "",
+            currentTurnIndex: 0,
+            playedCards: [],
+            lastPlayerId: null,
+            lastWinnerId: null,
+            nextRank: 1
+        };
+        
+        socket.join(roomId);
+        socket.emit('roomCreated', { roomId, playerId: socket.id });
+        io.to(roomId).emit('updatePlayers', rooms[roomId].players);
+        broadcastRoomList();
+    });
+
+    socket.on('joinRoom', ({ roomId, password, playerName }) => {
+        const room = rooms[roomId];
+        if (!room) return socket.emit('errorMsg', 'រកមិនឃើញបន្ទប់នេះទេ!');
+        if (room.password && room.password !== password) return socket.emit('errorMsg', 'លេខកូដសម្ងាត់មិនត្រឹមត្រូវ!');
+        if (room.players.length >= 4) return socket.emit('errorMsg', 'បន្ទប់ពេញហើយ!');
+
+        const isSpectator = room.status === 'playing';
+
+        room.players.push({ 
+            id: socket.id, 
+            name: playerName || 'Guest', 
+            hand: [], 
+            passed: false,
+            isSpectator: isSpectator,
+            rank: null
+        });
+
+        socket.join(roomId);
+        socket.emit('roomJoined', { roomId, playerId: socket.id, isSpectator });
+        io.to(roomId).emit('updatePlayers', room.players);
+        broadcastRoomList();
+    });
+
     socket.on('startGame', (roomId) => {
         const room = rooms[roomId];
-        if (!room) return;
-
-        // 🛠️ លក្ខខណ្ឌពិនិត្យសិទ្ធិអ្នកចុច Start Game ឬ Play Again
-        if (!room.lastWinnerId) {
-            // ក្ដារដំបូងបង្អស់៖ មានតែអ្នកបង្កើតបន្ទប់ (Creator) ទេទើបចុចបាន
-            if (room.creatorId !== socket.id) {
-                return socket.emit('errorMsg', 'មានតែមេបន្ទប់ (Host) ទេទើបអាចចាប់ផ្ដើមហ្គេមដំបូងបាន!');
-            }
-        } else {
-            // ក្ដារបន្ទាប់ៗ៖ មានតែអ្នកដែលឈ្នះលេខ ១ វគ្គមុនទេទើបចុចបាន
-            if (room.lastWinnerId !== socket.id) {
-                return socket.emit('errorMsg', 'មានតែអ្នកឈ្នះវគ្គមុនទេ ទើបមានសិទ្ធិចាប់ផ្ដើមវគ្គថ្មីបាន!');
-            }
-        }
+        if (!room || room.creatorId !== socket.id) return;
 
         room.players.forEach(p => {
             p.isSpectator = false;
@@ -234,11 +280,11 @@ function broadcastRoomList() {
         if (playerCount < 2) return socket.emit('errorMsg', 'ត្រូវការអ្នកលេងយ៉ាងតិច ២ នាក់!');
 
         const deck = shuffleDeck(createDeck());
-        room.status = 'playing';
+        room.status = 'playing'; 
         room.playedCards = [];
         room.lastPlayerId = null;
-        room.nextRank = 1;
-
+        room.nextRank = 1; 
+        
         room.players.forEach((p, i) => {
             p.hand = sortCards(deck.slice(i * 13, (i + 1) * 13));
             io.to(p.id).emit('dealCards', { hand: p.hand });
@@ -255,52 +301,11 @@ function broadcastRoomList() {
 
         room.currentTurnIndex = startingIndex;
 
-        // ផ្ញើ lastRoundWinnerId ទៅឱ្យ Client គ្រប់គ្នាដឹងពីសិទ្ធិលេងក្ដារក្រោយ
-        io.to(roomId).emit('gameStarted', {
-            players: room.players,
+        io.to(roomId).emit('gameStarted', { 
+            players: room.players, 
             currentTurnIndex: room.currentTurnIndex,
-            lastRoundWinnerId: room.lastWinnerId,
-            playedCards: []
+            lastRoundWinnerId: room.lastWinnerId
         });
-        broadcastRoomList();
-    });
-
-    // server.js (ជំនួសផ្នែក joinRoom និង startGame)
-
-    socket.on('joinRoom', ({ roomId, password, playerName }) => {
-        const room = rooms[roomId];
-        if (!room) return socket.emit('errorMsg', 'រកមិនឃើញបន្ទប់នេះទេ!');
-        if (room.password && room.password !== password) return socket.emit('errorMsg', 'លេខកូដសម្ងាត់មិនត្រឹមត្រូវ!');
-        if (room.players.length >= 4) return socket.emit('errorMsg', 'បន្ទប់ពេញហើយ!');
-
-        const isSpectator = room.status === 'playing';
-
-        const newPlayer = { 
-            id: socket.id, 
-            name: playerName || 'Guest', 
-            hand: [], 
-            passed: false,
-            isSpectator: isSpectator,
-            rank: null
-        };
-
-        room.players.push(newPlayer);
-
-        socket.join(roomId);
-        
-        // ផ្ញើទិន្នន័យត្រឡប់ទៅអ្នកលេងថ្មី
-        socket.emit('roomJoined', { 
-            roomId, 
-            playerId: socket.id, 
-            isSpectator,
-            // បន្ថែម៖ ផ្ញើស្ថានភាពបច្ចុប្បន្នរបស់បន្ទប់
-            currentTurnIndex: room.currentTurnIndex,
-            playedCards: room.playedCards,
-            lastPlayerId: room.lastPlayerId,
-            status: room.status
-        });
-
-        io.to(roomId).emit('updatePlayers', room.players);
         broadcastRoomList();
     });
 
