@@ -17,21 +17,12 @@ const rooms = {};
 const CARD_ORDER = ['3','4','5','6','7','8','9','10','J','Q','K','A','2'];
 const SUIT_ORDER = { '♠': 0, '♣': 1, '♦': 2, '♥': 3 };
 
-// ម៉ាបសម្រាប់បម្លែងសញ្ញាបៀរទៅជាឈ្មោះជាភាសាអង់គ្លេសស្របតាមឈ្មោះរូបភាព PNG
-const SUIT_NAME_MAP = { '♠': 'spades', '♣': 'clubs', '♦': 'diamonds', '♥': 'hearts' };
-const VALUE_NAME_MAP = { 
-    '2': '2', '3': '3', '4': '4', '5': '5', '6': '6', '7': '7', '8': '8', '9': '9', '10': '10',
-    'J': 'jack', 'Q': 'queen', 'K': 'king', 'A': 'ace' 
-};
-
 function createDeck() {
     const suits = ['♠', '♣', '♦', '♥'];
     const deck = [];
     for (const suit of suits) {
         for (const value of CARD_ORDER) {
-            // បង្កើតឈ្មោះឯកសាររូបភាព ឧទាហរណ៍៖ ace_of_hearts
-            const imageName = `${VALUE_NAME_MAP[value]}_of_${SUIT_NAME_MAP[suit]}`;
-            deck.push({ suit, value, image: imageName });
+            deck.push({ suit, value });
         }
     }
     return deck;
