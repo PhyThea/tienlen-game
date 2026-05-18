@@ -272,22 +272,22 @@ button:disabled {
     flex-wrap: nowrap;
     overflow-x: auto;
     padding: 2px 0;
-    height: 130px;       /* បង្កើនពី 95px ទៅ 130px ដើម្បីទុកលំហពេលចុចឱ្យបៀរអណ្តែតឡើង */
+    height: 130px;       
     align-items: flex-end;
 }
 
 .card {
-    width: 65px;         /* ដូរពី 44px ទៅ 65px (ឬធំជាងនេះតាមចិត្ត) */
-    height: 95px;        /* ដូរពី 64px ទៅ 95px */
+    width: 65px;         
+    height: 95px;        
     background-size: cover;
     background-position: center;
-    border-radius: 6px;  /* បង្កើនកោងគែមបន្តិចឱ្យស្អាត */
+    border-radius: 6px;  
     cursor: pointer;
     user-select: none;
     box-shadow: -2px 2px 4px rgba(0,0,0,0.4);
     transition: transform 0.1s ease, box-shadow 0.1s ease;
     flex-shrink: 0;
-    margin-right: -28px; /* ដូរពី -17px ទៅ -28px ដើម្បីកុំឱ្យបៀររីកធំហើយធ្លាក់ជួរ */
+    margin-right: -28px; 
     position: relative; 
 }
 
@@ -487,7 +487,6 @@ let localStream = null;
 let peers = {};
 let micEnabled = true;
 
-// 🔗 បង្កើតប្រព័ន្ធគ្រប់គ្រង Ice Servers រួមដើម្បីជួយទម្លុះប្រព័ន្ធការពារ 4G/5G លេងឆ្លងអ៊ីនធឺណិតឱ្យឮច្បាស់
 const iceConfig = {
     config: {
         iceServers: [
@@ -1014,6 +1013,7 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
 function leaveRoom() {
     if (confirm("តើអ្នកពិតជាចង់ចាកចេញពីបន្ទប់នេះមែនទេ?")) {
         socket.emit('leaveRoom');
+        closeAllVoiceConnections(); // 🛠️ ជួសជុល៖ ហៅមុខងារសម្អាតភ្លាមៗពេលចុចចាកចេញ
     }
 }
 
@@ -1026,7 +1026,7 @@ socket.on('leftRoom', () => {
     amISpectator = false;
     lastRoundWinnerId = null; 
     
-    closeAllVoiceConnections();
+    closeAllVoiceConnections(); // 🛠️ ជួសជុល៖ ធានាសម្អាតខ្សែតភ្ជាប់ទាំងអស់ពេលត្រឡប់មកអេក្រង់ដើម
 
     document.getElementById('loginArea').style.display = 'block';
     document.getElementById('lobbyArea').style.display = 'none';
@@ -1044,7 +1044,6 @@ function initVoiceAndExecute(callback) {
         return;
     }
 
-    // វានឹងសួររកច្បាប់ Mic តែពេលដែលអ្នកលេងចុច "បង្កើតបន្ទប់" ឬ "ចូលរួមបន្ទប់" ប៉ុណ្ណោះ
     navigator.mediaDevices.getUserMedia({ audio: true, video: false })
         .then(stream => {
             localStream = stream;
@@ -1053,7 +1052,6 @@ function initVoiceAndExecute(callback) {
             callback();
         })
         .catch(err => {
-            // បើទោះជាគេចងកំហឹងមិន Allow ក៏នៅតែអនុញ្ញាតឱ្យគេចូលលេងហ្គេមបានធម្មតា (គ្រាន់តែមិនឮសំឡេង)
             console.warn("User denied mic permission or error occurred:", err);
             callback(); 
         });
@@ -1131,6 +1129,8 @@ function createAudioElement(id, stream) {
         audio = document.createElement('audio');
         audio.id = `audio-${id}`;
         audio.autoplay = true;
+        // 🛠️ បន្ថែម Attribute ជំនួយសម្រាប់ប្រព័ន្ធ iOS/Safari លើទូរសព្ទឱ្យចាក់សំឡេងស្វ័យប្រវត្តិកាន់តែច្បាស់
+        audio.setAttribute('playsinline', 'true');
         document.body.appendChild(audio);
     }
     audio.srcObject = stream;
@@ -1143,13 +1143,11 @@ function removeAudioElement(id) {
 
 function toggleMic() {
     if (!localStream) {
-        // បើដំបូងគេអត់បាន Allow ទេ ពេលគេចុចប៊ូតុង Mic នេះ យើងលោតសួរម្ដងទៀត
         navigator.mediaDevices.getUserMedia({ audio: true, video: false })
             .then(stream => {
                 localStream = stream;
                 micEnabled = true;
                 updateMicButtonUI();
-                // ភ្ជាប់ទៅកាន់អ្នកផ្សេងឡើងវិញ
                 socket.emit('leaveRoom'); 
                 alert("ម៉ៃក្រូហ្វូនបើកហើយ! សូមចូលបន្ទប់ម្ដងទៀតដើម្បីនិយាយរកគ្នា។");
             })
@@ -1180,7 +1178,11 @@ function updateMicButtonUI() {
 
 function closeAllVoiceConnections() {
     for (let id in peers) {
-        peers[id].destroy();
+        try {
+            peers[id].destroy();
+        } catch (e) {
+            console.log("Error destroying peer:", e);
+        }
     }
     peers = {};
     
