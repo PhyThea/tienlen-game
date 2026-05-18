@@ -2,7 +2,7 @@
 <html lang="km">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>🃏 Tien Len Online</title>
 
 <style>
@@ -17,18 +17,25 @@ body {
     font-family: Arial, sans-serif;
     background: #0f172a;
     color: white;
-    overflow-x: hidden;
+    overflow: hidden; /* ហាមដាច់ខាតមិនឱ្យអូសរមៀលចុះក្រោមបានឡើយ */
+    position: fixed;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh; /* ប្រើប្រាស់ Dynamic Viewport ដើម្បីដករបារស Browser ចេញ */
 }
 
 .container {
     max-width: 1200px;
     margin: auto;
-    padding: 15px;
+    padding: 10px;
+    width: 100%;
+    height: 100%;
 }
 
 h1 {
     text-align: center;
-    margin-bottom: 20px;
+    margin-bottom: 12px;
+    font-size: 22px;
 }
 
 .panel {
@@ -91,19 +98,12 @@ button:disabled {
 
 #gameArea {
     display: none;
-    position: relative;
     width: 100%;
     height: 100%;
 }
 
-@media screen and (max-width: 932px) and (orientation: portrait) and (pointer: coarse) {
-    body.in-game {
-        overflow: hidden;
-        position: fixed;
-        width: 100vw;
-        height: 100vh;
-    }
-
+/* 📱 របៀបបង្វិលអេក្រង់ស្វ័យប្រវត្តិកែសម្រួលពិសេសសម្រាប់ទូរសព្ទគ្រប់ប្រភេទ (Portrait) */
+@media screen and (max-width: 932px) and (orientation: portrait) {
     body.in-game .container {
         padding: 0;
         max-width: 100%;
@@ -115,52 +115,43 @@ button:disabled {
         position: fixed;
         top: 50%;
         left: 50%;
-        width: 100vh; 
-        height: 100vw;
+        width: 100dvh; 
+        height: 100dvw;
         transform: translate(-50%, -50%) rotate(90deg);
         transform-origin: center center;
         background: #0f172a;
-        padding: 15px;
+        padding: 10px 13px 10px 10px; /* ✅ បានជួសជុលពី p3px មកជា 13px រួចរាល់ */
         display: flex;
         flex-direction: column;
         justify-content: space-between;
         overflow: hidden; 
     }
+
+    /* រៀបចំផ្នែកបង្ហាញលទ្ធផលពេលបង្វិលអេក្រង់ដើម្បីកុំឱ្យដាច់ប៊ូតុង */
+    #resultArea {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        width: 100dvh;
+        height: 100dvw;
+        transform: translate(-50%, -50%) rotate(90deg);
+        transform-origin: center center;
+        max-height: 100dvw !important;
+        margin-bottom: 0 !important;
+    }
 }
 
-body.in-game .container {
-    padding: 0;
-    max-width: 100%;
-    width: 100%;
-    height: 100%;
-}
-
-body.in-game #gameArea {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    width: 100vh; 
-    height: 100vw;
-    transform: translate(-50%, -50%) rotate(90deg);
-    transform-origin: center center;
-    background: #0f172a;
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    overflow: hidden; 
-}
-
-@media screen and (min-width: 600px) and (orientation: landscape), screen and (min-width: 933px), screen and (pointer: fine) {
+/* 💻 សម្រាប់ iPad, Tablet ឬ កុំព្យូទ័រ ដែលបើកទម្រង់ទទឹងស្រាប់ */
+@media screen and (min-width: 600px) and (orientation: landscape), screen and (min-width: 933px) {
     body.in-game #gameArea {
-        display: grid;
-        grid-template-rows: auto 1fr auto auto;
-        height: 92vh;
-        max-height: 700px;
-        gap: 10px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 100%;
+        width: 100%;
+        gap: 6px;
         transform: none !important; 
         position: static !important;
-        width: 100% !important;
     }
 }
 
@@ -169,126 +160,135 @@ body.in-game #gameArea {
     justify-content: space-between;
     align-items: center;
     background: #1e293b;
-    padding: 8px 15px;
-    border-radius: 10px;
+    padding: 5px 10px;
+    border-radius: 8px;
+    flex-shrink: 0;
+    height: 32px;
 }
 
 #players {
     display: flex;
-    gap: 10px;
+    gap: 6px;
     justify-content: center;
     align-items: center;
     width: 100%;
+    flex-shrink: 0;
+    height: 42px;
+    margin-top: 2px;
 }
 
 .player {
     background: #334155;
-    padding: 6px 10px;
-    border-radius: 10px;
-    min-width: 110px;
+    padding: 3px 6px;
+    border-radius: 6px;
+    min-width: 80px;
     flex: 1;
-    max-width: 160px;
+    max-width: 140px;
     position: relative;
-    border: 2px solid transparent; 
-    transition: all 0.3s ease;
+    border: 1.5px solid transparent; 
+    transition: all 0.25s ease;
     text-align: center;
-    font-size: 13px;
+    font-size: 11px;
 }
 
 .player.active-turn {
-    border: 2px solid #22c55e !important;
-    box-shadow: 0 0 10px rgba(34, 197, 94, 0.6) !important;
+    border: 1.5px solid #22c55e !important;
+    box-shadow: 0 0 6px rgba(34, 197, 94, 0.5) !important;
     background: #1e293b !important;
 }
 
 .player-passed {
     background: #451a1a !important;
-    border: 2px solid #ef4444 !important;
-    opacity: 0.6;
+    border: 1.5px solid #ef4444 !important;
+    opacity: 0.5;
 }
 
 .player-rank-1 {
     background: #422006 !important;
-    border: 2px solid #eab308 !important;
-    box-shadow: 0 0 12px rgba(234, 179, 8, 0.5) !important;
+    border: 1.5px solid #eab308 !important;
 }
 
 .player-rank-2 {
     background: #1e293b !important;
-    border: 2px solid #3b82f6 !important;
-    box-shadow: 0 0 12px rgba(59, 130, 246, 0.5) !important;
+    border: 1.5px solid #3b82f6 !important;
 }
 
 .turn-badge {
     position: absolute;
-    top: -10px;
+    top: -8px;
     left: 50%;
     transform: translateX(-50%);
     background: #22c55e;
     color: white;
-    font-size: 9px;
+    font-size: 7px;
     font-weight: bold;
-    padding: 1px 6px;
-    border-radius: 20px;
+    padding: 0px 4px;
+    border-radius: 10px;
     white-space: nowrap;
 }
 
 .card-counter {
-    margin-top: 4px;
     background: #1e293b;
-    border-radius: 5px;
-    padding: 2px 5px;
+    border-radius: 3px;
+    padding: 0px 3px;
     font-weight: bold;
-    font-size: 11px;
+    font-size: 9px;
     color: #f59e0b;
     border: 1px solid #475569;
     display: inline-block;
 }
 
+/* 🃏 ផ្ទៃតុចុះបៀរ */
 .table-area {
     background: #14532d; 
     border: 2px dashed #22c55e;
-    border-radius: 12px;
+    border-radius: 10px;
     flex: 1; 
-    min-height: 80px; 
+    min-height: 60px; 
     display: flex;
     justify-content: center;
     align-items: center;
     flex-wrap: nowrap;
     overflow-x: auto;  
-    gap: 6px;
-    padding: 10px;
+    gap: 4px;
+    padding: 6px;
     position: relative;
+    margin: 4px 0;
 }
+
+/* 📦 ប្លុកដាក់បៀរក្នុងដៃ និងប៊ូតុង */
 .hand-and-controls {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
     background: #1e293b;
-    padding: 10px;
-    border-radius: 12px;
+    padding: 6px;
+    border-radius: 10px;
     flex-shrink: 0; 
+    padding-bottom: max(6px, env(safe-area-inset-bottom)); 
 }
 
+/* 🎴 ប្រអប់ផ្ទុកសន្លឹកបៀរ */
 .card-container {
     display: flex;
     justify-content: center;
     flex-wrap: nowrap;
     overflow-x: auto;
-    padding: 10px 0;
+    padding: 2px 0;
+    height: 72px; 
+    align-items: flex-end;
 }
 
-/* រៀបចំស្ទីលសម្រាប់រូបភាពបៀររបស់ខ្ញុំ */
 .card-img {
-    width: 58px;
+    width: 44px; 
     height: auto;
-    border-radius: 5px;
+    border-radius: 4px;
     cursor: pointer;
     user-select: none;
-    box-shadow: -3px 3px 6px rgba(0,0,0,0.4);
-    transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+    box-shadow: -2px 2px 4px rgba(0,0,0,0.4);
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
     flex-shrink: 0;
-    margin-right: -22px; /* បៀរជាន់គ្នាស្អាត */
+    margin-right: -17px; 
 }
 
 .card-img:last-child {
@@ -296,20 +296,14 @@ body.in-game #gameArea {
 }
 
 .card-img.first-turn-highlight {
-    box-shadow: 0 0 14px #eab308 !important;
-    filter: drop-shadow(0 0 8px #eab308);
-    animation: pulseGlow 1.5s infinite alternate;
-}
-
-@keyframes pulseGlow {
-    0% { filter: drop-shadow(0 0 4px #eab308); }
-    100% { filter: drop-shadow(0 0 14px #f59e0b); }
+    box-shadow: 0 0 8px #eab308 !important;
+    filter: drop-shadow(0 0 5px #eab308);
 }
 
 .card-img.selected {
-    transform: translateY(-20px);
-    box-shadow: 0 6px 12px rgba(59, 130, 246, 0.8);
-    margin-right: -12px;
+    transform: translateY(-14px); 
+    box-shadow: 0 3px 6px rgba(59, 130, 246, 0.8);
+    margin-right: -10px;
 }
 
 .card-img.disabled-card {
@@ -318,55 +312,55 @@ body.in-game #gameArea {
     box-shadow: none !important;
 }
 
-/* រៀបចំស្ទីលសម្រាប់រូបភាពបៀរលើតុ */
 .table-card-img {
-    width: 56px;
+    width: 42px;
     height: auto;
-    border-radius: 5px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
     flex-shrink: 0;
     user-select: none;
 }
 
 .controls {
     display: flex;
-    gap: 10px;
+    gap: 6px;
 }
 .controls button {
     margin-top: 0;
-    padding: 10px;
-    font-size: 15px;
+    padding: 7px;
+    font-size: 13px;
+    border-radius: 6px;
+    height: 36px; 
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .bubble-msg {
     position: absolute;
-    top: -25px;
+    top: -18px;
     left: 50%;
     transform: translateX(-50%);
     background: #ef4444;
     color: white;
-    padding: 3px 8px;
-    border-radius: 8px;
-    font-size: 11px;
+    padding: 1px 5px;
+    border-radius: 5px;
+    font-size: 9px;
     font-weight: bold;
-    animation: fadeUp 1.5s forwards;
     white-space: nowrap;
     z-index: 10;
-}
-
-@keyframes fadeUp {
-    0% { opacity: 1; transform: translate(-50%, 0); }
-    100% { opacity: 0; transform: translate(-50%, -15px); }
 }
 
 #resultArea {
     display: none;
     text-align: center;
+    overflow-y: auto;
+    max-height: 90vh;
 }
 
 .result-player {
     background: #334155;
-    padding: 12px;
+    padding: 10px;
     border-radius: 10px;
     margin-top: 10px;
     text-align: left;
@@ -374,24 +368,18 @@ body.in-game #gameArea {
 
 .result-cards {
     display: flex;
-    gap: 5px;
+    gap: 4px;
     flex-wrap: wrap;
-    margin-top: 8px;
+    margin-top: 6px;
 }
 
 .animate-play-card {
-    animation: popInCard 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    animation: popInCard 0.2s ease-out forwards;
 }
 
 @keyframes popInCard {
-    0% {
-        opacity: 0;
-        transform: scale(0.3) translateY(60px) rotate(-12deg);
-    }
-    100% {
-        opacity: 1;
-        transform: scale(1) translateY(0) rotate(0deg);
-    }
+    0% { opacity: 0; transform: scale(0.5) translateY(30px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
 }
 </style>
 </head>
@@ -425,14 +413,14 @@ body.in-game #gameArea {
 
     <div id="gameArea">
         <div class="game-header">
-            <div id="status" style="font-weight: bold; color: #22c55e;">Waiting...</div>
-            <button class="btn-red" onclick="leaveRoom()" style="margin-top: 0; padding: 6px 12px; font-size: 13px; width: auto;">🚪 ផ្ទះដើម</button>
+            <div id="status" style="font-weight: bold; color: #22c55e; font-size: 12px;">Waiting...</div>
+            <button class="btn-red" onclick="leaveRoom()" style="margin-top: 0; padding: 2px 8px; font-size: 11px; width: auto; height: 24px;">🚪 ផ្ទះដើម</button>
         </div>
 
         <div id="players"></div>
 
         <div class="table-area" id="table">
-            <div style="color: #a7f3d0;">មិនទាន់មានបៀរចុះឡើយ</div>
+            <div style="color: #a7f3d0; font-size: 12px;">មិនទាន់មានបៀរចុះឡើយ</div>
         </div>
 
         <div class="hand-and-controls">
@@ -470,7 +458,6 @@ let playersData = [];
 let amISpectator = false;
 let lastRoundWinnerId = null; 
 
-// មុខងារបម្លែងតម្លៃសន្លឹកបៀទៅជាឈ្មោះឯកសារ PNG តាមបញ្ជី PNG-cards.txt របស់អ្នក
 function getCardFileName(card) {
     let valStr = card.value;
     if (valStr === 'A') valStr = 'ace';
@@ -540,7 +527,6 @@ function createRoom() {
     const roomId = document.getElementById('roomInput').value.trim();
     const password = document.getElementById('roomPass').value;
     if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!");
-
     socket.emit('createRoom', { roomId, password, playerName });
 }
 
@@ -550,7 +536,6 @@ function joinRoom() {
     const roomId = document.getElementById('roomInput').value.trim();
     const password = document.getElementById('roomPass').value;
     if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!");
-
     socket.emit('joinRoom', { roomId, password, playerName });
 }
 
@@ -605,7 +590,7 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn, lastRoundWinnerId: 
     document.getElementById('resultArea').style.display = 'none';
     document.getElementById('gameArea').style.display = 'block';
     
-    document.getElementById('table').innerHTML = '<div style="color: #a7f3d0;">ចាប់ផ្ដើមហ្គេម!</div>';
+    document.getElementById('table').innerHTML = '<div style="color: #a7f3d0; font-size:12px;">ចាប់ផ្ដើមហ្គេម!</div>';
     
     if (playersData[currentTurnIndex]) {
         document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
@@ -627,10 +612,8 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn, lastRoundWinnerId: 
 socket.on('dealCards', ({ hand }) => {
     myHand = hand;
     selectedCards = [];
-    
     renderPlayers(playersData);
     updateControlsState();
-    
     renderMyCards();
 });
 
@@ -647,14 +630,12 @@ function updateControlsState() {
     if (playBtn && passBtn) {
         if (isMyTurn()) {
             playBtn.disabled = false;
-            
             const tableDiv = document.getElementById('table');
             const isNewRound = tableDiv && (
                 tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || 
                 tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || 
                 tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត!')
             );
-
             if (isNewRound) {
                 passBtn.disabled = true; 
             } else {
@@ -681,45 +662,37 @@ function renderPlayers(players) {
         el.id = `player-card-${p.id}`; 
         
         const isCurrentTurn = (currentTurnIndex !== null && index === currentTurnIndex && !p.isSpectator && p.hand && p.hand.length > 0);
-        
-        if (isCurrentTurn) {
-            el.classList.add('active-turn'); 
-        }
+        if (isCurrentTurn) el.classList.add('active-turn'); 
 
         const count = p.hand ? p.hand.length : (p.cardCount !== undefined ? p.cardCount : 13);
 
-        if (p.passed && count > 0) {
-            el.classList.add('player-passed'); 
-        }
+        if (p.passed && count > 0) el.classList.add('player-passed'); 
 
         if (!p.isSpectator && p.rank !== null && p.rank > 0) {
-            if (p.rank === 1) {
-                el.classList.add('player-rank-1');
-            } else if (p.rank === 2) {
-                el.classList.add('player-rank-2');
-            }
+            if (p.rank === 1) el.classList.add('player-rank-1');
+            else if (p.rank === 2) el.classList.add('player-rank-2');
         }
 
         let roleText = '';
         if (p.isSpectator) {
             roleText = '<span style="color: #94a3b8;">(អ្នកមើល)</span>';
         } else if (p.rank !== null && p.rank > 0) {
-            let rankBadge = p.rank === 1 ? '👑 ប៉េហើយ (លំដាប់ ១)' : `🥈 ប៉េហើយ (លំដាប់ ២)`;
+            let rankBadge = p.rank === 1 ? '👑 លំដាប់ ១' : `🥈 លំដាប់ ២`;
             let badgeColor = p.rank === 1 ? '#eab308' : '#3b82f6';
-            roleText = `<div style="color: ${badgeColor}; font-weight: bold; margin-top:2px;">${rankBadge}</div>`;
+            roleText = `<div style="color: ${badgeColor}; font-weight: bold; font-size:9px; margin-top:1px;">${rankBadge}</div>`;
         } else {
             roleText = `<div class="card-counter">🃏 សល់៖ ${count}</div>`;
         }
 
         if (p.passed && !p.isSpectator && count > 0) {
-            roleText += '<br><span style="color: #ef4444; font-weight: bold; font-size: 11px;">❌ Pass</span>';
+            roleText += '<br><span style="color: #ef4444; font-weight: bold; font-size: 9px;">❌ Pass</span>';
         }
 
-        let turnBadgeHTML = isCurrentTurn ? `<div class="turn-badge">${p.id === myId ? '🟢 វេនអ្នក' : '🎯 កំពុងលេង'}</div>` : '';
+        let turnBadgeHTML = isCurrentTurn ? `<div class="turn-badge">${p.id === myId ? '🟢 ខ្ញុំ' : '🎯 លេង'}</div>` : '';
 
         el.innerHTML = `
             ${turnBadgeHTML}
-            <strong>👤 ${p.name.substring(0, 8)} ${p.id === myId ? '(ខ្ញុំ)' : ''}</strong>
+            <strong>👤 ${p.name.substring(0, 5)}</strong>
             <br>
             ${roleText}
         `;
@@ -744,7 +717,7 @@ function renderMyCards() {
     const div = document.getElementById('myCards');
     div.innerHTML = '';
     if (amISpectator) {
-        div.innerHTML = '<div style="color: #94a3b8; font-style: italic; font-size:13px;">អ្នកកំពុងចូលរួមមើលការប្រកួត...</div>';
+        div.innerHTML = '<div style="color: #94a3b8; font-style: italic; font-size:12px;">អ្នកកំពុងចូលរួមមើលការប្រកួត...</div>';
         return;
     }
     
@@ -762,13 +735,9 @@ function renderMyCards() {
         } else {
             if (isNewRound) {
                 if (!lastRoundWinnerId) {
-                    if (card.value === '3' && card.suit === '♠') {
-                        el.classList.add('first-turn-highlight');
-                    }
+                    if (card.value === '3' && card.suit === '♠') el.classList.add('first-turn-highlight');
                 } else {
-                    if (myId === lastRoundWinnerId) {
-                        el.classList.add('first-turn-highlight');
-                    }
+                    if (myId === lastRoundWinnerId) el.classList.add('first-turn-highlight');
                 }
             }
         }
@@ -807,9 +776,7 @@ function passTurn() {
 
 socket.on('turnChanged', ({ currentTurnIndex: turn, players }) => {
     currentTurnIndex = turn;
-    if (players) {
-        playersData = players;
-    }
+    if (players) playersData = players;
     if (playersData[currentTurnIndex]) {
         document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
     }
@@ -820,7 +787,6 @@ socket.on('turnChanged', ({ currentTurnIndex: turn, players }) => {
 
 socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
     currentTurnIndex = nextTurn;
-    
     updatedHands.forEach(p => {
         const found = playersData.find(oldP => oldP.id === p.id);
         if (found) {
@@ -829,13 +795,10 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
             found.passed = p.passed; 
         }
     });
-
     playersData = updatedHands;
     
     const me = updatedHands.find(p => p.id === myId);
-    if (me && me.hand) {
-        myHand = me.hand;
-    }
+    if (me && me.hand) myHand = me.hand;
 
     renderPlayers(updatedHands);
 
@@ -851,15 +814,14 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
             const el = document.createElement('img');
             el.src = getCardFileName(card);
             el.className = 'table-card-img animate-play-card';
-            el.style.animationDelay = `${index * 0.05}s`;
+            el.style.animationDelay = `${index * 0.03}s`;
             tableDiv.appendChild(el);
         });
     } else {
-        tableDiv.innerHTML = '<div style="color: #a7f3d0;">មិនទាន់មានបៀរចុះឡើយ</div>';
+        tableDiv.innerHTML = '<div style="color: #a7f3d0; font-size:12px;">មិនទាន់មានបៀរចុះឡើយ</div>';
     }
     
     selectedCards = [];
-    
     updateControlsState(); 
     renderMyCards();
 });
@@ -872,19 +834,18 @@ socket.on('playerPassed', ({ name, id, message }) => {
 
         const bubble = document.createElement('div');
         bubble.className = 'bubble-msg';
-        bubble.style.cssText = "position: absolute; top: -25px; left: 50%; transform: translateX(-50%); background: #ef4444; color: white; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: bold; z-index: 99; box-shadow: 0 2px 5px rgba(0,0,0,0.5);";
+        bubble.style.cssText = "position: absolute; top: -20px; left: 50%; transform: translateX(-50%); background: #ef4444; color: white; padding: 2px 5px; border-radius: 5px; font-size: 10px; font-weight: bold; z-index: 99; box-shadow: 0 2px 4px rgba(0,0,0,0.5);";
         bubble.innerText = "❌ Pass";
         
         playerCard.appendChild(bubble);
-        
         setTimeout(() => {
             if (bubble) bubble.remove();
-        }, 2000);
+        }, 1500);
     }
 });
 
 socket.on('clearTable', ({ nextPlayer }) => {
-    document.getElementById('table').innerHTML = '<div style="color: #64748b;">តុត្រូវបានសម្អាត! ជុំថ្មី...</div>';
+    document.getElementById('table').innerHTML = '<div style="color: #64748b; font-size:12px;">តុត្រូវបានសម្អាត! ជុំថ្មី...</div>';
     updateControlsState(); 
     renderMyCards();
 });
@@ -897,11 +858,9 @@ socket.on('errorMsg', (msg) => {
 
 socket.on('gameWon', ({ winner, winnerId, allHands }) => {
     lastRoundWinnerId = winnerId;
-
     document.body.classList.remove('in-game');
     document.getElementById('gameArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'block';
-    
     document.getElementById('winnerName').innerText = winner;
 
     const resultList = document.getElementById('resultList');
@@ -918,7 +877,7 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
         playerDiv.className = 'result-player';
         
         if (!p.isSpectator && p.rank === 1) {
-            playerDiv.style.border = '2px solid #eab308';
+            playerDiv.style.border = '1.5px solid #eab308';
             playerDiv.style.background = '#1e293b';
         }
 
@@ -926,45 +885,40 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
         let cardsHTML = '';
 
         if (p.isSpectator) {
-            rankBadgeHTML = `<span style="color: #94a3b8; font-weight: bold;">👀 អ្នកមើលការប្រកួត</span>`;
+            rankBadgeHTML = `<span style="color: #94a3b8; font-weight: bold;">👀 អ្នកមើល</span>`;
             cardsHTML = `<span style="color: #64748b; font-style: italic;">(គ្មានសន្លឹកបៀរឡើយ)</span>`;
         } else {
-            if (p.rank === 1) {
-                rankBadgeHTML = `<span style="color: #eab308; font-weight: bold;">👑 លេខ ១ (🏆 អ្នកឈ្នះ)</span>`;
-            } else if (p.rank === 2) {
-                rankBadgeHTML = `<span style="color: #3b82f6; font-weight: bold;">🥈 លេខ ២</span>`;
-            } else if (p.rank === 3) {
-                rankBadgeHTML = `<span style="color: #a855f7; font-weight: bold;">🥉 លេខ ៣</span>`;
-            } else {
-                rankBadgeHTML = `<span style="color: #ef4444; font-weight: bold;">❌ ស្អុយបៀរ/ហាយ (អ្នកចាញ់)</span>`;
-            }
+            if (p.rank === 1) rankBadgeHTML = `<span style="color: #eab308; font-weight: bold;">👑 លេខ ១ (🏆 អ្នកឈ្នះ)</span>`;
+            else if (p.rank === 2) rankBadgeHTML = `<span style="color: #3b82f6; font-weight: bold;">🥈 លេខ ២</span>`;
+            else if (p.rank === 3) rankBadgeHTML = `<span style="color: #a855f7; font-weight: bold;">🥉 លេខ ៣</span>`;
+            else rankBadgeHTML = `<span style="color: #ef4444; font-weight: bold;">❌ អ្នកចាញ់</span>`;
 
             const remainingCards = p.remaining || p.hand || [];
             if (remainingCards.length > 0) {
                 remainingCards.forEach(card => {
                     cardsHTML += `
-                        <img src="${getCardFileName(card)}" style="width: 44px; height: auto; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); margin-right: 6px; margin-bottom: 6px;">
+                        <img src="${getCardFileName(card)}" style="width: 34px; height: auto; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); margin-right: 3px; margin-bottom: 3px;">
                     `;
                 });
             } else {
-                cardsHTML = `<span style="color: #22c55e; font-style: italic;">🎉 អស់បៀរពីដៃពិតប្រាកដ!</span>`;
+                cardsHTML = `<span style="color: #22c55e; font-style: italic;">🎉 អស់បៀរពីដៃ!</span>`;
             }
         }
 
         const remainingCount = p.remaining ? p.remaining.length : (p.hand ? p.hand.length : 0);
         const countText = (p.isSpectator || p.rank === 1 || remainingCount === 0) 
             ? '' 
-            : `<span style="color: #f59e0b; font-size: 12px; margin-left: 8px;">(នៅសល់ ${remainingCount} សន្លឹក)</span>`;
+            : `<span style="color: #f59e0b; font-size: 10px; margin-left: 5px;">(នៅសល់ ${remainingCount} សន្លឹក)</span>`;
 
         playerDiv.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #475569; padding-bottom: 6px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; border-bottom: 1px solid #475569; padding-bottom: 3px;">
                 <div>
-                    <strong>👤 ${p.name} ${p.id === myId ? '<span style="color:#22c55e;">(ខ្ញុំ)</span>' : ''}</strong>
+                    <strong>👤 ${p.name}</strong>
                     ${countText}
                 </div>
                 <div>${rankBadgeHTML}</div>
             </div>
-            <div class="result-cards" style="display: flex; flex-wrap: wrap; align-items: center; min-height: 40px;">${cardsHTML}</div>
+            <div class="result-cards">${cardsHTML}</div>
         `;
         resultList.appendChild(playerDiv);
     });
