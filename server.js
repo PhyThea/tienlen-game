@@ -1,21 +1,18 @@
 // =================================================================
-// server.js (កំណែទម្រង់រួមបញ្ចូលច្បាប់កាត់ផែអោប ហាយ និង Voice Chat)
+// server.js (កំណែទម្រង់រួមបញ្ចូលច្បាប់កាត់ពីកូដចាស់ និងប្រព័ន្ធ Voice Chat)
 // =================================================================
 
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const path = require('path'); 
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// កូដថ្មីដែលត្រូវដាក់ជំនួស
-const path = require('path'); // ➕ បន្ថែមបណ្ណាល័យគ្រប់គ្រងផ្លូវឯកសារ (ដាក់នៅខាងលើបង្អស់ក៏បាន)
-
 app.use(express.static(__dirname));
 
-// 🎯 ➕ បន្ថែមកូដខាងក្រោមនេះ ដើម្បីប្រាប់ Server ឱ្យបើក index.html ពេលមានអ្នកចូលលីង
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
@@ -52,6 +49,7 @@ function sortCards(cards) {
     return cards.sort((a, b) => getCardPower(a) - getCardPower(b));
 }
 
+// 🛠️ យកតាមកកូដចាស់៖ អនុញ្ញាតឱ្យគិតគូរៀបចាប់ពី ៤ សន្លឹកឡើងទៅ (២ គូរៀប)
 function isConsecutivePairs(cards) {
     const len = cards.length;
     if (len < 4 || len % 2 !== 0) return false; 
@@ -87,6 +85,7 @@ function getComboType(cards) {
         if (len === 4) return 'bomb';   
     }
 
+    // 🛠️ យកតាមកូដចាស់៖ ស្គាល់ទាំង ២គូរៀប, ៣គូរៀប និង ៤គូរៀប
     if (isConsecutivePairs(cards)) {
         if (len === 4) return 'double_pair'; 
         if (len === 6) return 'triple_pair'; 
@@ -123,28 +122,34 @@ function comparePlay(newCards, oldCards) {
     const newMax = getCardPower(sortedNew[sortedNew.length - 1]);
     const oldMax = getCardPower(sortedOld[sortedOld.length - 1]);
 
+    // 🛠️ យកតាមកូដចាស់៖ ច្បាប់វាយកាត់បៀរ ២ ទោល (Single 2)
     if (oldType === 'single' && oldCards[0].value === '2') {
         if (newType === 'triple_pair' || newType === 'quad_pair' || newType === 'bomb') return true;
     }
 
+    // 🛠️ យកតាមកូដចាស់៖ ច្បាប់វាយកាត់បៀរគូ ២ (Pair 2) អនុញ្ញាតឱ្យ Bomb ស៊ីកាត់បាន
     if (oldType === 'pair' && oldCards[0].value === '2') {
         if (newType === 'quad_pair' || newType === 'bomb') return true;
     }
 
+    // ច្បាប់ប៊ុម (Bomb) កាត់ប៊ុម ឬកាត់គូរៀប
     if (oldType === 'bomb') {
         if (newType === 'bomb' && newMax > oldMax) return true;
         if (newType === 'quad_pair') return true;
     }
 
+    // ៣ គូរៀប កាត់គ្នា ឬត្រូវប៊ុមកាត់
     if (oldType === 'triple_pair') {
         if (newType === 'triple_pair' && newMax > oldMax) return true;
         if (newType === 'quad_pair' || newType === 'bomb') return true;
     }
 
+    // ៤ គូរៀប
     if (oldType === 'quad_pair') {
         if (newType === 'quad_pair' && newMax > oldMax) return true;
     }
 
+    // ករណីប្រភេទ Combo ដូចគ្នា និងចំនួនសន្លឹកស្មើគ្នា គឺវាស់កម្លាំងសន្លឹកធំបំផុត
     if (newType === oldType && newCards.length === oldCards.length) {
         return newMax > oldMax;
     }
@@ -173,7 +178,6 @@ function moveToNextTurn(room) {
 
 function handleTurnAndRoundStatus(room) {
     const activePlayersInRound = room.players.filter(p => p.hand.length > 0 && !p.passed);
-    
     let lastPlayerIdx = room.players.findIndex(p => p.id === room.lastPlayerId);
     const isLastPlayerOut = (lastPlayerIdx !== -1 && room.players[lastPlayerIdx].hand.length === 0);
 
@@ -181,7 +185,6 @@ function handleTurnAndRoundStatus(room) {
 
     if (isRoundOver) {
         room.playedCards = [];
-        
         room.players.forEach(p => {
             if (p.hand.length > 0) p.passed = false;
         });
@@ -198,7 +201,6 @@ function handleTurnAndRoundStatus(room) {
         }
 
         io.to(room.roomId).emit('clearTable', { nextPlayer: room.players[room.currentTurnIndex].name });
-        
         io.to(room.roomId).emit('turnChanged', { 
             currentTurnIndex: room.currentTurnIndex,
             players: room.players 
@@ -255,7 +257,7 @@ io.on('connection', (socket) => {
 
         const isSpectator = room.status === 'playing';
 
-        // ជូនដំណឹងទៅសមាជិកចាស់ឱ្យរៀបចំភ្ជាប់សំឡេងជាមួយសមាជិកថ្មី
+        // ➕ បញ្ជូនសញ្ញាប្រាប់អ្នកនៅក្នុង Room ថាមានសមាជិកថ្មីចូលរួម Voice Chat
         socket.to(roomId).emit('voice_user_joined', { id: socket.id });
 
         room.players.push({ 
@@ -273,7 +275,7 @@ io.on('connection', (socket) => {
         broadcastRoomList();
     });
 
-    // --- មុខងារផ្ទេរសញ្ញា VOICE CHAT (WEBRTC SIGNALLING) ---
+    // ➕ បញ្ជូនសញ្ញា WebRTC Voice ទៅមករវាងអ្នកលេង
     socket.on('voice_signal', ({ to, signal }) => {
         io.to(to).emit('voice_signal', { from: socket.id, signal });
     });
@@ -446,7 +448,7 @@ io.on('connection', (socket) => {
                 socket.leave(id); 
                 socket.emit('leftRoom'); 
                 
-                // ប្រាប់អ្នកដទៃឱ្យផ្តាច់បំពង់សំឡេងរបស់សមាជិកដែលចេញ
+                // 🛠️ ជួសជុល៖ ផ្ញើប្រាប់អ្នកផ្សេងឱ្យបិទសំឡេង Voice Chat របស់ Player ដែលបានចាកចេញ
                 socket.to(id).emit('voice_user_left', { id: socket.id });
 
                 if (room.players.length === 0) {
@@ -472,6 +474,7 @@ io.on('connection', (socket) => {
                 const wasSpectator = room.players[pIdx].isSpectator;
                 room.players.splice(pIdx, 1);
                 
+                // 🛠️ ជួសជុល៖ ផ្ញើប្រាប់អ្នកផ្សេងឱ្យបិទសំឡេង Voice Chat ទោះបីជាដាច់អ៊ីនធឺណិតក៏ដោយ
                 socket.to(id).emit('voice_user_left', { id: socket.id });
 
                 if (room.players.length === 0) {
@@ -490,4 +493,5 @@ io.on('connection', (socket) => {
     });
 });
 
+// 🛠️ ជួសជុល៖ សម្អាតសញ្ញា "}" ដែលលើស និងបិទ Server ត្រឹមត្រូវតាមស្ដង់ដារ
 server.listen(3000, () => console.log('Server is running on port 3000'));
