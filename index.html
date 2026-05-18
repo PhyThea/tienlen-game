@@ -275,20 +275,46 @@ button:disabled {
     flex-wrap: nowrap;
     overflow-x: auto;
     padding: 2px 0;
-    height: 72px; 
+    height: 95px; /* 💡 បង្កើនកម្ពស់ប្រអប់បន្តិច ដើម្បីកុំឱ្យដាច់ក្បាលបៀរពេលវាហោះឡើងលើ */
     align-items: flex-end;
 }
 
-.card-img {
+/* 💡 ប្តូរពី .card-img មកជា .card វិញឱ្យត្រូវតាម JavaScript បង */
+.card {
     width: 44px; 
-    height: auto;
+    height: 64px; /* 💡 កំណត់កម្ពស់ឱ្យច្បាស់លាស់ */
+    background-size: cover;
+    background-position: center;
     border-radius: 4px;
     cursor: pointer;
     user-select: none;
     box-shadow: -2px 2px 4px rgba(0,0,0,0.4);
     transition: transform 0.1s ease, box-shadow 0.1s ease;
     flex-shrink: 0;
-    margin-right: -17px; 
+    margin-right: -17px; /* រក្សាគម្លាតជង់គ្នាដដែល */
+}
+
+.card:last-child {
+    margin-right: 0;
+}
+
+.card.first-turn-highlight {
+    box-shadow: 0 0 8px #eab308 !important;
+    filter: drop-shadow(0 0 5px #eab308);
+}
+
+/* 💡 កែសម្រួល Class selected ឱ្យមាន position: relative */
+.card.selected {
+    transform: translateY(-20px) !important; /* ហោះឡើងលើ ២០ភិចសែល */
+    box-shadow: 0 8px 15px rgba(59, 130, 246, 0.8) !important; 
+    border: 2px solid #3b82f6; 
+    position: relative; /* 🎯 ចាំបាច់ត្រូវមានដើម្បីឱ្យ z-index ដំណើរការ */
+}
+
+.card.disabled-card {
+    opacity: 0.4;
+    cursor: not-allowed;
+    box-shadow: none !important;
 }
 
 .card-img:last-child {
@@ -714,7 +740,7 @@ function renderPlayers(players) {
     }
 }
 
-// 🎯 បង្ហាញរូបភាពបៀររបស់ខ្លួនឯង (កូដដើមរបស់បង + ថែមមុខងារបញ្ច្រាស z-index កុំឱ្យបាំងលេខ)
+// 🎯 បង្ហាញរូបភាពបៀររបស់ខ្លួនឯង (កូដកែសម្រួលដោះស្រាយបញ្ហាបាំងលេខបានជោគជ័យ)
 function renderMyCards() {
     const div = document.getElementById('myCards');
     div.innerHTML = '';
@@ -727,15 +753,15 @@ function renderMyCards() {
     const tableDiv = document.getElementById('table');
     const isNewRound = tableDiv && (tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត!'));
 
-    // 💡 ប្រើប្រាស់ index ដូចកូដដែលបងផ្ញើមក ដើម្បីដឹងលំដាប់បៀរពីឆ្វេងទៅស្តាំ
+    // 💡 ប្រើប្រាស់ index ដើម្បីកំណត់លំដាប់ជង់គ្នានៃសន្លឹកបៀរ
     myHand.forEach((card, index) => {
-        const el = document.createElement('div'); // ✅ រក្សា div តាមកូដចាស់បង ធានាថាចេញរូប
-        el.className = 'card'; // ✅ រក្សា Class 'card' តាមកូដចាស់បង
+        const el = document.createElement('div'); // រក្សា div តាមកូដចាស់បង
+        el.className = 'card'; // រក្សា Class 'card' តាមកូដចាស់បង
         
-        // ✅ រក្សាវីធីទាញរូបភាព PNG តាម background ដូចកូដចាស់របស់បងជួយឱ្យមានរូប
+        // ទាញរូបភាព PNG តាម background ដូចកូដចាស់របស់បង
         el.style.backgroundImage = `url('PNG-cards/${card.image}.png')`;
         
-        // 1. បៀរធម្មតាមិនទាន់ Select៖ ឱ្យបៀរខាងស្តាំជង់លើបៀរខាងឆ្វេង (ស្តង់ដារ)
+        // 1. ស្ថានភាពធម្មតាមិនទាន់ Select៖ ឱ្យបៀរខាងស្តាំជង់លើបៀរខាងឆ្វេង (លំដាប់ស្តង់ដារ)
         el.style.position = 'relative';
         el.style.zIndex = index + 1;
         
@@ -757,11 +783,11 @@ function renderMyCards() {
         
         const isSelected = selectedCards.some(c => c.value === card.value && c.suit === card.suit);
         if (isSelected && myTurn) {
-            el.classList.add('selected'); // ✅ ថែម Class 'selected' ឱ្យវាហោះឡើងលើ
+            el.classList.add('selected'); // ថែម Class 'selected' ឱ្យកាតហោះឡើងលើ
             
-            // 🎯 កូដមន្តអាគម៖ ពេលចុច Select ព្រមគ្នា គឺយើងបញ្ច្រាស z-index
-            // បង្ខំឱ្យបៀរខាងឆ្វេង (index តូច) មាន z-index ខ្ពស់ជាងបៀរខាងស្តាំ
-            // ធ្វើបែបនេះ បៀរខាងឆ្វេងនឹងលយមកនៅលើគេជានិច្ច លែងត្រូវបៀរខាងស្តាំបាំងលេខទៀតហើយ
+            // 🎯 កូដគន្លឹះ៖ ពេលចុច Select គឺយើងបញ្ច្រាសលំដាប់ z-index មកវិញ
+            // បង្ខំឱ្យបៀរខាងឆ្វេង (index តូច) មាន z-index ខ្ពស់ជាងបៀរខាងស្តាំ (100 - index)
+            // ធ្វើបែបនេះ បៀរខាងឆ្វេងនឹងអណ្តែតមកនៅលើគេបង្អស់ជានិច្ច មិនត្រូវបៀរខាងស្តាំបាំងឡើយ
             el.style.zIndex = 100 - index; 
         }
         
@@ -771,15 +797,6 @@ function renderMyCards() {
         };
         div.appendChild(el);
     });
-}
-function toggleCard(card) {
-    const idx = selectedCards.findIndex(c => c.value === card.value && c.suit === card.suit);
-    if (idx === -1) {
-        selectedCards.push(card);
-    } else {
-        selectedCards.splice(idx, 1);
-    }
-    renderMyCards();
 }
 
 function playSelectedCards() {
