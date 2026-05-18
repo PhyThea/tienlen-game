@@ -288,7 +288,7 @@ button:disabled {
     box-shadow: -2px 2px 4px rgba(0,0,0,0.4);
     transition: transform 0.1s ease, box-shadow 0.1s ease;
     flex-shrink: 0;
-    margin-right: -17px; 
+    margin-right: -14px; 
 }
 
 .card-img:last-child {
@@ -296,8 +296,10 @@ button:disabled {
 }
 
 .card-img.first-turn-highlight {
-    box-shadow: 0 0 8px #eab308 !important;
-    filter: drop-shadow(0 0 5px #eab308);
+    outline: 2px solid #eab308 !important;
+    outline-offset: -1px;
+    box-shadow: -2px 2px 4px rgba(0,0,0,0.4) !important; /* រក្សាស្រមោលខ្មៅធម្មតា */
+    filter: none !important;
 }
 
 .card-img.selected {
