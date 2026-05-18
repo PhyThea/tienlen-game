@@ -1061,10 +1061,16 @@ socket.on('voice_user_joined', ({ id }) => {
     if (!localStream) return;
     
     const peer = new SimplePeer({
-        initiator: true,
+        initiator: false,
         trickle: false,
         stream: localStream,
-        config: iceConfig.config
+        // ➕ បន្ថែមការកំណត់ខាងក្រោមនេះ ដើម្បីឱ្យទម្លុះណេតវើក WiFi/4G ជួបគ្នាបាន
+        config: {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        }
     });
 
     peer.on('signal', signal => {
@@ -1088,12 +1094,18 @@ socket.on('voice_signal', ({ from, signal }) => {
     if (!localStream) return;
 
     if (!peers[from]) {
-        const peer = new SimplePeer({
-            initiator: false,
-            trickle: false,
-            stream: localStream,
-            config: iceConfig.config
-        });
+    const peer = new SimplePeer({
+        initiator: false,
+        trickle: false,
+        stream: localStream,
+        // ➕ បន្ថែម config នេះចូល
+        config: {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        }
+    });
 
         peer.on('signal', sig => {
             socket.emit('voice_signal', { to: from, signal: sig });
@@ -1129,11 +1141,18 @@ function createAudioElement(id, stream) {
         audio = document.createElement('audio');
         audio.id = `audio-${id}`;
         audio.autoplay = true;
-        // 🛠️ បន្ថែម Attribute ជំនួយសម្រាប់ប្រព័ន្ធ iOS/Safari លើទូរសព្ទឱ្យចាក់សំឡេងស្វ័យប្រវត្តិកាន់តែច្បាស់
+        
+        // 🛠️ បន្ថែម Attribute ទាំងនេះដើម្បីធានាការចាក់សំឡេងលើទូរសព្ទ និងកុំព្យូទ័រ
         audio.setAttribute('playsinline', 'true');
+        audio.setAttribute('autoplay', 'true');
+        audio.controls = false; // លាក់របារ Control
+        
         document.body.appendChild(audio);
     }
     audio.srcObject = stream;
+    
+    // 🛠️ បង្ខំឱ្យវា Play ទោះបីជាមាន Autoplay Policy ក៏ដោយ
+    audio.play().catch(e => console.log("Autoplay ត្រូវបានទប់ស្កាត់៖ ត្រូវការចុចលើអេក្រង់សិន", e));
 }
 
 function removeAudioElement(id) {
