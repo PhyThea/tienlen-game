@@ -275,11 +275,6 @@ io.on('connection', (socket) => {
         broadcastRoomList();
     });
 
-    // ➕ បញ្ជូនសញ្ញា WebRTC Voice ទៅមករវាងអ្នកលេង
-    socket.on('voice_signal', ({ to, signal }) => {
-        io.to(to).emit('voice_signal', { from: socket.id, signal });
-    });
-
     socket.on('startGame', (roomId) => {
         const room = rooms[roomId];
         if (!room) return;
@@ -493,5 +488,5 @@ io.on('connection', (socket) => {
     });
 });
 
-// 🛠️ ជួសជុល៖ សម្អាតសញ្ញា "}" ដែលលើស និងបិទ Server ត្រឹមត្រូវតាមស្ដង់ដារ
+// 🛠️ ជួសជុលរួចរាល់៖ បើកដំណើរការ Server ត្រឹមត្រូវតាមស្ដង់ដារ Node.js
 server.listen(3000, () => console.log('Server is running on port 3000'));
