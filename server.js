@@ -247,7 +247,7 @@ io.on('connection', (socket) => {
 
         const isSpectator = room.status === 'playing';
 
-        // ប្រាប់អ្នកចាស់ៗក្នុងបន្ទប់ឱ្យរៀបចំទាក់ទង Voice ទៅកាន់អ្នកថ្មី
+        // ជូនដំណឹងទៅសមាជិកចាស់ឱ្យរៀបចំភ្ជាប់សំឡេងជាមួយសមាជិកថ្មី
         socket.to(roomId).emit('voice_user_joined', { id: socket.id });
 
         room.players.push({ 
@@ -265,7 +265,7 @@ io.on('connection', (socket) => {
         broadcastRoomList();
     });
 
-    // --- LOGIC សម្រាប់ SIGNALLING VOICE CHAT (WEBRTC) ---
+    // --- មុខងារផ្ទេរសញ្ញា VOICE CHAT (WEBRTC SIGNALLING) ---
     socket.on('voice_signal', ({ to, signal }) => {
         io.to(to).emit('voice_signal', { from: socket.id, signal });
     });
@@ -438,7 +438,7 @@ io.on('connection', (socket) => {
                 socket.leave(id); 
                 socket.emit('leftRoom'); 
                 
-                // ជូនដំណឹងឱ្យគេដកបំពង់សំឡេងចេញ
+                // ប្រាប់អ្នកដទៃឱ្យផ្តាច់បំពង់សំឡេងរបស់សមាជិកដែលចេញ
                 socket.to(id).emit('voice_user_left', { id: socket.id });
 
                 if (room.players.length === 0) {
