@@ -120,7 +120,7 @@ button:disabled {
         transform: translate(-50%, -50%) rotate(90deg);
         transform-origin: center center;
         background: #0f172a;
-        padding: 10px 13px 10px 10px; /* ✅ បានជួសជុលពី p3px មកជា 13px រួចរាល់ */
+        padding: 10px 13px 10px 10px; 
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -275,14 +275,13 @@ button:disabled {
     flex-wrap: nowrap;
     overflow-x: auto;
     padding: 2px 0;
-    height: 95px; /* 💡 បង្កើនកម្ពស់ប្រអប់បន្តិច ដើម្បីកុំឱ្យដាច់ក្បាលបៀរពេលវាហោះឡើងលើ */
+    height: 95px; 
     align-items: flex-end;
 }
 
-/* 💡 ប្តូរពី .card-img មកជា .card វិញឱ្យត្រូវតាម JavaScript បង */
 .card {
     width: 44px; 
-    height: 64px; /* 💡 កំណត់កម្ពស់ឱ្យច្បាស់លាស់ */
+    height: 64px; 
     background-size: cover;
     background-position: center;
     border-radius: 4px;
@@ -303,37 +302,14 @@ button:disabled {
     filter: drop-shadow(0 0 5px #eab308);
 }
 
-/* 💡 កែសម្រួល Class selected ឱ្យមាន position: relative */
 .card.selected {
     transform: translateY(-20px) !important; /* ហោះឡើងលើ ២០ភិចសែល */
     box-shadow: 0 8px 15px rgba(59, 130, 246, 0.8) !important; 
     border: 2px solid #3b82f6; 
-    position: relative; /* 🎯 ចាំបាច់ត្រូវមានដើម្បីឱ្យ z-index ដំណើរការ */
+    position: relative; /* ចាំបាច់ត្រូវមានដើម្បីឱ្យ z-index ដំណើរការ */
 }
 
 .card.disabled-card {
-    opacity: 0.4;
-    cursor: not-allowed;
-    box-shadow: none !important;
-}
-
-.card-img:last-child {
-    margin-right: 0;
-}
-
-.card-img.first-turn-highlight {
-    box-shadow: 0 0 8px #eab308 !important;
-    filter: drop-shadow(0 0 5px #eab308);
-}
-
-.card.selected {
-    transform: translateY(-20px); /* រក្សាការហោះឡើងលើ ២០ភិចសែលរបស់បងដដែល */
-    box-shadow: 0 8px 15px rgba(59, 130, 246, 0.8); /* ស្រមោលខៀវរបស់បងដដែល */
-    border: 2px solid #3b82f6; /* បន្ទាត់ពណ៌ខៀវរបស់បងដដែល */
-    position: relative; /* 💡 ចាំបាច់ត្រូវថែមចំណុចនេះ ដើម្បីឱ្យ z-index ដំណើរការ */
-}
-
-.card-img.disabled-card {
     opacity: 0.4;
     cursor: not-allowed;
     box-shadow: none !important;
@@ -398,6 +374,8 @@ button:disabled {
     gap: 4px;
     flex-wrap: wrap;
     margin-top: 6px;
+    align-items: center;
+    min-height: 40px;
 }
 
 .animate-play-card {
@@ -740,7 +718,6 @@ function renderPlayers(players) {
     }
 }
 
-// 🎯 បង្ហាញរូបភាពបៀររបស់ខ្លួនឯង (កូដកែសម្រួលដោះស្រាយបញ្ហាបាំងលេខបានជោគជ័យ)
 function renderMyCards() {
     const div = document.getElementById('myCards');
     div.innerHTML = '';
@@ -753,15 +730,11 @@ function renderMyCards() {
     const tableDiv = document.getElementById('table');
     const isNewRound = tableDiv && (tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត!'));
 
-    // 💡 ប្រើប្រាស់ index ដើម្បីកំណត់លំដាប់ជង់គ្នានៃសន្លឹកបៀរ
     myHand.forEach((card, index) => {
-        const el = document.createElement('div'); // រក្សា div តាមកូដចាស់បង
-        el.className = 'card'; // រក្សា Class 'card' តាមកូដចាស់បង
+        const el = document.createElement('div'); 
+        el.className = 'card'; 
+        el.style.backgroundImage = `url('${getCardFileName(card)}')`;
         
-        // ទាញរូបភាព PNG តាម background ដូចកូដចាស់របស់បង
-        el.style.backgroundImage = `url('PNG-cards/${card.image}.png')`;
-        
-        // 1. ស្ថានភាពធម្មតាមិនទាន់ Select៖ ឱ្យបៀរខាងស្តាំជង់លើបៀរខាងឆ្វេង (លំដាប់ស្តង់ដារ)
         el.style.position = 'relative';
         el.style.zIndex = index + 1;
         
@@ -783,11 +756,7 @@ function renderMyCards() {
         
         const isSelected = selectedCards.some(c => c.value === card.value && c.suit === card.suit);
         if (isSelected && myTurn) {
-            el.classList.add('selected'); // ថែម Class 'selected' ឱ្យកាតហោះឡើងលើ
-            
-            // 🎯 កូដគន្លឹះ៖ ពេលចុច Select គឺយើងបញ្ច្រាសលំដាប់ z-index មកវិញ
-            // បង្ខំឱ្យបៀរខាងឆ្វេង (index តូច) មាន z-index ខ្ពស់ជាងបៀរខាងស្តាំ (100 - index)
-            // ធ្វើបែបនេះ បៀរខាងឆ្វេងនឹងអណ្តែតមកនៅលើគេបង្អស់ជានិច្ច មិនត្រូវបៀរខាងស្តាំបាំងឡើយ
+            el.classList.add('selected'); 
             el.style.zIndex = 100 - index; 
         }
         
@@ -803,6 +772,16 @@ function playSelectedCards() {
     if (!isMyTurn()) return alert("មិនទាន់ដល់វេនរបស់អ្នកឡើយ!");
     if (selectedCards.length === 0) return alert("សូមជ្រើសរើសសន្លឹកបៀរមុននឹងចុះ!");
     socket.emit('playCard', { roomId: currentRoom, cards: selectedCards });
+}
+
+function toggleCard(card) {
+    const index = selectedCards.findIndex(c => c.value === card.value && c.suit === card.suit);
+    if (index > -1) {
+        selectedCards.splice(index, 1);
+    } else {
+        selectedCards.push(card);
+    }
+    renderMyCards();
 }
 
 function passTurn() {
