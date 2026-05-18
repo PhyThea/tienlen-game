@@ -417,7 +417,7 @@ button:disabled {
 <body>
 
 <div class="global-mic-container">
-    <button id="micBtn" class="btn btn-orange">🎙️ Mic: On</button>
+    <button id="micBtn" class="global-mic-btn">🎙️ Mic: On</button> 
 </div>
 
 <div class="container">
@@ -1099,7 +1099,7 @@ function toggleMic() {
     isMicMuted = !isMicMuted;
     localStream.getAudioTracks().forEach(track => track.enabled = !isMicMuted);
     
-    const globalBtn = document.getElementById('globalMicBtn');
+    const globalBtn = document.getElementById('micBtn'); //  ដូរទៅជា 'micBtn'
     if (globalBtn) {
         if (isMicMuted) {
             globalBtn.innerText = "🔇 Mic: Off";
@@ -1126,7 +1126,7 @@ function closeAllVoiceConnections() {
     }
     isMicMuted = false;
 
-    const globalBtn = document.getElementById('globalMicBtn');
+    const globalBtn = document.getElementById('micBtn'); //  ដូរទៅជា 'micBtn'
     if (globalBtn) {
         globalBtn.innerText = "🎙️ Mic: On";
         globalBtn.style.background = "#ea580c";
