@@ -1038,34 +1038,23 @@ socket.on('leftRoom', () => {
 // 🛠️ ផ្នែក LOGIC ជួសជុលបន្ថែមប្រព័ន្ធ ICE SERVERS ឱ្យនិយាយឮច្បាស់
 // =================================================================
 
-// 🎯 បង្ខំឱ្យប្រព័ន្ធសុំ Allow ម៉ៃក្រូហ្វូនភ្លាមៗពេលទើបតែបើកលីងវេបសាយដំបូងបង្អស់
-window.addEventListener('DOMContentLoaded', () => {
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-        .then(stream => {
-            console.log("ម៉ៃក្រូហ្វូនត្រូវបាន Allow តាំងពីដំបូង!");
-            localStream = stream; // រក្សាទុក stream ទុកប្រើប្រាស់ក្នុងហ្គេម
-        })
-        .catch(err => {
-            console.log("មិនទាន់ចុច Allow ឬបើកក្នុង App Chat ផ្សេងៗ");
-        });
-    }
-});
-
 function initVoiceAndExecute(callback) {
     if (localStream) {
         callback();
         return;
     }
 
+    // វានឹងសួររកច្បាប់ Mic តែពេលដែលអ្នកលេងចុច "បង្កើតបន្ទប់" ឬ "ចូលរួមបន្ទប់" ប៉ុណ្ណោះ
     navigator.mediaDevices.getUserMedia({ audio: true, video: false })
         .then(stream => {
             localStream = stream;
+            micEnabled = true;
+            console.log("ម៉ៃក្រូហ្វូនត្រូវបានបើកជោគជ័យ!");
             callback();
         })
         .catch(err => {
-            alert("⚠️ មិនអាចបើកម៉ៃក្រូហ្វូនបានទេ! ប៉ុន្តែអ្នកនៅតែអាចលេងហ្គេមបានធម្មតា។");
-            console.error("Mic error:", err);
+            // បើទោះជាគេចងកំហឹងមិន Allow ក៏នៅតែអនុញ្ញាតឱ្យគេចូលលេងហ្គេមបានធម្មតា (គ្រាន់តែមិនឮសំឡេង)
+            console.warn("User denied mic permission or error occurred:", err);
             callback(); 
         });
 }
@@ -1073,7 +1062,6 @@ function initVoiceAndExecute(callback) {
 socket.on('voice_user_joined', ({ id }) => {
     if (!localStream) return;
     
-    // ✨ បានបន្ថែម iceConfig ដើម្បីជួយចម្លងសំឡេងទម្លុះ Firewall ប្រព័ន្ធស៊ីម 4G/5G
     const peer = new SimplePeer({
         initiator: true,
         trickle: false,
@@ -1102,7 +1090,6 @@ socket.on('voice_signal', ({ from, signal }) => {
     if (!localStream) return;
 
     if (!peers[from]) {
-        // ✨ បានបន្ថែម iceConfig ត្រង់ចំណុចទទួលសញ្ញាផងដែរ
         const peer = new SimplePeer({
             initiator: false,
             trickle: false,
@@ -1156,7 +1143,19 @@ function removeAudioElement(id) {
 
 function toggleMic() {
     if (!localStream) {
-        alert("មិនមានឧបករណ៍ម៉ៃក្រូហ្វូនត្រូវបានដំណើរការឡើយ!");
+        // បើដំបូងគេអត់បាន Allow ទេ ពេលគេចុចប៊ូតុង Mic នេះ យើងលោតសួរម្ដងទៀត
+        navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+            .then(stream => {
+                localStream = stream;
+                micEnabled = true;
+                updateMicButtonUI();
+                // ភ្ជាប់ទៅកាន់អ្នកផ្សេងឡើងវិញ
+                socket.emit('leaveRoom'); 
+                alert("ម៉ៃក្រូហ្វូនបើកហើយ! សូមចូលបន្ទប់ម្ដងទៀតដើម្បីនិយាយរកគ្នា។");
+            })
+            .catch(() => {
+                alert("សូមពិនិត្យការ Allow Mic នៅក្នុង Setting នៃ Browser របស់អ្នក!");
+            });
         return;
     }
     
@@ -1164,8 +1163,12 @@ function toggleMic() {
     localStream.getAudioTracks().forEach(track => {
         track.enabled = micEnabled;
     });
+    updateMicButtonUI();
+}
 
+function updateMicButtonUI() {
     const btn = document.getElementById('micToggleBtn');
+    if (!btn) return;
     if (micEnabled) {
         btn.innerText = "🎙️ Mic: On";
         btn.classList.remove('muted');
@@ -1189,12 +1192,8 @@ function closeAllVoiceConnections() {
         localStream = null;
     }
     
-    micEnabled = true;
-    const btn = document.getElementById('micToggleBtn');
-    if (btn) {
-        btn.innerText = "🎙️ Mic: On";
-        btn.classList.remove('muted');
-    }
+    micEnabled = false;
+    updateMicButtonUI();
 }
 </script>
 </body>
