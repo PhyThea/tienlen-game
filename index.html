@@ -294,7 +294,7 @@ button:disabled {
     transition: transform 0.1s ease, box-shadow 0.1s ease;
     flex-shrink: 0;
     margin-right: -17px;
-    position: relative; /* <--- បន្ថែមបន្ទាត់នេះ */
+    position: relative; 
 }
 
 .card:last-child {
@@ -307,7 +307,6 @@ button:disabled {
 }
 
 .card.selected {
-    /* translateY(-25px) គឺឱ្យហោះឡើងលើ និង translateX(-12px) គឺឱ្យខិតទៅឆ្វេង ១២ភិចសែល */
     transform: translate(-15px, -25px) !important; 
     box-shadow: 0 8px 15px rgba(59, 130, 246, 0.8) !important; 
     border: 2px solid #3b82f6; 
@@ -342,6 +341,19 @@ button:disabled {
     display: flex;
     justify-content: center;
     align-items: center;
+}
+
+/* 🎙️ ប្រអប់បង្ហាញ Mic ស្អាតប្លែកគេ */
+.voice-controls {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin: 10px auto;
+    background: rgba(30, 41, 59, 0.85);
+    padding: 8px 16px;
+    border-radius: 12px;
+    border: 1px solid #475569;
+    max-width: 180px;
 }
 
 .bubble-msg {
@@ -416,6 +428,11 @@ button:disabled {
         <h1>🃏 Tien Len Online</h1>
         <h2>Room: <span id="showRoom" style="color: #3b82f6;"></span></h2>
         <br>
+        
+        <div class="voice-controls">
+            <button id="lobbyMicBtn" class="btn-blue" onclick="toggleMic()" style="margin-top: 0; background: #ea580c; font-size: 13px; padding: 6px 12px; width: auto;">🎙️ Mic: On</button>
+        </div>
+
         <div id="lobbyPlayers" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;"></div>
         <button id="startBtn" class="btn-green" onclick="startGame()" style="display: none;">🚀 Start Game</button>
         <button class="btn-red" onclick="leaveRoom()">🚪 ចាកចេញ (Leave)</button>
@@ -557,13 +574,12 @@ socket.on('roomCreated', ({ roomId, playerId }) => {
     currentRoom = roomId;
     isCreator = true;
     showLobby(roomId);
+    initVoiceChat(); 
 });
 
 socket.on('roomJoined', (roomId) => {
     currentRoom = roomId;
-    document.body.classList.add('in-game');
-    showStatus("បានចូលរួមបន្ទប់: " + roomId);
-    // 👉 ថែមបន្ទាត់ខាងក្រោមនេះចូល៖
+    showLobby(roomId);
     initVoiceChat(); 
 });
 
@@ -598,11 +614,9 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn, lastRoundWinnerId: 
     const myData = players.find(p => p.id === myId);
     amISpectator = myData ? myData.isSpectator : false;
 
-    // 🎯 ដក Class ផ្ទាំងលទ្ធផល និងប្តូរមក Class លេងហ្គេមវិញភ្លាមៗ ដើម្បីកុំឱ្យទាក់អេក្រង់
     document.body.classList.remove('round-over'); 
     document.body.classList.add('in-game');
     
-    // បិទបើកផ្ទាំង Area ឱ្យត្រូវទម្រង់
     document.getElementById('lobbyArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'none';
     document.getElementById('gameArea').style.display = 'block';
@@ -724,7 +738,6 @@ function renderPlayers(players) {
     });
 
     const startBtn = document.getElementById('startBtn');
-    // បើទើបតែបង្កើតបន្ទប់ដំបូង មិនទាន់មានអ្នកឈ្នះវគ្គមុន (lastRoundWinnerId == null) គឺម្ចាស់បន្ទប់ (isCreator) ជាអ្នកមានសិទ្ធិចុច Start
     if (isCreator && !lastRoundWinnerId) {
         startBtn.style.display = 'inline-block';
     } else {
@@ -771,7 +784,7 @@ function renderMyCards() {
         const isSelected = selectedCards.some(c => c.value === card.value && c.suit === card.suit);
         if (isSelected && myTurn) {
             el.classList.add('selected'); 
-            el.style.zIndex = 200 + index; // ធ្វើឱ្យសន្លឹកបៀរដែល select ហោះមកនៅខាងលើគេជានិច្ចតាមលំដាប់ពីឆ្វេងទៅស្តាំ
+            el.style.zIndex = 200 + index; 
         }
         
         el.onclick = () => {
@@ -874,16 +887,12 @@ socket.on('playerPassed', ({ name, id, message }) => {
 });
 
 socket.on('clearTable', ({ nextPlayer }) => {
-    // សម្អាតសន្លឹកបៀរចាស់ៗចេញពីលើតុឱ្យអស់ពីអេក្រង់ ដើម្បីកុំឱ្យទាស់លក្ខខណ្ឌចុះបៀរថ្មី
     document.getElementById('table').innerHTML = '<div style="color: #64748b; font-size:12px;">តុត្រូវបានសម្អាត! ជុំថ្មី...</div>';
-    
-    // បង្ហាញឈ្មោះអ្នកលេងដែលទទួលបានសិទ្ធិស៊ីផ្តាច់ និងត្រូវចុះបៀរមុនគេ
     document.getElementById('status').innerHTML = `🎯 វេន៖ ${nextPlayer} (បានសិទ្ធិស៊ីផ្តាច់)`;
-    
-    // ធ្វើបច្ចុប្បន្នភាពប៊ូតុង និងសន្លឹកបៀរក្នុងដៃឡើងវិញ
     updateControlsState(); 
     renderMyCards();
 });
+
 socket.on('errorMsg', (msg) => {
     alert("⚠️ " + msg);
     selectedCards = [];
@@ -957,7 +966,6 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
         resultList.appendChild(playerDiv);
     });
 
-    // 🛠️ ផ្នែកកែសម្រួលបន្ថែម Event ចុចសម្រាប់ទូរស័ព្ទ (Mobile Touch) និង PC
     const playAgainBtn = document.getElementById('hostPlayAgainBtn');
     const waitText = document.getElementById('waitHostText');
     
@@ -966,19 +974,16 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
         waitText.style.display = 'none';
         playAgainBtn.innerText = "🔄 ចាប់ផ្ដើមវគ្គថ្មី (Start Next Round)";
         
-        // លុប Event ចាស់ចេញ ដើម្បីកុំឱ្យស្ទួនពេលលេងច្រើនដង
         playAgainBtn.onclick = null;
         playAgainBtn.ontouchstart = null;
 
-        // កូដដំណើរការសម្រាប់កុំព្យូទ័រ (PC)
         playAgainBtn.onclick = function() {
             if (currentRoom) {
                 socket.emit('startGame', currentRoom);
             }
         };
-        // កូដដំណើរការល្បឿនលឿនសម្រាប់ទូរស័ព្ទ (Mobile Touch)
         playAgainBtn.ontouchstart = function(e) {
-            e.preventDefault(); // ការពារកុំឱ្យ Double Click
+            e.preventDefault(); 
             if (currentRoom) {
                 socket.emit('startGame', currentRoom);
             }
@@ -994,15 +999,15 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
 // 🎙️ VOICE CHAT SYSTEM (WEBRTC PEER-TO-PEER)
 // =================================================================
 let localStream = null;
-let peerConnections = {}; // រក្សាទុកការតភ្ជាប់ជាមួយអ្នកលេងផ្សេងៗ
+let peerConnections = {}; 
 let isMicMuted = false;
 
 const rtcConfig = {
-    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] //  កែជា iceServers (ថែម s)
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] 
 };
 
-// មុខងារទាមទារបើក Mic ពេលហ្គេមចាប់ផ្តើម
 async function initVoiceChat() {
+    if (localStream) return; // បើបើករួចហើយ មិនបាច់បើកម្ដងទៀតទេ
     try {
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
         console.log("🎙️ ចាប់ផ្តើមប្រើប្រាស់ម៉ាយក្រូហ្វូនជោគជ័យ");
@@ -1013,14 +1018,12 @@ async function initVoiceChat() {
     }
 }
 
-// ទទួលបញ្ជី ID អ្នកលេងចាស់ៗ ដើម្បីបង្កើតការ Call
 socket.on('voice-peers-list', async (peerIds) => {
     for (const peerId of peerIds) {
         createPeerConnection(peerId, true);
     }
 });
 
-// ទទួលសញ្ញា Call ចូល ឬឆ្លើយតប
 socket.on('voice-signal', async ({ signal, from }) => {
     if (!peerConnections[from]) {
         createPeerConnection(from, false);
@@ -1039,7 +1042,6 @@ socket.on('voice-signal', async ({ signal, from }) => {
     }
 });
 
-// ទទួលសញ្ញាផ្តាច់សំឡេងពី Server ពេលមានអ្នកចាកចេញ
 socket.on('voice-peer-disconnected', (peerId) => {
     if (peerConnections[peerId]) {
         peerConnections[peerId].close();
@@ -1052,7 +1054,7 @@ socket.on('voice-peer-disconnected', (peerId) => {
 
 function createPeerConnection(peerId, isInitiator) {
     const pc = new RTCPeerConnection(rtcConfig);
-    peerConnections[peerId] = pc; // កែត្រង់នេះឱ្យត្រូវជាមួយឈ្មោះ Variable
+    peerConnections[peerId] = pc; 
 
     if (localStream) {
         localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
@@ -1090,19 +1092,26 @@ function toggleMic() {
     isMicMuted = !isMicMuted;
     localStream.getAudioTracks().forEach(track => track.enabled = !isMicMuted);
     
-    const micBtn = document.getElementById('micBtn');
-    if (isMicMuted) {
-        micBtn.innerText = "🔇 Mic: Off";
-        micBtn.style.background = "#ef4444";
-    } else {
-        micBtn.innerText = "🎙️ Mic: On";
-        micBtn.style.background = "#ea580c";
-    }
+    // ប្ដូរពណ៌ និងអក្សរទាំងប៊ូតុងក្នុង Lobby និងប៊ូតុងក្នុង Game រួមគ្នា
+    const micBtnGame = document.getElementById('micBtn');
+    const micBtnLobby = document.getElementById('lobbyMicBtn');
+    
+    [micBtnGame, micBtnLobby].forEach(btn => {
+        if (btn) {
+            if (isMicMuted) {
+                btn.innerText = "🔇 Mic: Off";
+                btn.style.background = "#ef4444";
+            } else {
+                btn.innerText = "🎙️ Mic: On";
+                btn.style.background = "#ea580c";
+            }
+        }
+    });
 }
 
 function closeAllVoiceConnections() {
     for (const id in peerConnections) {
-        if (peerConnections[id]) peerConnections[id].close(); //  កែជា peerConnections (ថែម s)
+        if (peerConnections[id]) peerConnections[id].close(); 
         const audioEl = document.getElementById(`audio-${id}`);
         if (audioEl) audioEl.remove();
     }
@@ -1112,11 +1121,15 @@ function closeAllVoiceConnections() {
         localStream = null;
     }
     isMicMuted = false;
-    const micBtn = document.getElementById('micBtn');
-    if (micBtn) {
-        micBtn.innerText = "🎙️ Mic: On";
-        micBtn.style.background = "#ea580c";
-    }
+
+    const micBtnGame = document.getElementById('micBtn');
+    const micBtnLobby = document.getElementById('lobbyMicBtn');
+    [micBtnGame, micBtnLobby].forEach(btn => {
+        if (btn) {
+            btn.innerText = "🎙️ Mic: On";
+            btn.style.background = "#ea580c";
+        }
+    });
 }
 
 function leaveRoom() {
@@ -1131,10 +1144,12 @@ socket.on('leftRoom', () => {
     myHand = [];
     selectedCards = [];
     playersData = [];
-    // 👉 ថែមបន្ទាត់ខាងក្រោមនេះចូល៖
     closeAllVoiceConnections();
     
-    renderLobby();
+    document.getElementById('loginArea').style.display = 'block';
+    document.getElementById('lobbyArea').style.display = 'none';
+    document.getElementById('gameArea').style.display = 'none';
+    document.getElementById('resultArea').style.display = 'none';
 });
 </script>
 </body>
