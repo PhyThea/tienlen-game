@@ -593,10 +593,10 @@ function toggleMic() {
     }
 }
 
-// បិទការតភ្ជាប់សំឡេង និងលុបចោលពេលចាកចេញពីបន្ទប់
+// ✂️ ស្វែងរក និងលុបដុំកូដនេះចោលចេញពី server.js៖
 function closeAllVoiceConnections() {
     for (const id in peerConnections) {
-        peerConnections[id].close();
+        if (peerConnections[id]) peerConnections[id].close(); 
         const audioEl = document.getElementById(`audio-${id}`);
         if (audioEl) audioEl.remove();
     }
@@ -606,7 +606,7 @@ function closeAllVoiceConnections() {
         localStream = null;
     }
     isMicMuted = false;
-    const micBtn = document.getElementById('globalMicBtn'); // 👈 ដូរត្រង់នេះ
+    const micBtn = document.getElementById('globalMicBtn'); 
     if (micBtn) {
         micBtn.innerText = "🎙️ Mic: On";
         micBtn.style.background = "#ea580c";
