@@ -283,7 +283,16 @@ io.on('connection', (socket) => {
 
     socket.on('startGame', (roomId) => {
         const room = rooms[roomId];
-        if (!room || room.creatorId !== socket.id) return;
+        if (!room) return;
+
+        // ពិនិត្យលក្ខខណ្ឌសិទ្ធិចុច៖ 
+        // - បើគ្មានអ្នកឈ្នះវគ្គមុន (វគ្គទី១)៖ ទាល់តែម្ចាស់បន្ទប់ (creatorId) ទើបចុចបាន
+        // - បើមានអ្នកឈ្នះវគ្គមុន៖ ទាល់តែអ្នកឈ្នះវគ្គមុននោះ (lastWinnerId) ទើបចុចបាន
+        if (!room.lastWinnerId) {
+            if (room.creatorId !== socket.id) return socket.emit('errorMsg', 'មានតែម្ចាស់បន្ទប់ទេដែលអាចចាប់ផ្ដើមហ្គេមបាន!');
+        } else {
+            if (room.lastWinnerId !== socket.id) return socket.emit('errorMsg', 'មានតែអ្នកឈ្នះវគ្គមុនទេដែលអាចចាប់ផ្ដើមវគ្គថ្មីបាន!');
+        }
 
         room.players.forEach(p => {
             p.isSpectator = false;
@@ -292,7 +301,7 @@ io.on('connection', (socket) => {
             p.rank = null;
         });
 
-        const playerCount = room.players.length;
+        const playerCount = room.players.filter(p => !p.isSpectator).length;
         if (playerCount < 2) return socket.emit('errorMsg', 'ត្រូវការអ្នកលេងយ៉ាងតិច ២ នាក់!');
 
         const deck = shuffleDeck(createDeck());
