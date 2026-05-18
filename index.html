@@ -304,10 +304,11 @@ button:disabled {
 }
 
 .card.selected {
-    transform: translateY(-20px) !important; /* ហោះឡើងលើ ២០ភិចសែល */
+    /* translateY(-25px) គឺឱ្យហោះឡើងលើ និង translateX(-12px) គឺឱ្យខិតទៅឆ្វេង ១២ភិចសែល */
+    transform: translate(-12px, -25px) !important; 
     box-shadow: 0 8px 15px rgba(59, 130, 246, 0.8) !important; 
     border: 2px solid #3b82f6; 
-    position: relative; /* ចាំបាច់ត្រូវមានដើម្បីឱ្យ z-index ដំណើរការ */
+    position: relative; 
 }
 
 .card.disabled-card {
