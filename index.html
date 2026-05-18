@@ -1026,7 +1026,7 @@ socket.on('leftRoom', () => {
 });
 
 // =================================================================
-// 🛠️ ផ្នែក Logic បន្ថែមពិសេសសម្រាប់ VOICE CHAT FUNCTION (WEBRTC)
+// 🛠️ ផ្នែក LOGIC បន្ថែមពិសេសសម្រាប់ VOICE CHAT FUNCTION (WEBRTC)
 // =================================================================
 
 function initVoiceAndExecute(callback) {
@@ -1043,11 +1043,11 @@ function initVoiceAndExecute(callback) {
         .catch(err => {
             alert("⚠️ មិនអាចបើកម៉ៃក្រូហ្វូនបានទេ! ប៉ុន្តែអ្នកនៅតែអាចលេងហ្គេមបានធម្មតា។");
             console.error("Mic error:", err);
-            callback(); // ទោះគ្មាន Mic ក៏អនុញ្ញាតឱ្យលេងដែរ
+            callback(); // ទោះគ្មាន Mic ក៏អនុញ្ញាតឱ្យលេងហ្គេមដែរ
         });
 }
 
-// ករណីយើងជាអ្នកនៅក្នុងបន្ទប់ស្រាប់ ហើយមានសមាជិកថ្មីចូលមក
+// ករណីយើងនៅក្នុងបន្ទប់ស្រាប់ ហើយមានសមាជិកថ្មីចូលមក
 socket.on('voice_user_joined', ({ id }) => {
     if (!localStream) return;
     
