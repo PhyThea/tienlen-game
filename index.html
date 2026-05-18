@@ -590,6 +590,16 @@ function showLobby(roomId) {
     document.getElementById('gameArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'none';
     document.getElementById('showRoom').innerText = roomId;
+    
+    // 🎙️ បង្ខំឱ្យប៊ូតុង Mic បង្ហាញខ្លួនតាំងពីពេលនៅក្នុង Lobby រង់ចាំ
+    const micBtn = document.getElementById('micBtn');
+    if (micBtn) {
+        micBtn.style.display = 'inline-block';
+        micBtn.style.position = 'fixed';
+        micBtn.style.top = '15px';
+        micBtn.style.right = '15px';
+        micBtn.style.zIndex = '9999';
+    }
 }
 
 socket.on('updatePlayers', (players) => {
