@@ -253,12 +253,14 @@ io.on('connection', (socket) => {
         broadcastRoomList();
     });
 
-    socket.on('voice_signal', ({ to, signal }) => {
-        // បញ្ជូនសញ្ញាពីម្ខាង ទៅកាន់ទិសដៅ Socket ID របស់ម្ខាងទៀតចំៗ
-        io.to(to).emit('voice_signal', {
-            from: socket.id,
-            signal: signal
-        });
+    // ប្ដូរទៅជាការបោះបន្តរាល់ទិន្នន័យសញ្ញាទាំងអស់ដែលហូរចូលមក (Support Trickle ICE)
+    socket.on('voice_signal', (data) => {
+        if (data && data.to) {
+            io.to(data.to).emit('voice_signal', {
+                from: socket.id,
+                signal: data.signal
+            });
+        }
     });
 
     socket.on('joinRoom', ({ roomId, password, playerName }) => {
