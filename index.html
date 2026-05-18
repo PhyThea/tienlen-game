@@ -1058,73 +1058,57 @@ function initVoiceAndExecute(callback) {
 }
 
 socket.on('voice_user_joined', ({ id }) => {
-    if (!localStream) return;
-    
+    if (peers[id]) return;
+
     const peer = new SimplePeer({
         initiator: false,
-        trickle: false,
+        trickle: true, // 👈 ដូរទៅជា true
         stream: localStream,
-        // ➕ បន្ថែមការកំណត់ខាងក្រោមនេះ ដើម្បីឱ្យទម្លុះណេតវើក WiFi/4G ជួបគ្នាបាន
-        config: {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
-            ]
-        }
+        config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] }
     });
 
     peer.on('signal', signal => {
-        socket.emit('voice_signal', { to: id, signal });
+        socket.emit('voice_signal', { to: id, signal: signal });
     });
 
     peer.on('stream', stream => {
+        console.log("ទទួលបានខ្សែសំឡេងពី៖", id);
         createAudioElement(id, stream);
     });
 
-    peer.on('close', () => {
-        removeAudioElement(id);
-    });
-
-    peer.on('error', (err) => console.error("Peer error:", err));
+    // 🛠️ បន្ថែម៖ ការពារករណី Error គាំងដាច់ Connection
+    peer.on('error', err => console.error('Peer error:', err));
 
     peers[id] = peer;
 });
 
 socket.on('voice_signal', ({ from, signal }) => {
-    if (!localStream) return;
-
     if (!peers[from]) {
-    const peer = new SimplePeer({
-        initiator: false,
-        trickle: false,
-        stream: localStream,
-        // ➕ បន្ថែម config នេះចូល
-        config: {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
-            ]
-        }
-    });
+        const peer = new SimplePeer({
+            initiator: true,
+            trickle: true, // 👈 ដូរទៅជា true
+            stream: localStream,
+            config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] }
+        });
 
         peer.on('signal', sig => {
             socket.emit('voice_signal', { to: from, signal: sig });
         });
 
         peer.on('stream', stream => {
+            console.log("ទទួលបានខ្សែសំឡេងពី៖", from);
             createAudioElement(from, stream);
         });
 
-        peer.on('close', () => {
-            removeAudioElement(from);
-        });
-
-        peer.on('error', (err) => console.error("Peer error:", err));
+        peer.on('error', err => console.error('Peer error:', err));
 
         peers[from] = peer;
     }
 
-    peers[from].signal(signal);
+    // 🛠️ ត្រូវប្រាកដថាផ្ញើទិន្នន័យ Signal ទៅកាន់ Peer ទោះបីជាមកតិចៗក៏ដោយ
+    if (signal) {
+        peers[from].signal(signal);
+    }
 });
 
 socket.on('voice_user_left', ({ id }) => {
