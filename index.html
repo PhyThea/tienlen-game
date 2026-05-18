@@ -385,7 +385,6 @@ button:disabled {
     100% { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-/* 🎤 រចនាប័ទ្មប៊ូតុងម៉ៃក្រូហ្វូនបន្ថែមថ្មី */
 .mic-btn {
     background: #f59e0b;
     color: black;
@@ -484,10 +483,22 @@ let playersData = [];
 let amISpectator = false;
 let lastRoundWinnerId = null; 
 
-// --- ទិន្នន័យសម្រាប់ VOICE CHAT ---
 let localStream = null;
 let peers = {};
 let micEnabled = true;
+
+// 🔗 បង្កើតប្រព័ន្ធគ្រប់គ្រង Ice Servers រួមដើម្បីជួយទម្លុះប្រព័ន្ធការពារ 4G/5G លេងឆ្លងអ៊ីនធឺណិតឱ្យឮច្បាស់
+const iceConfig = {
+    config: {
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' }
+        ]
+    }
+};
 
 function getCardFileName(card) {
     let valStr = card.value;
@@ -767,7 +778,6 @@ function renderMyCards() {
         const el = document.createElement('div'); 
         el.className = 'card'; 
         el.style.backgroundImage = `url('${getCardFileName(card)}')`;
-        
         el.style.position = 'relative';
         el.style.zIndex = index + 1;
         
@@ -1016,7 +1026,6 @@ socket.on('leftRoom', () => {
     amISpectator = false;
     lastRoundWinnerId = null; 
     
-    // បិទ Voice និងសម្អាតបំពង់តភ្ជាប់ចាស់ៗទាំងអស់
     closeAllVoiceConnections();
 
     document.getElementById('loginArea').style.display = 'block';
@@ -1026,7 +1035,7 @@ socket.on('leftRoom', () => {
 });
 
 // =================================================================
-// 🛠️ ផ្នែក LOGIC បន្ថែមពិសេសសម្រាប់ VOICE CHAT FUNCTION (WEBRTC)
+// 🛠️ ផ្នែក LOGIC ជួសជុលបន្ថែមប្រព័ន្ធ ICE SERVERS ឱ្យនិយាយឮច្បាស់
 // =================================================================
 
 function initVoiceAndExecute(callback) {
@@ -1043,19 +1052,19 @@ function initVoiceAndExecute(callback) {
         .catch(err => {
             alert("⚠️ មិនអាចបើកម៉ៃក្រូហ្វូនបានទេ! ប៉ុន្តែអ្នកនៅតែអាចលេងហ្គេមបានធម្មតា។");
             console.error("Mic error:", err);
-            callback(); // ទោះគ្មាន Mic ក៏អនុញ្ញាតឱ្យលេងហ្គេមដែរ
+            callback(); 
         });
 }
 
-// ករណីយើងនៅក្នុងបន្ទប់ស្រាប់ ហើយមានសមាជិកថ្មីចូលមក
 socket.on('voice_user_joined', ({ id }) => {
     if (!localStream) return;
     
-    // បង្កើតតំណភ្ជាប់ប្រភេទ Initiator (អ្នកហៅទៅមុន)
+    // ✨ បានបន្ថែម iceConfig ដើម្បីជួយចម្លងសំឡេងទម្លុះ Firewall ប្រព័ន្ធស៊ីម 4G/5G
     const peer = new SimplePeer({
         initiator: true,
         trickle: false,
-        stream: localStream
+        stream: localStream,
+        config: iceConfig.config
     });
 
     peer.on('signal', signal => {
@@ -1075,16 +1084,16 @@ socket.on('voice_user_joined', ({ id }) => {
     peers[id] = peer;
 });
 
-// សញ្ញា Signaling ផ្ញើទៅមកដើម្បីភ្ជាប់សំឡេង
 socket.on('voice_signal', ({ from, signal }) => {
     if (!localStream) return;
 
     if (!peers[from]) {
-        // បើមិនទាន់មានបំពង់តភ្ជាប់ទេ (យើងជាអ្នកទើបចូលថ្មី) ត្រូវបង្កើតវាឡើង (មិនមែនជា Initiator ទេ)
+        // ✨ បានបន្ថែម iceConfig ត្រង់ចំណុចទទួលសញ្ញាផងដែរ
         const peer = new SimplePeer({
             initiator: false,
             trickle: false,
-            stream: localStream
+            stream: localStream,
+            config: iceConfig.config
         });
 
         peer.on('signal', sig => {
@@ -1107,7 +1116,6 @@ socket.on('voice_signal', ({ from, signal }) => {
     peers[from].signal(signal);
 });
 
-// ពេលមានអ្នកចាកចេញ ត្រូវផ្តាច់បំពង់សំឡេងរបស់គេ
 socket.on('voice_user_left', ({ id }) => {
     if (peers[id]) {
         peers[id].destroy();
@@ -1116,7 +1124,6 @@ socket.on('voice_user_left', ({ id }) => {
     removeAudioElement(id);
 });
 
-// បង្កើតកូន Audio លាក់ក្នុងអេក្រង់ដើម្បីបន្លឺសំឡេងមិត្តភក្តិ
 function createAudioElement(id, stream) {
     let audio = document.getElementById(`audio-${id}`);
     if (!audio) {
@@ -1133,7 +1140,6 @@ function removeAudioElement(id) {
     if (audio) audio.remove();
 }
 
-// មុខងារ Mute / Unmute ខ្លួនឯង
 function toggleMic() {
     if (!localStream) {
         alert("មិនមានឧបករណ៍ម៉ៃក្រូហ្វូនត្រូវបានដំណើរការឡើយ!");
@@ -1155,7 +1161,6 @@ function toggleMic() {
     }
 }
 
-// សម្អាត Voice ទាំងអស់ពេលចាកចេញពីបន្ទប់
 function closeAllVoiceConnections() {
     for (let id in peers) {
         peers[id].destroy();
@@ -1170,7 +1175,6 @@ function closeAllVoiceConnections() {
         localStream = null;
     }
     
-    // Reset ប៊ូតុងម៉ៃក្រូហ្វូនមកវិញ
     micEnabled = true;
     const btn = document.getElementById('micToggleBtn');
     if (btn) {
