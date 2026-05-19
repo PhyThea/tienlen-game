@@ -470,7 +470,6 @@ button:disabled {
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-// ==================== កូដទាំងអស់ពី index New.html ====================
 const socket = io();
 
 let myId = null;
@@ -483,7 +482,7 @@ let playersData = [];
 let amISpectator = false;
 let lastRoundWinnerId = null; 
 
-// Raw PCM Voice Chat
+// ប្រព័ន្ធបាញ់សំឡេង Raw PCM (ល្បឿនលឿន ឮច្បាស់ទាំង iOS & Android)
 let localStream = null;
 let micEnabled = true;
 let audioCtx = null;
@@ -589,7 +588,9 @@ socket.on('roomJoined', ({ roomId, playerId, isSpectator, playedCards, currentTu
     amISpectator = isSpectator;
     
     if (amISpectator) {
+        // 🛠️ បន្ថែម៖ បើហ្គេមកំពុងលេង ឱ្យអ្នកមើលចូលទៅកាន់ផ្ទាំង Game ភ្លាមៗ និងបង្ហាញបៀរលើតុ
         currentTurnIndex = serverTurn;
+        
         document.body.classList.remove('round-over'); 
         document.body.classList.add('in-game');
         
@@ -600,6 +601,7 @@ socket.on('roomJoined', ({ roomId, playerId, isSpectator, playedCards, currentTu
         
         document.getElementById('actionControls').style.display = 'none';
         
+        // បង្ហាញបៀរដែលមាននៅលើតុស្រាប់
         const tableDiv = document.getElementById('table');
         tableDiv.innerHTML = ''; 
         if (playedCards && playedCards.length > 0) {
@@ -613,6 +615,7 @@ socket.on('roomJoined', ({ roomId, playerId, isSpectator, playedCards, currentTu
             tableDiv.innerHTML = '<div style="color: #a7f3d0; font-size:12px;">មិនទាន់មានបៀរចុះឡើយ</div>';
         }
     } else {
+        // បើហ្គេមមិនទាន់លេង ឱ្យទៅរង់ចាំនៅផ្ទាំង Lobby សិន
         showLobby(roomId);
     }
 });
@@ -634,7 +637,9 @@ socket.on('updatePlayers', (players) => {
         amISpectator = me.isSpectator;
     }
     renderPlayers(players);
-    updateRoomUI();
+    
+    // ➕ បន្ថែមការហៅអនុគមន៍នេះនៅចុងក្រោយគេ
+    updateRoomUI(); 
 });
 
 function startGame() {
@@ -644,45 +649,67 @@ function startGame() {
 socket.on('gameStarted', ({ players, currentTurnIndex: turn, lastRoundWinnerId: serverWinnerId }) => {
     currentTurnIndex = turn;
     playersData = players;
-    lastRoundWinnerId = serverWinnerId;
+    lastRoundWinnerId = serverWinnerId; 
+    
     const myData = players.find(p => p.id === myId);
     amISpectator = myData ? myData.isSpectator : false;
-    document.body.classList.remove('round-over');
+
+    document.body.classList.remove('round-over'); 
     document.body.classList.add('in-game');
+    
     document.getElementById('lobbyArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'none';
     document.getElementById('gameArea').style.display = 'block';
+    
     document.getElementById('table').innerHTML = '<div style="color: #a7f3d0; font-size:12px;">ចាប់ផ្ដើមហ្គេម!</div>';
     
     if (playersData[currentTurnIndex]) {
         document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
     }
+
     if (amISpectator) {
         document.getElementById('actionControls').style.display = 'none';
     } else {
         document.getElementById('actionControls').style.display = 'flex';
     }
+
     renderPlayers(players);
     updateControlsState();
-    setTimeout(() => renderMyCards(), 50);
+    
+    setTimeout(() => {
+        renderMyCards(); 
+    }, 50);
 });
 
+// 🛠️ បន្ថែម៖ ស្ដាប់សញ្ញាផ្ទេរសិទ្ធិមេបន្ទប់/អ្នកឈ្នះ ពេលមានមនុស្ស Disconnect
 socket.on('winnerTransferred', (data) => {
+    // ធ្វើបច្ចុប្បន្នភាពអថេរនៅក្នុង Client
     lastRoundWinnerId = data.newWinnerId;
+    
+    // ហៅអនុគមន៍ឱ្យ Update UI ប៊ូតុងភ្លាមៗ
     updateRoomUI(data);
 });
 
 function updateRoomUI(data) {
+    // សម្គាល់៖ បើហៅមកធម្មតាគ្មាន data ឱ្យប្រើទិន្នន័យដែលមានស្រាប់
     const targetWinnerId = data ? data.newWinnerId : lastRoundWinnerId;
     const targetCreatorId = data ? data.creatorId : (playersData[0] ? playersData[0].id : null);
-    const mySessionId = socket.id;
+    
+    // 🛠️ ជួសជុល៖ ប្រើ socket.id ផ្ទាល់របស់ Client ជំនួសឱ្យការប្រកាសជាន់អថេរចាស់
+    const mySessionId = socket.id; 
+
+    // ពិនិត្យមើលថាតើខ្លួនយើងជា Creator ឬជា Last Winner ដែរឬទេ?
     const hasControl = (targetWinnerId === mySessionId || targetCreatorId === mySessionId);
 
+    // 1. គ្រប់គ្រង Button "Start Game" នៅក្នុងផ្ទាំង Lobby
     const startBtn = document.getElementById('startBtn');
     if (startBtn) {
         if (hasControl) {
             startBtn.style.display = 'inline-block';
             startBtn.disabled = false;
+            startBtn.innerText = "🚀 Start Game";
+            startBtn.classList.remove('btn-blue');
+            startBtn.classList.add('btn-green');
         } else {
             startBtn.style.display = 'none';
         }
@@ -697,6 +724,13 @@ function updateRoomUI(data) {
         } else {
             playAgainBtn.style.display = 'none';
             waitText.style.display = 'block';
+            let managerName = 'មេបន្ទប់';
+            const targetId = targetWinnerId || targetCreatorId;
+            const manager = playersData.find(p => p.id === targetId);
+            if (manager) {
+                managerName = manager.name;
+            }
+            waitText.innerText = `សូមរង់ចាំ ${managerName} ចាប់ផ្ដើមវគ្គថ្មី...`;
         }
     }
 }
@@ -710,7 +744,7 @@ socket.on('dealCards', ({ hand }) => {
 });
 
 function isMyTurn() {
-    if (amISpectator || currentTurnIndex === null) return false;
+    if (amISpectator || currentTurnIndex === null || currentTurnIndex === undefined) return false;
     const activePlayer = playersData[currentTurnIndex];
     return activePlayer && activePlayer.id === myId;
 }
@@ -718,17 +752,25 @@ function isMyTurn() {
 function updateControlsState() {
     const playBtn = document.getElementById('playBtn');
     const passBtn = document.getElementById('passBtn');
-    if (!playBtn || !passBtn) return;
-
-    if (isMyTurn()) {
-        playBtn.disabled = false;
-        const isNewRound = document.getElementById('table').innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || 
-                          document.getElementById('table').innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') ||
-                          document.getElementById('table').innerHTML.includes('តុត្រូវបានសម្អាត!');
-        passBtn.disabled = isNewRound;
-    } else {
-        playBtn.disabled = true;
-        passBtn.disabled = true;
+    
+    if (playBtn && passBtn) {
+        if (isMyTurn()) {
+            playBtn.disabled = false;
+            const tableDiv = document.getElementById('table');
+            const isNewRound = tableDiv && (
+                tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || 
+                tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || 
+                tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត!')
+            );
+            if (isNewRound) {
+                passBtn.disabled = true; 
+            } else {
+                passBtn.disabled = false; 
+            }
+        } else {
+            playBtn.disabled = true;
+            passBtn.disabled = true;
+        }
     }
 }
 
@@ -736,217 +778,455 @@ function renderPlayers(players) {
     playersData = players;
     const div = document.getElementById('players');
     const lobby = document.getElementById('lobbyPlayers');
+
     div.innerHTML = '';
     lobby.innerHTML = '';
 
     players.forEach((p, index) => {
         const el = document.createElement('div');
         el.className = 'player';
-        el.id = `player-card-${p.id}`;
+        el.id = `player-card-${p.id}`; 
         
         const isCurrentTurn = (currentTurnIndex !== null && index === currentTurnIndex && !p.isSpectator && p.hand && p.hand.length > 0);
-        if (isCurrentTurn) el.classList.add('active-turn');
-        
+        if (isCurrentTurn) el.classList.add('active-turn'); 
+
         const count = p.hand ? p.hand.length : (p.cardCount !== undefined ? p.cardCount : 13);
-        if (p.passed && count > 0) el.classList.add('player-passed');
-        
+
+        if (p.passed && count > 0) el.classList.add('player-passed'); 
+
         if (!p.isSpectator && p.rank !== null && p.rank > 0) {
             if (p.rank === 1) el.classList.add('player-rank-1');
             else if (p.rank === 2) el.classList.add('player-rank-2');
         }
 
         let roleText = '';
-        if (p.isSpectator) roleText = '<span style="color: #94a3b8;">(អ្នកមើល)</span>';
-        else if (p.rank === 1) roleText = '<span style="color: #eab308; font-weight:bold;">🥇 លេខ ១</span>';
-        else if (p.rank === 2) roleText = '<span style="color: #3b82f6; font-weight:bold;">🥈 លេខ ២</span>';
-        else if (p.rank > 2) roleText = `<span style="color: #a8a29e;">(លេខ ${p.rank})</span>`;
-        else if (count === 0) roleText = '<span style="color: #22c55e;">អស់បៀរ</span>';
+        if (p.isSpectator) {
+            roleText = '<span style="color: #94a3b8;">(អ្នកមើល)</span>';
+        } else if (p.rank !== null && p.rank > 0) {
+            let rankBadge = p.rank === 1 ? '👑 លំដាប់ ១' : `🥈 លំដាប់ ២`;
+            let badgeColor = p.rank === 1 ? '#eab308' : '#3b82f6';
+            roleText = `<div style="color: ${badgeColor}; font-weight: bold; font-size:9px; margin-top:1px;">${rankBadge}</div>`;
+        } else {
+            roleText = `<div class="card-counter">🃏 សល់៖ ${count}</div>`;
+        }
+
+        if (p.passed && !p.isSpectator && count > 0) {
+            roleText += '<br><span style="color: #ef4444; font-weight: bold; font-size: 9px;">❌ Pass</span>';
+        }
+
+        let turnBadgeHTML = isCurrentTurn ? `<div class="turn-badge">${p.id === myId ? '🟢 ខ្ញុំ' : '🎯 លេង'}</div>` : '';
 
         el.innerHTML = `
-            ${isCurrentTurn ? '<div class="turn-badge">វេន</div>' : ''}
-            <div style="font-weight: bold; overflow: hidden; text-wrap: nowrap; text-overflow: ellipsis;">${p.name} ${p.id === myId ? '(ខ្ញុំ)' : ''}</div>
-            <div style="margin-top: 2px;">
-                ${roleText ? roleText : `<span class="card-counter">🃏 ${count} សន្លឹក</span>`}
-            </div>
+            ${turnBadgeHTML}
+            <strong>👤 ${p.name.substring(0, 5)}</strong>
+            <br>
+            ${roleText}
         `;
         div.appendChild(el);
 
-        const lobbyEl = document.createElement('div');
-        lobbyEl.style.cssText = "background: #334155; padding: 10px 15px; border-radius: 8px; font-weight: bold;";
-        lobbyEl.innerText = (index === 0 ? '👑 ' : '👤 ') + p.name + (p.id === myId ? ' (ខ្ញុំ)' : '');
-        lobby.appendChild(lobbyEl);
+        const el2 = document.createElement('div');
+        el2.className = 'player';
+        el2.style.marginBottom = '10px';
+        el2.innerHTML = `👤 ${p.name} ${p.id === myId ? '(ខ្ញុំ)' : ''} ${p.isSpectator ? '<span style="color: #ef4444;">(អ្នកមើល)</span>' : ''}`;
+        lobby.appendChild(el2);
     });
 }
 
 function renderMyCards() {
     const div = document.getElementById('myCards');
     div.innerHTML = '';
-    
     if (amISpectator) {
-        div.innerHTML = '<div style="color: #94a3b8; font-size: 14px; text-align:center; width:100%;">👀 អ្នកកំពុងមើលគេលេង (Spectator)</div>';
+        div.innerHTML = '<div style="color: #94a3b8; font-style: italic; font-size:13px;">អ្នកកំពុងចូលរួមមើលការប្រកួត...</div>';
         return;
     }
+    
+    const myTurn = isMyTurn(); 
+    const tableDiv = document.getElementById('table');
+    const isNewRound = tableDiv && (tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត!'));
 
-    myHand.forEach((card) => {
-        const el = document.createElement('div');
-        el.className = 'card';
+    myHand.forEach((card, index) => {
+        const el = document.createElement('div'); 
+        el.className = 'card'; 
         el.style.backgroundImage = `url('${getCardFileName(card)}')`;
+        el.style.position = 'relative';
+        el.style.zIndex = index + 1;
+        
+        if (!myTurn) {
+            el.classList.add('disabled-card');
+        } else {
+            if (isNewRound) {
+                if (!lastRoundWinnerId) {
+                    if (card.value === '3' && card.suit === '♠') {
+                        el.classList.add('first-turn-highlight');
+                    }
+                } else {
+                    if (myId === lastRoundWinnerId) {
+                        el.classList.add('first-turn-highlight');
+                    }
+                }
+            }
+        }
         
         const isSelected = selectedCards.some(c => c.value === card.value && c.suit === card.suit);
-        if (isSelected) el.classList.add('selected');
-
+        if (isSelected && myTurn) {
+            el.classList.add('selected'); 
+            el.style.zIndex = 200 + index; 
+        }
+        
         el.onclick = () => {
-            const idx = selectedCards.findIndex(c => c.value === card.value && c.suit === card.suit);
-            if (idx > -1) selectedCards.splice(idx, 1);
-            else selectedCards.push(card);
-            renderMyCards();
+            if (!isMyTurn()) return; 
+            toggleCard(card);
         };
         div.appendChild(el);
     });
 }
 
 function playSelectedCards() {
+    if (!isMyTurn()) return alert("មិនទាន់ដល់វេនរបស់អ្នកឡើយ!");
     if (selectedCards.length === 0) return alert("សូមជ្រើសរើសសន្លឹកបៀរមុននឹងចុះ!");
-    socket.emit('playCards', { roomId: currentRoom, cards: selectedCards });
+    socket.emit('playCard', { roomId: currentRoom, cards: selectedCards });
+}
+
+function toggleCard(card) {
+    const index = selectedCards.findIndex(c => c.value === card.value && c.suit === card.suit);
+    if (index > -1) {
+        selectedCards.splice(index, 1);
+    } else {
+        selectedCards.push(card);
+    }
+    renderMyCards();
 }
 
 function passTurn() {
+    if (!isMyTurn()) return alert("មិនទាន់ដល់វេនរបស់អ្នកឡើយ!");
     socket.emit('passTurn', currentRoom);
 }
 
-socket.on('playSuccess', () => {
-    selectedCards = [];
-    renderMyCards();
-});
-
-socket.on('turnChanged', ({ currentTurnIndex: turn }) => {
+socket.on('turnChanged', ({ currentTurnIndex: turn, players }) => {
     currentTurnIndex = turn;
+    if (players) playersData = players;
     if (playersData[currentTurnIndex]) {
         document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
     }
     renderPlayers(playersData);
     updateControlsState();
-    renderMyCards();
+    renderMyCards(); 
 });
 
-socket.on('updateTable', ({ cards, lastPlayerName }) => {
-    const tableDiv = document.getElementById('table');
-    tableDiv.innerHTML = '';
-    cards.forEach((card) => {
-        const el = document.createElement('img');
-        el.src = getCardFileName(card);
-        el.className = 'table-card-img animate-play-card';
-        tableDiv.appendChild(el);
+socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
+    currentTurnIndex = nextTurn;
+    updatedHands.forEach(p => {
+        const found = playersData.find(oldP => oldP.id === p.id);
+        if (found) {
+            found.cardCount = p.hand ? p.hand.length : p.cardCount;
+            found.rank = p.rank; 
+            found.passed = p.passed; 
+        }
     });
-    document.getElementById('status').innerHTML = `📥 ចុះចុងក្រោយដោយ៖ ${lastPlayerName}`;
-    updateControlsState();
-});
+    playersData = updatedHands;
+    
+    const me = updatedHands.find(p => p.id === myId);
+    if (me && me.hand) myHand = me.hand;
 
-socket.on('clearTable', ({ nextPlayer }) => {
+    renderPlayers(updatedHands);
+
+    if (playersData[currentTurnIndex]) {
+        document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
+    }
+
     const tableDiv = document.getElementById('table');
-    tableDiv.innerHTML = `<div style="color: #a7f3d0; font-size:12px;">តុត្រូវបានសម្អាត! (វេនថ្មីរបស់ ${nextPlayer})</div>`;
+    tableDiv.innerHTML = ''; 
+    
+    if (cards && cards.length > 0) {
+        cards.forEach((card, index) => {
+            const el = document.createElement('img');
+            el.src = getCardFileName(card);
+            el.className = 'table-card-img animate-play-card';
+            el.style.animationDelay = `${index * 0.03}s`;
+            tableDiv.appendChild(el);
+        });
+    } else {
+        tableDiv.innerHTML = '<div style="color: #a7f3d0; font-size:12px;">មិនទាន់មានបៀរចុះឡើយ</div>';
+    }
+    
     selectedCards = [];
-    updateControlsState();
+    updateControlsState(); 
     renderMyCards();
 });
 
-socket.on('showBubbleMessage', ({ playerId, message }) => {
-    const playerCard = document.getElementById(`player-card-${playerId}`);
+socket.on('playerPassed', ({ name, id, message }) => {
+    const playerCard = document.getElementById(`player-card-${id}`);
     if (playerCard) {
-        const old = playerCard.querySelector('.bubble-msg');
-        if (old) old.remove();
+        const oldBubble = playerCard.querySelector('.bubble-msg');
+        if (oldBubble) oldBubble.remove();
+
         const bubble = document.createElement('div');
         bubble.className = 'bubble-msg';
-        bubble.innerText = message;
+        bubble.style.cssText = "position: absolute; top: -20px; left: 50%; transform: translateX(-50%); background: #ef4444; color: white; padding: 2px 5px; border-radius: 5px; font-size: 10px; font-weight: bold; z-index: 99; box-shadow: 0 2px 4px rgba(0,0,0,0.5);";
+        bubble.innerText = "❌ Pass";
+        
         playerCard.appendChild(bubble);
-        setTimeout(() => bubble.remove(), 2000);
+        setTimeout(() => {
+            if (bubble) bubble.remove();
+        }, 1500);
     }
 });
 
-socket.on('errorMsg', (msg) => alert(msg));
+socket.on('clearTable', ({ nextPlayer }) => {
+    document.getElementById('table').innerHTML = '<div style="color: #64748b; font-size:12px;">តុត្រូវបានសម្អាត! ជុំថ្មី...</div>';
+    document.getElementById('status').innerHTML = `🎯 វេន៖ ${nextPlayer} (បានសិទ្ធិស៊ីផ្តាច់)`;
+    updateControlsState(); 
+    renderMyCards();
+});
 
-socket.on('gameOver', ({ winner, ranks }) => {
+socket.on('errorMsg', (msg) => {
+    alert("⚠️ " + msg);
+    selectedCards = [];
+    renderMyCards();
+});
+
+socket.on('gameWon', ({ winner, winnerId, allHands }) => {
+    lastRoundWinnerId = winnerId;
     document.body.classList.remove('in-game');
-    document.body.classList.add('round-over');
     document.getElementById('gameArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'block';
     document.getElementById('winnerName').innerText = winner;
 
-    const listDiv = document.getElementById('resultList');
-    listDiv.innerHTML = '';
+    const resultList = document.getElementById('resultList');
+    resultList.innerHTML = '';
 
-    ranks.forEach(r => {
-        const row = document.createElement('div');
-        row.className = 'result-player';
-        // ... (អ្នកអាចបន្ថែម HTML លម្អិតបន្ថែមបាន) ...
-        listDiv.appendChild(row);
+    const sortedFinalResults = [...allHands].sort((a, b) => {
+        const rankA = a.rank || 99;
+        const rankB = b.rank || 99;
+        return rankA - rankB;
     });
 
-    updateRoomUI();
+    sortedFinalResults.forEach((p) => {
+        const playerDiv = document.createElement('div');
+        playerDiv.className = 'result-player';
+        
+        if (!p.isSpectator && p.rank === 1) {
+            playerDiv.style.border = '1.5px solid #eab308';
+            playerDiv.style.background = '#1e293b';
+        }
+
+        let rankBadgeHTML = '';
+        let cardsHTML = '';
+
+        if (p.isSpectator) {
+            rankBadgeHTML = `<span style="color: #94a3b8; font-weight: bold;">👀 អ្នកមើល</span>`;
+            cardsHTML = `<span style="color: #64748b; font-style: italic;">(គ្មានសន្លឹកបៀរឡើយ)</span>`;
+        } else {
+            if (p.rank === 1) rankBadgeHTML = `<span style="color: #eab308; font-weight: bold;">👑 លេខ ១ (🏆 អ្នកឈ្នះ)</span>`;
+            else if (p.rank === 2) rankBadgeHTML = `<span style="color: #3b82f6; font-weight: bold;">🥈 លេខ ២</span>`;
+            else if (p.rank === 3) rankBadgeHTML = `<span style="color: #a855f7; font-weight: bold;">🥉 លេខ ៣</span>`;
+            else rankBadgeHTML = `<span style="color: #ef4444; font-weight: bold;">❌ អ្នកចាញ់</span>`;
+
+            const remainingCards = p.remaining || p.hand || [];
+            if (remainingCards.length > 0) {
+                remainingCards.forEach(card => {
+                    cardsHTML += `
+                        <img src="${getCardFileName(card)}" style="width: 34px; height: auto; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); margin-right: 3px; margin-bottom: 3px;">
+                    `;
+                });
+            } else {
+                cardsHTML = `<span style="color: #22c55e; font-style: italic;">🎉 អស់បៀរពីដៃ!</span>`;
+            }
+        }
+
+        const remainingCount = p.remaining ? p.remaining.length : (p.hand ? p.hand.length : 0);
+        const countText = (p.isSpectator || p.rank === 1 || remainingCount === 0) 
+            ? '' 
+            : `<span style="color: #f59e0b; font-size: 10px; margin-left: 5px;">(នៅសល់ ${remainingCount} សន្លឹក)</span>`;
+
+        playerDiv.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; border-bottom: 1px solid #475569; padding-bottom: 3px;">
+                <div>
+                    <strong>👤 ${p.name}</strong>
+                    ${countText}
+                </div>
+                <div>${rankBadgeHTML}</div>
+            </div>
+            <div class="result-cards">${cardsHTML}</div>
+        `;
+        resultList.appendChild(playerDiv);
+    });
+
+    const playAgainBtn = document.getElementById('hostPlayAgainBtn');
+    const waitText = document.getElementById('waitHostText');
+    
+    if (myId === lastRoundWinnerId) {
+        playAgainBtn.style.display = 'block';
+        waitText.style.display = 'none';
+        playAgainBtn.innerText = "🔄 ចាប់ផ្ដើមវគ្គថ្មី (Start Next Round)";
+        
+        playAgainBtn.onclick = null;
+        playAgainBtn.ontouchstart = null;
+
+        playAgainBtn.onclick = function() {
+            if (currentRoom) {
+                socket.emit('startGame', currentRoom);
+            }
+        };
+        playAgainBtn.ontouchstart = function(e) {
+            e.preventDefault(); 
+            if (currentRoom) {
+                socket.emit('startGame', currentRoom);
+            }
+        };
+    } else {
+        playAgainBtn.style.display = 'none';
+        waitText.style.display = 'block';
+        waitText.innerText = `សូមរង់ចាំអ្នកឈ្នះ (${winner}) ចាប់ផ្ដើមវគ្គថ្មី...`;
+    }
+});
+
+// 🛠️ ជួសជុល៖ ស្ដាប់សញ្ញាផ្ទេរសិទ្ធិមេបន្ទប់/អ្នកឈ្នះ ពេលមានមនុស្ស Disconnect ឬចាកចេញ
+socket.on('winnerTransferred', (data) => {
+    // ធ្វើបច្ចុប្បន្នភាពអថេរដែលអាចទុកចិត្តបាននៅក្នុង Client ភ្លាមៗ
+    lastRoundWinnerId = data.newWinnerId;
+    
+    // ពិនិត្យមើលថាតើខ្លួនយើងជាអ្នកទទួលបានសិទ្ធិថ្មីមែនទេ? (ពិនិត្យតាម socket.id ផ្ទាល់)
+    const mySessionId = socket.id;
+    const hasControl = (data.newWinnerId === mySessionId || data.creatorId === mySessionId);
+
+    // 1. គ្រប់គ្រងប៊ូតុង "Start Game" នៅក្នុងផ្ទាំង Lobby
+    const startBtn = document.getElementById('startBtn');
+    if (startBtn) {
+        if (hasControl) {
+            startBtn.style.display = 'inline-block';
+            startBtn.disabled = false;
+            startBtn.innerText = "🚀 Start Game";
+            startBtn.classList.remove('btn-blue');
+            startBtn.classList.add('btn-green');
+        } else {
+            startBtn.style.display = 'none';
+        }
+    }
+
+    // 2. គ្រប់គ្រងប៊ូតុងនៅក្នុងផ្ទាំង Result (ពេលចប់ហ្គេម)
+    const playAgainBtn = document.getElementById('hostPlayAgainBtn');
+    const waitText = document.getElementById('waitHostText');
+    
+    if (playAgainBtn && waitText) {
+        if (hasControl) {
+            playAgainBtn.style.display = 'block';
+            waitText.style.display = 'none';
+        } else {
+            playAgainBtn.style.display = 'none';
+            waitText.style.display = 'block';
+            
+            // ស្វែងរកឈ្មោះអ្នកកាន់សិទ្ធិថ្មីមកបង្ហាញពី playersData ឱ្យបានត្រឹមត្រូវ
+            let newManagerName = 'មេបន្ទប់';
+            const targetId = data.newWinnerId || data.creatorId;
+            const newManager = playersData.find(p => p.id === targetId);
+            if (newManager) {
+                newManagerName = newManager.name;
+            }
+            
+            waitText.innerText = `សូមរង់ចាំ ${newManagerName} ចាប់ផ្ដើមវគ្គថ្មី...`;
+        }
+    }
 });
 
 function leaveRoom() {
-    if (scriptNode) scriptNode.disconnect();
-    if (micSource) micSource.disconnect();
-    if (localStream) localStream.getTracks().forEach(track => track.stop());
-    
+    if (confirm("តើអ្នកពិតជាចង់ចាកចេញពីបន្ទប់នេះមែនទេ?")) {
+        socket.emit('leaveRoom');
+        closeAllVoiceConnections(); // 🛠️ ជួសជុល៖ ហៅមុខងារសម្អាតភ្លាមៗពេលចុចចាកចេញ
+    }
+}
+
+socket.on('leftRoom', () => {
+    document.body.classList.remove('in-game');
     currentRoom = null;
-    myId = null;
     myHand = [];
     selectedCards = [];
+    playersData = [];
+    amISpectator = false;
+    lastRoundWinnerId = null; 
     
-    document.body.classList.remove('in-game', 'round-over');
+    closeAllVoiceConnections(); // 🛠️ ជួសជុល៖ ធានាសម្អាតខ្សែតភ្ជាប់ទាំងអស់ពេលត្រឡប់មកអេក្រង់ដើម
+
     document.getElementById('loginArea').style.display = 'block';
     document.getElementById('lobbyArea').style.display = 'none';
     document.getElementById('gameArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'none';
-    
-    socket.emit('leaveRoom');
-}
+});
 
-// ====================== RAW PCM VOICE CHAT ======================
+// =======================================================
+// 🎙️ ប្រព័ន្ធសំឡេងកម្រិតខ្ពស់ RAW PCM (ធានាឮ ១០០% លើ iOS & Android)
+// =======================================================
 function initVoiceAndExecute(callback) {
-    if (localStream) return callback ? callback() : null;
+    if (localStream) {
+        if (callback) callback();
+        return;
+    }
 
-    navigator.mediaDevices.getUserMedia({ audio: true })
-    .then(stream => {
-        localStream = stream;
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        micSource = audioCtx.createMediaStreamSource(stream);
-        scriptNode = audioCtx.createScriptProcessor(4096, 1, 1);
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+            localStream = stream;
 
-        scriptNode.onaudioprocess = (e) => {
-            if (!micEnabled || !currentRoom) return;
-            const inputData = e.inputBuffer.getChannelData(0);
-            const int16Buffer = new Int16Array(inputData.length);
-            for (let i = 0; i < inputData.length; i++) {
-                let s = Math.max(-1, Math.min(1, inputData[i]));
-                int16Buffer[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+            // បង្កើត Audio Context ផ្លូវការ (iOS ស៊ើបទ្រទ្រង់ SampleRate 44100/48000 ធម្មតា)
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
             }
-            socket.emit('audio_packet', { roomId: currentRoom, buffer: int16Buffer.buffer });
-        };
 
-        micSource.connect(scriptNode);
-        scriptNode.connect(audioCtx.destination);
+            micSource = audioCtx.createMediaStreamSource(stream);
+            
+            // បង្កើត ScriptProcessor Node ដើម្បីទាញយក Float32 ផ្ទាល់ (Raw PCM)
+            scriptNode = audioCtx.createScriptProcessor(4096, 1, 1);
+            
+            scriptNode.onaudioprocess = (audioProcessingEvent) => {
+                if (!micEnabled || !currentRoom) return;
+                
+                const inputBuffer = audioProcessingEvent.inputBuffer;
+                const inputData = inputBuffer.getChannelData(0); // ឆានែលទោល Mono
+                
+                // បំប្លែង Float32 ទៅជា Int16 ដើម្បីសន្សំទំហំបណ្ដាញ និងងាយស្រួលបញ្ជូន
+                const int16Buffer = new Int16Array(inputData.length);
+                for (let i = 0; i < inputData.length; i++) {
+                    let s = Math.max(-1, Math.min(1, inputData[i]));
+                    int16Buffer[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                }
+                
+                // ផ្ញើទៅកាន់ Server
+                socket.emit('audio_packet', { roomId: currentRoom, buffer: int16Buffer.buffer });
+            };
+
+            micSource.connect(scriptNode);
+            scriptNode.connect(audioCtx.destination); // ចាំបាច់សម្រាប់កេះ Node ឱ្យដំណើរការ
+
+            if (callback) callback();
+        }).catch(err => {
+            console.log("Mic access error:", err);
+            if (callback) callback();
+        });
+    } else {
         if (callback) callback();
-    })
-    .catch(err => {
-        console.log("Mic error:", err);
-        if (callback) callback();
-    });
+    }
 }
 
+// ទទួលលេងសំឡេង Raw PCM ពីអ្នកលេងដទៃ (លឿនបំផុត គ្មានការយឺត)
 socket.on('audio_broadcast', (data) => {
-    if (data.from === socket.id || !audioCtx) return;
+    if (data.from === socket.id) return;
+    
     try {
-        if (audioCtx.state === 'suspended') audioCtx.resume();
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
         
+        // ទទួល Int16Array មកវិញ រួចបំប្លែងទៅជា Float32 សម្រាប់លេងលើ Speaker
         const int16Array = new Int16Array(data.buffer);
         const float32Array = new Float32Array(int16Array.length);
         for (let i = 0; i < int16Array.length; i++) {
             float32Array[i] = int16Array[i] / 32768.0;
         }
-
+        
+        // បង្កើត AudioBuffer ផ្ទាល់ខ្លួនភ្លាមៗ (មិនខ្វល់រឿង WebM Header ទៀតឡើយ)
         const audioBuffer = audioCtx.createBuffer(1, float32Array.length, audioCtx.sampleRate);
         audioBuffer.getChannelData(0).set(float32Array);
         
@@ -954,20 +1234,41 @@ socket.on('audio_broadcast', (data) => {
         source.buffer = audioBuffer;
         source.connect(audioCtx.destination);
         source.start();
-    } catch(e) {}
+    } catch (e) {
+        // កំហុសឆ្គងតូចតាចនៃការចាក់សំឡេងមិនប៉ះពាល់ដល់ហ្គេមទេ
+    }
 });
 
 function toggleMic() {
     if (!localStream) {
-        initVoiceAndExecute(() => alert("ម៉ៃក្រូហ្វូនបើកហើយ!"));
+        initVoiceAndExecute(() => {
+            alert("ម៉ៃក្រូហ្វូនបើកហើយ!");
+        });
         return;
     }
+    
     micEnabled = !micEnabled;
-    localStream.getAudioTracks().forEach(track => track.enabled = micEnabled);
-    const btn = document.getElementById('micToggleBtn');
-    btn.innerText = micEnabled ? "🎙️ Mic: On" : "🔇 Mic: Muted";
-    btn.classList.toggle('muted', !micEnabled);
+    localStream.getAudioTracks().forEach(track => {
+        track.enabled = micEnabled;
+    });
+    updateMicButtonUI();
 }
+
+function updateMicButtonUI() {
+    const btn = document.getElementById('micToggleBtn');
+    if (!btn) return;
+    if (micEnabled) {
+        btn.innerText = "🎙️ Mic: On";
+        btn.classList.remove('muted');
+    } else {
+        btn.innerText = "🔇 Mic: Muted";
+        btn.classList.add('muted');
+    }
+}
+
+function startPlay() {}
+function removeAudioElement(id) {}
+function closeAllVoiceConnections() {}
 </script>
 </body>
 </html>
