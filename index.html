@@ -647,6 +647,9 @@ socket.on('updatePlayers', (players) => {
         amISpectator = me.isSpectator;
     }
     renderPlayers(players);
+    
+    // ➕ បន្ថែមការហៅអនុគមន៍នេះនៅចុងក្រោយគេ
+    updateRoomUI(); 
 });
 
 function startGame() {
@@ -687,6 +690,64 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn, lastRoundWinnerId: 
         renderMyCards(); 
     }, 50);
 });
+
+// 🛠️ បន្ថែម៖ ស្ដាប់សញ្ញាផ្ទេរសិទ្ធិមេបន្ទប់/អ្នកឈ្នះ ពេលមានមនុស្ស Disconnect
+socket.on('winnerTransferred', (data) => {
+    // ធ្វើបច្ចុប្បន្នភាពអថេរនៅក្នុង Client
+    lastRoundWinnerId = data.newWinnerId;
+    
+    // ហៅអនុគមន៍ឱ្យ Update UI ប៊ូតុងភ្លាមៗ
+    updateRoomUI(data);
+});
+
+function updateRoomUI(data) {
+    // សម្គាល់៖ បើហៅមកធម្មតាគ្មាន data ឱ្យប្រើទិន្នន័យដែលមានស្រាប់
+    const targetWinnerId = data ? data.newWinnerId : lastRoundWinnerId;
+    const targetCreatorId = data ? data.creatorId : (playersData[0] ? playersData[0].id : null);
+    
+    // 🛠️ ជួសជុល៖ ប្រើ socket.id ផ្ទាល់របស់ Client ជំនួសឱ្យការប្រកាសជាន់អថេរចាស់
+    const mySessionId = socket.id; 
+
+    // ពិនិត្យមើលថាតើខ្លួនយើងជា Creator ឬជា Last Winner ដែរឬទេ?
+    const hasControl = (targetWinnerId === mySessionId || targetCreatorId === mySessionId);
+
+    // 1. គ្រប់គ្រង Button "Start Game" នៅក្នុងផ្ទាំង Lobby
+    const startBtn = document.getElementById('startBtn');
+    if (startBtn) {
+        if (hasControl) {
+            startBtn.style.display = 'inline-block';
+            startBtn.disabled = false;
+            startBtn.innerText = "🚀 Start Game";
+            startBtn.classList.remove('btn-blue');
+            startBtn.classList.add('btn-green');
+        } else {
+            startBtn.style.display = 'none';
+        }
+    }
+
+    // 2. គ្រប់គ្រងប៊ូតុងនៅក្នុងផ្ទាំង Result (ពេលចប់ហ្គេម)
+    const playAgainBtn = document.getElementById('hostPlayAgainBtn');
+    const waitText = document.getElementById('waitHostText');
+    
+    if (playAgainBtn && waitText) {
+        if (hasControl) {
+            playAgainBtn.style.display = 'block';
+            waitText.style.display = 'none';
+        } else {
+            playAgainBtn.style.display = 'none';
+            waitText.style.display = 'block';
+            
+            // ស្វែងរកឈ្មោះអ្នកកាន់សិទ្ធិថ្មីមកបង្ហាញឱ្យស្អាត
+            let managerName = 'មេបន្ទប់';
+            const targetId = targetWinnerId || targetCreatorId;
+            const manager = playersData.find(p => p.id === targetId);
+            if (manager) {
+                managerName = manager.name;
+            }
+            waitText.innerText = `សូមរង់ចាំ ${managerName} ចាប់ផ្ដើមវគ្គថ្មី...`;
+        }
+    }
+}
 
 socket.on('dealCards', ({ hand }) => {
     myHand = hand;
@@ -783,13 +844,6 @@ function renderPlayers(players) {
         el2.innerHTML = `👤 ${p.name} ${p.id === myId ? '(ខ្ញុំ)' : ''} ${p.isSpectator ? '<span style="color: #ef4444;">(អ្នកមើល)</span>' : ''}`;
         lobby.appendChild(el2);
     });
-
-    const startBtn = document.getElementById('startBtn');
-    if (isCreator && !lastRoundWinnerId) {
-        startBtn.style.display = 'inline-block';
-    } else {
-        startBtn.style.display = 'none';
-    }
 }
 
 function renderMyCards() {
@@ -1038,6 +1092,54 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
         playAgainBtn.style.display = 'none';
         waitText.style.display = 'block';
         waitText.innerText = `សូមរង់ចាំអ្នកឈ្នះ (${winner}) ចាប់ផ្ដើមវគ្គថ្មី...`;
+    }
+});
+
+// 🛠️ ជួសជុល៖ ស្ដាប់សញ្ញាផ្ទេរសិទ្ធិមេបន្ទប់/អ្នកឈ្នះ ពេលមានមនុស្ស Disconnect ឬចាកចេញ
+socket.on('winnerTransferred', (data) => {
+    // ធ្វើបច្ចុប្បន្នភាពអថេរដែលអាចទុកចិត្តបាននៅក្នុង Client ភ្លាមៗ
+    lastRoundWinnerId = data.newWinnerId;
+    
+    // ពិនិត្យមើលថាតើខ្លួនយើងជាអ្នកទទួលបានសិទ្ធិថ្មីមែនទេ? (ពិនិត្យតាម socket.id ផ្ទាល់)
+    const mySessionId = socket.id;
+    const hasControl = (data.newWinnerId === mySessionId || data.creatorId === mySessionId);
+
+    // 1. គ្រប់គ្រងប៊ូតុង "Start Game" នៅក្នុងផ្ទាំង Lobby
+    const startBtn = document.getElementById('startBtn');
+    if (startBtn) {
+        if (hasControl) {
+            startBtn.style.display = 'inline-block';
+            startBtn.disabled = false;
+            startBtn.innerText = "🚀 Start Game";
+            startBtn.classList.remove('btn-blue');
+            startBtn.classList.add('btn-green');
+        } else {
+            startBtn.style.display = 'none';
+        }
+    }
+
+    // 2. គ្រប់គ្រងប៊ូតុងនៅក្នុងផ្ទាំង Result (ពេលចប់ហ្គេម)
+    const playAgainBtn = document.getElementById('hostPlayAgainBtn');
+    const waitText = document.getElementById('waitHostText');
+    
+    if (playAgainBtn && waitText) {
+        if (hasControl) {
+            playAgainBtn.style.display = 'block';
+            waitText.style.display = 'none';
+        } else {
+            playAgainBtn.style.display = 'none';
+            waitText.style.display = 'block';
+            
+            // ស្វែងរកឈ្មោះអ្នកកាន់សិទ្ធិថ្មីមកបង្ហាញពី playersData ឱ្យបានត្រឹមត្រូវ
+            let newManagerName = 'មេបន្ទប់';
+            const targetId = data.newWinnerId || data.creatorId;
+            const newManager = playersData.find(p => p.id === targetId);
+            if (newManager) {
+                newManagerName = newManager.name;
+            }
+            
+            waitText.innerText = `សូមរង់ចាំ ${newManagerName} ចាប់ផ្ដើមវគ្គថ្មី...`;
+        }
     }
 });
 
