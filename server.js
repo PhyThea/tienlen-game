@@ -284,7 +284,16 @@ io.on('connection', (socket) => {
         });
 
         socket.join(roomId);
-        socket.emit('roomJoined', { roomId, playerId: socket.id, isSpectator });
+        
+        // 🛠️ កែសម្រួល៖ ផ្ញើទាំង playedCards និង currentTurnIndex ទៅឱ្យអ្នកលេងដែលទើបចូលរួម
+        socket.emit('roomJoined', { 
+            roomId, 
+            playerId: socket.id, 
+            isSpectator,
+            playedCards: room.playedCards,
+            currentTurnIndex: room.currentTurnIndex
+        });
+        
         io.to(roomId).emit('updatePlayers', room.players);
         broadcastRoomList();
     });
