@@ -460,23 +460,50 @@ io.on('connection', (socket) => {
         for (const id in rooms) {
             const room = rooms[id];
             const pIdx = room.players.findIndex(p => p.id === socket.id);
+            
             if (pIdx !== -1) {
                 const wasSpectator = room.players[pIdx].isSpectator;
+                const isCurrentTurn = (room.currentTurnIndex === pIdx);
+                
+                // ១. ដកអ្នកលេងចេញពីបន្ទប់
                 room.players.splice(pIdx, 1);
                 socket.leave(id); 
                 socket.emit('leftRoom'); 
                 
-                // 🛠️ ជួសជុល៖ ផ្ញើប្រាប់អ្នកផ្សេងឱ្យបិទសំឡេង Voice Chat របស់ Player ដែលបានចាកចេញ
+                // ២. ជូនដំណឹង Voice Chat
                 socket.to(id).emit('voice_user_left', { id: socket.id });
 
+                // ៣. ពិនិត្យមើលថាតើបន្ទប់នៅសល់អ្នកលេងដែរឬទេ
                 if (room.players.length === 0) {
                     delete rooms[id]; 
                 } else {
-                    if (room.creatorId === socket.id) room.creatorId = room.players[0].id; 
-                    if (room.status === 'playing' && !wasSpectator && room.currentTurnIndex === pIdx) {
-                        handleTurnAndRoundStatus(room);
-                        io.to(id).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex });
+                    // ៤. ផ្ទេរសិទ្ធិជា Host (Creator) ទៅអ្នកលេងទី ១ ដែលនៅសល់
+                    if (room.creatorId === socket.id) {
+                        room.creatorId = room.players[0].id; 
                     }
+
+                    // 🛠️ ចំណុចសំខាន់៖ កែសម្រួលលក្ខខណ្ឌផ្ទេរវេន (Turn)
+                    // យើងដក '!wasSpectator' ចេញ ដើម្បីឱ្យវាដំណើរការសម្រាប់អ្នកឈ្នះដែល Leave
+                    if (room.status === 'playing' && isCurrentTurn) {
+                        
+                        // ប្រសិនបើអ្នកដែល Leave គឺជាអ្នកកំពុងលេង (មិនមែន Spectator)
+                        // យើងត្រូវផ្ទេរវេនទៅអ្នកបន្ទាប់
+                        if (!wasSpectator) {
+                            handleTurnAndRoundStatus(room);
+                        } 
+                        // ប្រសិនបើអ្នកដែល Leave គឺជា Spectator ប៉ុន្តែវេនបច្ចុប្បន្នគឺជា Index របស់គាត់ (ករណីកម្រ)
+                        // ឬករណីអ្នកឈ្នះ Leave ពេលហ្គេមចប់ (Waiting for Start)
+                        else if (room.status === 'waiting') {
+                            // កំណត់វេនឡើងវិញទៅអ្នកលេងទី ១ (ឬអ្នកដែលមានសិទ្ធិចាប់ផ្តើម)
+                            room.currentTurnIndex = 0; 
+                        }
+
+                        io.to(id).emit('turnChanged', { 
+                            currentTurnIndex: room.currentTurnIndex,
+                            players: room.players 
+                        });
+                    }
+                    
                     io.to(id).emit('updatePlayers', room.players);
                 }
                 broadcastRoomList();
