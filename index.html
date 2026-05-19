@@ -470,7 +470,7 @@ button:disabled {
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-const socket = io();
+const socket = io(window.location.origin);
 
 let myId = null;
 let currentRoom = null;
@@ -1047,16 +1047,18 @@ socket.on('audio_broadcast', (data) => {
         }
         if (audioCtx.state === 'suspended') {
             audioCtx.resume();
-        }
-        
-        // ទទួល Int16Array មកវិញ រួចបំប្លែងទៅជា Float32 សម្រាប់លេងលើ Speaker
+}
+
+        // បំប្លែង Buffer ដែលទទួលបានពី Server ទៅជា Int16Array
         const int16Array = new Int16Array(data.buffer);
         const float32Array = new Float32Array(int16Array.length);
+        
+        // បំប្លែងត្រឡប់មកជា Float32 សម្រាប់ AudioContext
         for (let i = 0; i < int16Array.length; i++) {
             float32Array[i] = int16Array[i] / 32768.0;
         }
         
-        // បង្កើត AudioBuffer ផ្ទាល់ខ្លួនភ្លាមៗ (មិនខ្វល់រឿង WebM Header ទៀតឡើយ)
+        // បង្កើត AudioBuffer ភ្លាមៗដើម្បីចាក់សំឡេង
         const audioBuffer = audioCtx.createBuffer(1, float32Array.length, audioCtx.sampleRate);
         audioBuffer.getChannelData(0).set(float32Array);
         
@@ -1065,10 +1067,11 @@ socket.on('audio_broadcast', (data) => {
         source.connect(audioCtx.destination);
         source.start();
     } catch (e) {
-        // កំហុសឆ្គងតូចតាចនៃការចាក់សំឡេងមិនប៉ះពាល់ដល់ហ្គេមទេ
+        console.error("កំហុសក្នុងការចាក់សំឡេង:", e);
     }
 });
 
+// ប៊ូតុងបិទ/បើក Mic
 function toggleMic() {
     if (!localStream) {
         initVoiceAndExecute(() => {
@@ -1095,10 +1098,6 @@ function updateMicButtonUI() {
         btn.classList.add('muted');
     }
 }
-
-function startPlay() {}
-function removeAudioElement(id) {}
-function closeAllVoiceConnections() {}
 </script>
 </body>
 </html>
