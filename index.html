@@ -470,7 +470,7 @@ button:disabled {
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-const socket = io(window.location.origin);
+const socket = io();
 
 let myId = null;
 let currentRoom = null;
@@ -554,14 +554,10 @@ function getPlayerName() {
 
 function createRoom() {
     const playerName = getPlayerName();
+    if (!playerName) return;
     const roomId = document.getElementById('roomInput').value.trim();
     const password = document.getElementById('roomPass').value;
-
-    console.log("Sending:", { roomId, password, playerName }); // បើកមើល Console (F12) ដើម្បីឃើញថាវាចេញអី
-
-    if (!playerName) return alert("សូមបញ្ចូលឈ្មោះអ្នកលេង!");
     if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!");
-
     initVoiceAndExecute(() => {
         socket.emit('createRoom', { roomId, password, playerName });
     });
@@ -997,52 +993,50 @@ function initVoiceAndExecute(callback) {
         return;
     }
 
-    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-    .then(stream => {
-        localStream = stream;
-        micEnabled = true;
-        updateMicButtonUI();
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+            localStream = stream;
 
-        if (!audioCtx) {
+            // បង្កើត Audio Context ផ្លូវការ (iOS ស៊ើបទ្រទ្រង់ SampleRate 44100/48000 ធម្មតា)
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-
-        const source = audioCtx.createMediaStreamSource(stream);
-        
-        // 💡 កែប្រែត្រង់នេះ៖ ប្តូរពី 4096 មកត្រឹម 2048 ឬ 1024 
-        // ដើម្បីឱ្យវាកាត់កង់សំឡេងខ្លីៗ បាញ់ទៅភ្លាមៗ ការពារការទាក់ (Lower Latency)
-        const processor = audioCtx.createScriptProcessor(2048, 1, 1);
-
-        source.connect(processor);
-        processor.connect(audioCtx.destination);
-
-        processor.onaudioprocess = (e) => {
-            if (!micEnabled) return;
-            
-            const inputData = e.inputBuffer.getChannelData(0);
-            
-            // 💡 បន្ថែមការ Downsampling (កាត់បន្ថយការស៊ីអ៊ីនធឺណិត)
-            // បំប្លែងពី Float32 ទៅ Int16 ដើម្បីឱ្យទិន្នន័យតូច ហោះទៅលឿនមិនទាក់
-            const int16Array = new Int16Array(inputData.length);
-            for (let i = 0; i < inputData.length; i++) {
-                int16Array[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32768));
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
             }
 
-            if (socket && socket.connected) {
-                socket.emit('voiceData', { buffer: int16Array.buffer });
-            }
-        };
+            micSource = audioCtx.createMediaStreamSource(stream);
+            
+            // បង្កើត ScriptProcessor Node ដើម្បីទាញយក Float32 ផ្ទាល់ (Raw PCM)
+            scriptNode = audioCtx.createScriptProcessor(4096, 1, 1);
+            
+            scriptNode.onaudioprocess = (audioProcessingEvent) => {
+                if (!micEnabled || !currentRoom) return;
+                
+                const inputBuffer = audioProcessingEvent.inputBuffer;
+                const inputData = inputBuffer.getChannelData(0); // ឆានែលទោល Mono
+                
+                // បំប្លែង Float32 ទៅជា Int16 ដើម្បីសន្សំទំហំបណ្ដាញ និងងាយស្រួលបញ្ជូន
+                const int16Buffer = new Int16Array(inputData.length);
+                for (let i = 0; i < inputData.length; i++) {
+                    let s = Math.max(-1, Math.min(1, inputData[i]));
+                    int16Buffer[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                }
+                
+                // ផ្ញើទៅកាន់ Server
+                socket.emit('audio_packet', { roomId: currentRoom, buffer: int16Buffer.buffer });
+            };
 
+            micSource.connect(scriptNode);
+            scriptNode.connect(audioCtx.destination); // ចាំបាច់សម្រាប់កេះ Node ឱ្យដំណើរការ
+
+            if (callback) callback();
+        }).catch(err => {
+            console.log("Mic access error:", err);
+            if (callback) callback();
+        });
+    } else {
         if (callback) callback();
-    })
-    // កែសម្រួលក្នុង index.html
-    .catch(err => {
-        console.error("Error accessing microphone:", err);
-        // កុំឱ្យវា alert រំខានខ្លាំងពេក បើចង់ឱ្យអ្នកលេងអាចលេងបានទោះគ្មាន Mic
-        alert("ចំណាំ៖ មិនអាចប្រើម៉ៃក្រូហ្វូនបានទេ។ អ្នកនៅតែអាចលេងបាន ប៉ុន្តែនឹងមិនអាចនិយាយជាមួយមិត្តភក្តិបានទេ។");
-        micEnabled = false; 
-        updateMicButtonUI();
-    });
+    }
+}
 
 // ទទួលលេងសំឡេង Raw PCM ពីអ្នកលេងដទៃ (លឿនបំផុត គ្មានការយឺត)
 socket.on('audio_broadcast', (data) => {
@@ -1054,18 +1048,16 @@ socket.on('audio_broadcast', (data) => {
         }
         if (audioCtx.state === 'suspended') {
             audioCtx.resume();
-}
-
-        // បំប្លែង Buffer ដែលទទួលបានពី Server ទៅជា Int16Array
+        }
+        
+        // ទទួល Int16Array មកវិញ រួចបំប្លែងទៅជា Float32 សម្រាប់លេងលើ Speaker
         const int16Array = new Int16Array(data.buffer);
         const float32Array = new Float32Array(int16Array.length);
-        
-        // បំប្លែងត្រឡប់មកជា Float32 សម្រាប់ AudioContext
         for (let i = 0; i < int16Array.length; i++) {
             float32Array[i] = int16Array[i] / 32768.0;
         }
         
-        // បង្កើត AudioBuffer ភ្លាមៗដើម្បីចាក់សំឡេង
+        // បង្កើត AudioBuffer ផ្ទាល់ខ្លួនភ្លាមៗ (មិនខ្វល់រឿង WebM Header ទៀតឡើយ)
         const audioBuffer = audioCtx.createBuffer(1, float32Array.length, audioCtx.sampleRate);
         audioBuffer.getChannelData(0).set(float32Array);
         
@@ -1074,11 +1066,10 @@ socket.on('audio_broadcast', (data) => {
         source.connect(audioCtx.destination);
         source.start();
     } catch (e) {
-        console.error("កំហុសក្នុងការចាក់សំឡេង:", e);
+        // កំហុសឆ្គងតូចតាចនៃការចាក់សំឡេងមិនប៉ះពាល់ដល់ហ្គេមទេ
     }
 });
 
-// ប៊ូតុងបិទ/បើក Mic
 function toggleMic() {
     if (!localStream) {
         initVoiceAndExecute(() => {
@@ -1105,6 +1096,10 @@ function updateMicButtonUI() {
         btn.classList.add('muted');
     }
 }
+
+function startPlay() {}
+function removeAudioElement(id) {}
+function closeAllVoiceConnections() {}
 </script>
 </body>
 </html>
