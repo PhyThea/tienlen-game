@@ -412,7 +412,7 @@ button:disabled {
         <input type="text" id="playerName" placeholder="បញ្ចូលឈ្មោះរបស់អ្នក...">
         <div style="margin-top: 15px;">
             <input type="text" id="roomInput" placeholder="លេខបន្ទប់ (Room ID)...">
-            <input type="password" id="roomPass" placeholder="លេខកូដសម្ងាត់បន្ទប់ (បើគ្មាន ទុកទទេ)...">
+            <input type="password" id="roomPass" placeholder="លេខកកូដសម្ងាត់បន្ទប់ (បើគ្មាន ទុកទទេ)...">
             <div style="display: flex; gap: 10px;">
                 <button class="btn-blue" onclick="createRoom()">➕ បង្កើតបន្ទប់ថ្មី</button>
                 <button class="btn-green" onclick="joinRoom()">🚪 ចូលរួមបន្ទប់</button>
@@ -482,11 +482,12 @@ let playersData = [];
 let amISpectator = false;
 let lastRoundWinnerId = null; 
 
-// ប្រព័ន្ធបាញ់សំឡេងតាម Socket (ជំនួសឱ្យ WebRTC)
+// ប្រព័ន្ធបាញ់សំឡេង Raw PCM (ល្បឿនលឿន ឮច្បាស់ទាំង iOS & Android)
 let localStream = null;
 let micEnabled = true;
 let audioCtx = null;
-let mediaRecorder = null;
+let scriptNode = null;
+let micSource = null;
 
 function getCardFileName(card) {
     let valStr = card.value;
@@ -952,9 +953,14 @@ socket.on('gameOver', ({ winner, ranks }) => {
 });
 
 function leaveRoom() {
-    // ឈប់ថតសំឡេងពេលចេញពីបន្ទប់
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop();
+    // ផ្ដាច់ប្រព័ន្ធសំឡេងពេលចាកចេញ
+    if (scriptNode) {
+        scriptNode.disconnect();
+        scriptNode = null;
+    }
+    if (micSource) {
+        micSource.disconnect();
+        micSource = null;
     }
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
@@ -978,9 +984,9 @@ function leaveRoom() {
     socket.emit('leaveRoom');
 }
 
-// ==========================================
-// 🎙️ មុខងារសំឡេងពិតប្រាកដតាម SOCKET (WEB AUDIO API)
-// ==========================================
+// =======================================================
+// 🎙️ ប្រព័ន្ធសំឡេងកម្រិតខ្ពស់ RAW PCM (ធានាឮ ១០០% លើ iOS & Android)
+// =======================================================
 function initVoiceAndExecute(callback) {
     if (localStream) {
         if (callback) callback();
@@ -991,31 +997,40 @@ function initVoiceAndExecute(callback) {
         navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
             localStream = stream;
 
-            // បង្កើត Audio Context ដើម្បីដោះស្រាយ Autoplay លើ iOS ពេលមាន Interaction
+            // បង្កើត Audio Context ផ្លូវការ (iOS ស៊ើបទ្រទ្រង់ SampleRate 44100/48000 ធម្មតា)
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            micSource = audioCtx.createMediaStreamSource(stream);
             
-            // ប្រើប្រាស់ MediaRecorder ដើម្បីចាប់យកកញ្ចប់ទិន្នន័យសំឡេងតូចៗ
-            mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+            // បង្កើត ScriptProcessor Node ដើម្បីទាញយក Float32 ផ្ទាល់ (Raw PCM)
+            scriptNode = audioCtx.createScriptProcessor(4096, 1, 1);
             
-            mediaRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0 && micEnabled && currentRoom) {
-                    event.data.arrayBuffer().then(buffer => {
-                        socket.emit('audio_packet', { roomId: currentRoom, buffer: buffer });
-                    });
+            scriptNode.onaudioprocess = (audioProcessingEvent) => {
+                if (!micEnabled || !currentRoom) return;
+                
+                const inputBuffer = audioProcessingEvent.inputBuffer;
+                const inputData = inputBuffer.getChannelData(0); // ឆានែលទោល Mono
+                
+                // បំប្លែង Float32 ទៅជា Int16 ដើម្បីសន្សំទំហំបណ្ដាញ និងងាយស្រួលបញ្ជូន
+                const int16Buffer = new Int16Array(inputData.length);
+                for (let i = 0; i < inputData.length; i++) {
+                    let s = Math.max(-1, Math.min(1, inputData[i]));
+                    int16Buffer[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
                 }
+                
+                // ផ្ញើទៅកាន់ Server
+                socket.emit('audio_packet', { roomId: currentRoom, buffer: int16Buffer.buffer });
             };
 
-            // បញ្ជាឱ្យទាញយកទិន្នន័យរៀងរាល់ ២៥០ មីលីវិនាទី (កាត់បន្ថយការទាក់ ឬយឺត)
-            setInterval(() => {
-                if (mediaRecorder.state === 'recording') {
-                    mediaRecorder.requestData();
-                }
-            }, 250);
+            micSource.connect(scriptNode);
+            scriptNode.connect(audioCtx.destination); // ចាំបាច់សម្រាប់កេះ Node ឱ្យដំណើរការ
 
-            mediaRecorder.start();
             if (callback) callback();
         }).catch(err => {
-            console.log("ការចូលប្រើប្រាស់ Mic ត្រូវបានបដិសេធ ឬមានកំហុស៖", err);
+            console.log("Mic access error:", err);
             if (callback) callback();
         });
     } else {
@@ -1023,9 +1038,9 @@ function initVoiceAndExecute(callback) {
     }
 }
 
-// ទទួលលេងសំឡេងពីសមាជិកដទៃក្នុងបន្ទប់
-socket.on('audio_broadcast', async (data) => {
-    if (data.from === socket.id) return; // មិនលេងសំឡេងខ្លួនឯងទេ
+// ទទួលលេងសំឡេង Raw PCM ពីអ្នកលេងដទៃ (លឿនបំផុត គ្មានការយឺត)
+socket.on('audio_broadcast', (data) => {
+    if (data.from === socket.id) return;
     
     try {
         if (!audioCtx) {
@@ -1035,14 +1050,23 @@ socket.on('audio_broadcast', async (data) => {
             audioCtx.resume();
         }
         
-        // Decode ArrayBuffer ទៅជា AudioData រួចបញ្ចេញទៅកាន់ Speaker
-        const audioBuffer = await audioCtx.decodeAudioData(data.buffer);
+        // ទទួល Int16Array មកវិញ រួចបំប្លែងទៅជា Float32 សម្រាប់លេងលើ Speaker
+        const int16Array = new Int16Array(data.buffer);
+        const float32Array = new Float32Array(int16Array.length);
+        for (let i = 0; i < int16Array.length; i++) {
+            float32Array[i] = int16Array[i] / 32768.0;
+        }
+        
+        // បង្កើត AudioBuffer ផ្ទាល់ខ្លួនភ្លាមៗ (មិនខ្វល់រឿង WebM Header ទៀតឡើយ)
+        const audioBuffer = audioCtx.createBuffer(1, float32Array.length, audioCtx.sampleRate);
+        audioBuffer.getChannelData(0).set(float32Array);
+        
         const source = audioCtx.createBufferSource();
         source.buffer = audioBuffer;
         source.connect(audioCtx.destination);
         source.start();
     } catch (e) {
-        // កំហុសឆ្គងតូចតាចនៃការ decode កញ្ចប់សំឡេងដាច់ៗ មិនឱ្យប៉ះពាល់ដល់ហ្គេមទេ
+        // កំហុសឆ្គងតូចតាចនៃការចាក់សំឡេងមិនប៉ះពាល់ដល់ហ្គេមទេ
     }
 });
 
@@ -1073,7 +1097,6 @@ function updateMicButtonUI() {
     }
 }
 
-// មុខងារចាស់ដែលលែងប្រើ ប៉ុន្តែរក្សាទុកឈ្មោះកុំឱ្យទាក់កូដហៅពីកន្លែងផ្សេង
 function startPlay() {}
 function removeAudioElement(id) {}
 function closeAllVoiceConnections() {}
