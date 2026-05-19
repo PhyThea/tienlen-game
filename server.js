@@ -242,23 +242,9 @@ io.on('connection', (socket) => {
         };
         
         socket.join(roomId);
-        
-        // ➕ បន្ថែមបន្ទាត់នេះចូល ដើម្បីឱ្យអ្នកបង្កើតបន្ទប់ចាប់ផ្ដើមដំណើរការ Voice ដែរ
-        socket.emit('voice_user_joined', { id: socket.id }); 
-
         socket.emit('roomCreated', { roomId, playerId: socket.id });
         io.to(roomId).emit('updatePlayers', rooms[roomId].players);
         broadcastRoomList();
-    });
-
-    // ប្ដូរទៅជាការបោះបន្តរាល់ទិន្នន័យសញ្ញាទាំងអស់ដែលហូរចូលមក (Support Trickle ICE)
-    socket.on('voice_signal', (data) => {
-        if (data && data.to) {
-            io.to(data.to).emit('voice_signal', {
-                from: socket.id,
-                signal: data.signal
-            });
-        }
     });
 
     socket.on('joinRoom', ({ roomId, password, playerName }) => {
@@ -268,32 +254,19 @@ io.on('connection', (socket) => {
         if (room.players.length >= 4) return socket.emit('errorMsg', 'បន្ទប់ពេញហើយ!');
 
         const isSpectator = room.status === 'playing';
-
-        // ➕ បញ្ជូនសញ្ញាប្រាប់អ្នកនៅក្នុង Room ថាមានសមាជិកថ្មីចូលរួម Voice Chat
-        socket.to(roomId).emit('voice_user_joined', { id: socket.id });
-
-        room.players.push({ 
-            id: socket.id, 
-            name: playerName || 'Guest', 
-            hand: [], 
-            passed: false,
-            isSpectator: isSpectator,
-            rank: null
-        });
-
+        room.players.push({ id: socket.id, name: playerName || 'Guest', hand: [], passed: false, isSpectator: isSpectator, rank: null });
         socket.join(roomId);
-        
-        // 🛠️ កែសម្រួល៖ ផ្ញើទាំង playedCards និង currentTurnIndex ទៅឱ្យអ្នកលេងដែលទើបចូលរួម
-        socket.emit('roomJoined', { 
-            roomId, 
-            playerId: socket.id, 
-            isSpectator,
-            playedCards: room.playedCards,
-            currentTurnIndex: room.currentTurnIndex
-        });
-        
+
+        socket.emit('roomJoined', { roomId, playerId: socket.id, isSpectator, playedCards: room.playedCards, currentTurnIndex: room.currentTurnIndex });
         io.to(roomId).emit('updatePlayers', room.players);
         broadcastRoomList();
+    });
+
+    socket.on('audio_packet', (data) => {
+        socket.to(data.roomId).emit('audio_broadcast', {
+            from: socket.id,
+            buffer: data.buffer
+        });
     });
 
     socket.on('startGame', (roomId) => {
