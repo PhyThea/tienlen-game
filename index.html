@@ -470,63 +470,6 @@ button:disabled {
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-
-// === 🎙️ AUDIO SMOOTHING SYSTEM (ដាក់នៅខាងលើគេ) ===
-let audioContext = null;
-let nextStartTime = 0;
-const audioBuffersQueue = {}; 
-
-function initAudio() {
-    if (!audioContext) {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if (audioContext.state === 'suspended') {
-        audioContext.resume();
-    }
-}
-
-async function decodeAudioData(arrayBuffer) {
-    return new Promise((resolve, reject) => {
-        audioContext.decodeAudioData(arrayBuffer, resolve, reject);
-    });
-}
-
-async function playAudioSmoothly(userId, arrayBuffer) {
-    if (!audioContext) initAudio();
-    if (!audioBuffersQueue[userId]) {
-        audioBuffersQueue[userId] = [];
-    }
-
-    try {
-        const audioBuffer = await decodeAudioData(arrayBuffer);
-        audioBuffersQueue[userId].push(audioBuffer);
-        processAudioQueue(userId);
-    } catch (e) {
-        console.error("Error decoding audio:", e);
-    }
-}
-
-function processAudioQueue(userId) {
-    const queue = audioBuffersQueue[userId];
-    if (!queue || queue.length === 0) return;
-
-    const currentTime = audioContext.currentTime;
-    
-    if (nextStartTime < currentTime) {
-        nextStartTime = currentTime + 0.05; // Buffer 50ms
-    }
-
-    while (queue.length > 0) {
-        const buffer = queue.shift();
-        const source = audioContext.createBufferSource();
-        source.buffer = buffer;
-        source.connect(audioContext.destination);
-        
-        source.start(nextStartTime);
-        nextStartTime += buffer.duration;
-    }
-}
-
 const socket = io();
 
 let myId = null;
@@ -1095,26 +1038,36 @@ function initVoiceAndExecute(callback) {
     }
 }
 
-// === 🎙️ SOCKET AUDIO BROADCAST (ជំនួសកូដចាស់) ===
+// ទទួលលេងសំឡេង Raw PCM ពីអ្នកលេងដទៃ (លឿនបំផុត គ្មានការយឺត)
 socket.on('audio_broadcast', (data) => {
-    // កុំលេងសំឡេងខ្លួនឯង
     if (data.from === socket.id) return;
     
-    let arrayBuffer = data.buffer;
-    
-    // ប្រសិនបើទិន្នន័យជា Base64 string
-    if (typeof data.buffer === 'string') {
-        const binaryString = window.atob(data.buffer);
-        const len = binaryString.length;
-        const bytes = new Uint8Array(len);
-        for (let i = 0; i < len; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
+    try {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         }
-        arrayBuffer = bytes.buffer;
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+        
+        // ទទួល Int16Array មកវិញ រួចបំប្លែងទៅជា Float32 សម្រាប់លេងលើ Speaker
+        const int16Array = new Int16Array(data.buffer);
+        const float32Array = new Float32Array(int16Array.length);
+        for (let i = 0; i < int16Array.length; i++) {
+            float32Array[i] = int16Array[i] / 32768.0;
+        }
+        
+        // បង្កើត AudioBuffer ផ្ទាល់ខ្លួនភ្លាមៗ (មិនខ្វល់រឿង WebM Header ទៀតឡើយ)
+        const audioBuffer = audioCtx.createBuffer(1, float32Array.length, audioCtx.sampleRate);
+        audioBuffer.getChannelData(0).set(float32Array);
+        
+        const source = audioCtx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioCtx.destination);
+        source.start();
+    } catch (e) {
+        // កំហុសឆ្គងតូចតាចនៃការចាក់សំឡេងមិនប៉ះពាល់ដល់ហ្គេមទេ
     }
-
-    // ហៅ function លេងសំឡេងរលូន
-    playAudioSmoothly(data.from, arrayBuffer);
 });
 
 function toggleMic() {
