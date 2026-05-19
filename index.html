@@ -554,10 +554,14 @@ function getPlayerName() {
 
 function createRoom() {
     const playerName = getPlayerName();
-    if (!playerName) return;
     const roomId = document.getElementById('roomInput').value.trim();
     const password = document.getElementById('roomPass').value;
+
+    console.log("Sending:", { roomId, password, playerName }); // បើកមើល Console (F12) ដើម្បីឃើញថាវាចេញអី
+
+    if (!playerName) return alert("សូមបញ្ចូលឈ្មោះអ្នកលេង!");
     if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!");
+
     initVoiceAndExecute(() => {
         socket.emit('createRoom', { roomId, password, playerName });
     });
@@ -1031,11 +1035,14 @@ function initVoiceAndExecute(callback) {
 
         if (callback) callback();
     })
+    // កែសម្រួលក្នុង index.html
     .catch(err => {
         console.error("Error accessing microphone:", err);
-        alert("មិនអាចបើកម៉ៃក្រូហ្វូនបានទេ៖ " + err.message);
+        // កុំឱ្យវា alert រំខានខ្លាំងពេក បើចង់ឱ្យអ្នកលេងអាចលេងបានទោះគ្មាន Mic
+        alert("ចំណាំ៖ មិនអាចប្រើម៉ៃក្រូហ្វូនបានទេ។ អ្នកនៅតែអាចលេងបាន ប៉ុន្តែនឹងមិនអាចនិយាយជាមួយមិត្តភក្តិបានទេ។");
+        micEnabled = false; 
+        updateMicButtonUI();
     });
-}
 
 // ទទួលលេងសំឡេង Raw PCM ពីអ្នកលេងដទៃ (លឿនបំផុត គ្មានការយឺត)
 socket.on('audio_broadcast', (data) => {
