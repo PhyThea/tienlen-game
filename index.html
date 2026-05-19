@@ -1190,9 +1190,11 @@ function initVoiceAndExecute(callback) {
                     int16Buffer[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
                 }
                 
-                // ផ្ញើទៅកាន់ Server
-                socket.emit('audio_packet', { roomId: currentRoom, buffer: int16Buffer.buffer });
-            };
+    // ពេលផ្ញើចេញពី Mic
+    socket.emit('audio_packet', {
+        roomId: currentRoomId, 
+        buffer: pcmData 
+    });
 
             micSource.connect(scriptNode);
             scriptNode.connect(audioCtx.destination); // ចាំបាច់សម្រាប់កេះ Node ឱ្យដំណើរការ
@@ -1207,7 +1209,9 @@ function initVoiceAndExecute(callback) {
     }
 }
 
-// ទទួលលេងសំឡេង Raw PCM ពីអ្នកលេងដទៃ (លឿនបំផុត គ្មានការយឺត)
+// កំណត់អថេរខាងក្រៅដើម្បីទុកដាក់សំឡេង
+let nextStartTime = 0;
+
 socket.on('audio_broadcast', (data) => {
     if (data.from === socket.id) return;
     
@@ -1218,24 +1222,31 @@ socket.on('audio_broadcast', (data) => {
         if (audioCtx.state === 'suspended') {
             audioCtx.resume();
         }
-        
-        // ទទួល Int16Array មកវិញ រួចបំប្លែងទៅជា Float32 សម្រាប់លេងលើ Speaker
+
         const int16Array = new Int16Array(data.buffer);
         const float32Array = new Float32Array(int16Array.length);
         for (let i = 0; i < int16Array.length; i++) {
             float32Array[i] = int16Array[i] / 32768.0;
         }
-        
-        // បង្កើត AudioBuffer ផ្ទាល់ខ្លួនភ្លាមៗ (មិនខ្វល់រឿង WebM Header ទៀតឡើយ)
-        const audioBuffer = audioCtx.createBuffer(1, float32Array.length, audioCtx.sampleRate);
+
+        const audioBuffer = audioCtx.createBuffer(1, float32Array.length, 44100); // កំណត់ Sample Rate ឱ្យថេរ 44.1kHz
         audioBuffer.getChannelData(0).set(float32Array);
-        
+
         const source = audioCtx.createBufferSource();
         source.buffer = audioBuffer;
         source.connect(audioCtx.destination);
-        source.start();
+
+        // 💡 គន្លឹះសំខាន់៖ តម្រង់ជួរសំឡេងកុំឱ្យត្រួតគ្នា
+        const currentTime = audioCtx.currentTime;
+        if (nextStartTime < currentTime) {
+            nextStartTime = currentTime + 0.1; // បន្ថែម Delay បន្តិចបើ Buffer ដាច់
+        }
+        
+        source.start(nextStartTime);
+        nextStartTime += audioBuffer.duration; // បូកបន្ថែមរយៈពេលនៃ Buffer នេះ
+        
     } catch (e) {
-        // កំហុសឆ្គងតូចតាចនៃការចាក់សំឡេងមិនប៉ះពាល់ដល់ហ្គេមទេ
+        console.error("Audio Playback Error:", e);
     }
 });
 
