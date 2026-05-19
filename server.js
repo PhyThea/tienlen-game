@@ -1,5 +1,5 @@
 // =================================================================
-// server.js (កំណែទម្រង់ជួសជុលការចូលបន្ទប់មិនកើត និងរក្សាទុកច្បាប់បៀរចាស់ + Voice ថ្មី)
+// server.js (រក្សារចនាសម្ព័ន្ធ និងច្បាប់កូដចាស់ទាំងអស់ ១០០% + Voice Chat ថ្មី)
 // =================================================================
 const express = require('express');
 const http = require('http');
@@ -9,7 +9,7 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-    maxHttpBufferSize: 1e7 // ការពារទិន្នន័យសំឡេងធំរបស់ Voice Chat
+    maxHttpBufferSize: 1e7 // បង្កើនទំហំ Buffer ការពារទិន្នន័យសំឡេងធំរបស់ Voice Chat ថ្មី
 });
 
 app.use(express.static(__dirname));
@@ -220,7 +220,7 @@ function broadcastRoomList() {
 // === SOCKET CONNECTION ===
 io.on('connection', (socket) => {
     
-    // 🎙️ Voice Chat RAW PCM
+    // 🎙️ ប្រព័ន្ធ Voice Chat RAW PCM ថ្មី (កូដខ្លីរត់លឿនលែងទាក់)
     socket.on('voiceData', (data) => {
         if (socket.roomId) {
             socket.to(socket.roomId).emit('audioStream', {
@@ -230,17 +230,11 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 🛠️ ជួសជុលមុខងារបង្កើតបន្ទប់ (Create Room)
     socket.on('createRoom', (data) => {
-        if (!data || !data.roomId) return socket.emit('errorMsg', 'ទិន្នន័យបន្ទប់មិនត្រឹមត្រូវ!');
-        const roomId = data.roomId.trim();
-        const password = data.password;
-        const playerName = data.playerName;
-
+        const { roomId, password, playerName } = data;
         if (rooms[roomId]) {
             return socket.emit('errorMsg', 'បន្ទប់នេះមានរួចហើយ!');
         }
-
         rooms[roomId] = {
             id: roomId,
             password: password || null,
@@ -258,13 +252,8 @@ io.on('connection', (socket) => {
         joinRoomLogic(socket, roomId, playerName);
     });
 
-    // 🛠️ ជួសជុលមុខងារចូលបន្ទប់ (Join Room)
     socket.on('joinRoom', (data) => {
-        if (!data || !data.roomId) return socket.emit('errorMsg', 'រកមិនឃើញលេខបន្ទប់ឡើយ!');
-        const roomId = data.roomId.trim();
-        const password = data.password;
-        const playerName = data.playerName;
-
+        const { roomId, password, playerName } = data;
         const room = rooms[roomId];
         if (!room) return socket.emit('errorMsg', 'រកមិនឃើញបន្ទប់ឡើយ!');
         if (room.status !== 'waiting') return socket.emit('errorMsg', 'ហ្គេមកំពុងលេង មិនអាចចូលបានទេ!');
@@ -276,8 +265,6 @@ io.on('connection', (socket) => {
 
     function joinRoomLogic(socket, roomId, playerName) {
         const room = rooms[roomId];
-        if (!room) return;
-
         const newPlayer = {
             id: socket.id,
             name: playerName || `Player_${socket.id.substring(0,4)}`,
@@ -286,7 +273,6 @@ io.on('connection', (socket) => {
             rank: null,
             isSpectator: false
         };
-        
         room.players.push(newPlayer);
         socket.roomId = roomId;
         socket.join(roomId);
@@ -393,6 +379,7 @@ io.on('connection', (socket) => {
         });
     });
 
+    // 🛠️ ចម្លងលក្ខខណ្ឌចាកចេញពីកូដចាស់មកដាក់វិញទាំងស្រុង ១០០% (ដូចរូបភាពរបស់អ្នកបេះបិទ)
     function handlePlayerLeave(socketInstance) {
         const id = socketInstance.roomId;
         if (id && rooms[id]) {
@@ -408,19 +395,25 @@ io.on('connection', (socket) => {
                 if (room.players.length === 0) {
                     delete rooms[id];
                 } else {
+                    // ១. ផ្ទេរ lastWinnerId បើអ្នកឈ្នះចាកចេញ
                     if (room.lastWinnerId === leavingPlayerId) {
                         room.lastWinnerId = room.players[0].id;
                     }
+                    // ២. ផ្ទេរ creatorId បើម្ចាស់បន្ទប់ចាកចេញ
                     if (room.creatorId === leavingPlayerId && room.players.length > 0) {
                         room.creatorId = room.players[0].id;
                     }
 
+                    // ៣. ករណីហ្គេមកំពុងលេង ហើយចំវេនអ្នកផ្តាច់ការតភ្ជាប់
                     if (room.status === 'playing' && !wasSpectator && room.currentTurnIndex === pIdx) {
                         handleTurnAndRoundStatus(room);
                         io.to(id).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex });
                     }
                     
+                    // 📣 ផ្ញើព័ត៌មានបច្ចុប្បន្នភាពទៅកាន់ Client ទាំងអស់នៅក្នុង Room ភ្លាមៗ
                     io.to(id).emit('updatePlayers', room.players);
+                    
+                    // 🛠️ ធ្វើបច្ចុប្បន្នភាព៖ ផ្ញើទាំង newWinnerId និង creatorId ទៅ Client ដើម្បីឱ្យ UI បង្ហាញប៊ូតុង Start Again
                     io.to(id).emit('winnerTransferred', { 
                         newWinnerId: room.lastWinnerId,
                         creatorId: room.creatorId
