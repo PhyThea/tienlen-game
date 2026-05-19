@@ -220,12 +220,15 @@ function broadcastRoomList() {
 // === SOCKET CONNECTION ===
 io.on('connection', (socket) => {
     
-    // 🎙️ Voice Chat RAW PCM
+    // បន្ថែមក្នុង server.js
     socket.on('voiceData', (data) => {
-        if (socket.roomId) {
-            socket.to(socket.roomId).emit('audioStream', {
-                senderId: socket.id,
-                buffer: data.buffer
+        // ស្វែងរកបន្ទប់ដែលអ្នកលេងកំពុងនៅ
+        const roomId = Object.keys(rooms).find(id => rooms[id].players.find(p => p.id === socket.id));
+        if (roomId) {
+            // បាញ់សំឡេងទៅអ្នកលេងទាំងអស់ក្នុងបន្ទប់ លើកលែងខ្លួនឯង
+            socket.to(roomId).emit('audio_broadcast', { 
+                buffer: data.buffer, 
+                from: socket.id 
             });
         }
     });
