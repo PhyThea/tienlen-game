@@ -1,5 +1,5 @@
 // =================================================================
-// server.js (កំណែទម្រង់រួមបញ្ចូលច្បាប់កាត់ពីកូដចាស់ និងប្រព័ន្ធ Voice Chat)
+// server.js (កំណែទម្រង់រួមបញ្ចូលច្បាប់កាត់ពីកូដចាស់ និងប្រព័ន្ធ Voice Chat RAW PCM)
 // =================================================================
 const express = require('express');
 const http = require('http');
@@ -8,7 +8,9 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+    maxHttpBufferSize: 1e7 // បង្កើនទំហំ Buffer ការពារទិន្នន័យសំឡេងធំ
+});
 
 app.use(express.static(__dirname));
 
@@ -252,7 +254,7 @@ io.on('connection', (socket) => {
         broadcastRoomList();
     });
 
-    // 🎙️ ទទួលកញ្ចប់សំឡេងពីទូរស័ព្ទមួយ រួចបាញ់បន្តទៅទូរស័ព្ទផ្សេងទៀតក្នុងបន្ទប់ភ្លាមៗ
+    // 🎙️ ទទួលទិន្នន័យសំឡេង Raw PCM រួចបាញ់ចែកចាយភ្លាមៗ
     socket.on('audio_packet', (data) => {
         if (data && data.roomId) {
             socket.to(data.roomId).emit('audio_broadcast', {
