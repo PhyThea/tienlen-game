@@ -1,5 +1,5 @@
 // =================================================================
-// server.js (កំណែទម្រង់រួមបញ្ចូលច្បាប់កាត់ពីកូដចាស់ និងប្រព័ន្ធ Voice Chat RAW PCM ថ្មី)
+// server.js (កំណែ Old + Voice Chat RAW PCM ពី New)
 // =================================================================
 const express = require('express');
 const http = require('http');
@@ -9,7 +9,7 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-    maxHttpBufferSize: 1e7 // បង្កើនទំហំ Buffer ការពារទិន្នន័យសំឡេងធំរបស់ Voice Chat ថ្មី
+    maxHttpBufferSize: 1e7 // បង្កើនទំហំ Buffer សម្រាប់ Voice Chat
 });
 
 app.use(express.static(__dirname));
@@ -50,12 +50,12 @@ function sortCards(cards) {
     return cards.sort((a, b) => getCardPower(a) - getCardPower(b));
 }
 
-// 🛠️ ស្តារពីកូដចាស់៖ គិតគូរៀបចាប់ពី ៤ សន្លឹកឡើងទៅ (២ គូរៀប, ៣ គូរៀប, ៤ គូរៀប)
+// 🛠️ យកតាមកកូដចាស់៖ អនុញ្ញាតឱ្យគិតគូរៀបចាប់ពី ៤ សន្លឹកឡើងទៅ (២ គូរៀប)
 function isConsecutivePairs(cards) {
     const len = cards.length;
     if (len < 4 || len % 2 !== 0) return false;
     const sorted = sortCards([...cards]);
-
+    
     for (let i = 0; i < len; i += 2) {
         if (sorted[i].value !== sorted[i+1].value) return false;
     }
@@ -85,6 +85,7 @@ function getComboType(cards) {
         if (len === 4) return 'bomb';   
     }
 
+    // 🛠️ យកតាមកូដចាស់៖ ស្គាល់ទាំង ២គូរៀប, ៣គូរៀប និង ៤គូរៀប
     if (isConsecutivePairs(cards)) {
         if (len === 4) return 'double_pair'; 
         if (len === 6) return 'triple_pair'; 
@@ -107,7 +108,6 @@ function getComboType(cards) {
     return null;
 }
 
-// 🛠️ ស្តារឡើងវិញទាំងស្រុង៖ ច្បាប់វាយកាត់បៀរចាស់ (Cut Rules) ដ៏ម៉ត់ចត់
 function comparePlay(newCards, oldCards) {
     if (!oldCards || oldCards.length === 0) return true;
     
@@ -117,28 +117,28 @@ function comparePlay(newCards, oldCards) {
     if (!newType) return false; 
 
     const sortedNew = sortCards([...newCards]);
-    const sortedOld = sortCards([...oldCards]);
+    const sortedOld = sortCards([...oldCards]); // Fixed typo from old code
 
     const newMax = getCardPower(sortedNew[sortedNew.length - 1]);
     const oldMax = getCardPower(sortedOld[sortedOld.length - 1]);
 
-    // ច្បាប់វាយកាត់បៀរ ២ ទោល (Single 2)
+    // 🛠️ យកតាមកូដចាស់៖ ច្បាប់វាយកាត់បៀរ ២ ទោល (Single 2)
     if (oldType === 'single' && oldCards[0].value === '2') {
         if (newType === 'triple_pair' || newType === 'quad_pair' || newType === 'bomb') return true;
     }
 
-    // ច្បាប់វាយកាត់បៀរគូ ២ (Pair 2) 
+    // 🛠️ យកតាមកូដចាស់៖ ច្បាប់វាយកាត់បៀរគូ ២ (Pair 2) អនុញ្ញាតឱ្យ Bomb ស៊ីកាត់បាន
     if (oldType === 'pair' && oldCards[0].value === '2') {
         if (newType === 'quad_pair' || newType === 'bomb') return true;
     }
 
-    // ច្បាប់ប៊ុម/ណៅ (Bomb) កាត់ប៊ុម ឬកាត់គូរៀប
+    // ច្បាប់ប៊ុម (Bomb) កាត់ប៊ុម ឬកាត់គូរៀប
     if (oldType === 'bomb') {
         if (newType === 'bomb' && newMax > oldMax) return true;
         if (newType === 'quad_pair') return true;
     }
 
-    // ៣ គូរៀប កាត់គ្នា ឬត្រូវប៊ុម/៤គូរៀបកាត់
+    // ៣ គូរៀប កាត់គ្នា ឬត្រូវប៊ុមកាត់
     if (oldType === 'triple_pair') {
         if (newType === 'triple_pair' && newMax > oldMax) return true;
         if (newType === 'quad_pair' || newType === 'bomb') return true;
@@ -149,7 +149,7 @@ function comparePlay(newCards, oldCards) {
         if (newType === 'quad_pair' && newMax > oldMax) return true;
     }
 
-    // ករណីបៀរប្រភេទដូចគ្នា និងចំនួនសន្លឹកស្មើគ្នា គឺវាស់កម្លាំងសន្លឹកធំបំផុត
+    // ករណីប្រភេទ Combo ដូចគ្នា និងចំនួនសន្លឹកស្មើគ្នា គឺវាស់កម្លាំងសន្លឹកធំបំផុត
     if (newType === oldType && newCards.length === oldCards.length) {
         return newMax > oldMax;
     }
@@ -161,278 +161,406 @@ function moveToNextTurn(room) {
     let originalIndex = room.currentTurnIndex;
     let nextIndex = originalIndex;
     let found = false;
-
     for (let i = 1; i <= room.players.length; i++) {
         let checkIndex = (originalIndex + i) % room.players.length;
         let p = room.players[checkIndex];
-        if (p.hand.length > 0 && !p.passed) {
+        if (p && p.hand.length > 0 && !p.passed) {
             nextIndex = checkIndex;
             found = true;
             break;
         }
     }
-
-    if (!found) {
-        // ចប់ជុំមួយ (Round Over) -> អ្នកចុះចុងក្រោយគេបានដៃ
-        room.players.forEach(p => p.passed = false);
-        room.lastPlay = null;
-        
-        let lastPlayIndex = room.players.findIndex(p => p.id === room.lastPlayPlayerId);
-        if (lastPlayIndex !== -1 && room.players[lastPlayIndex].hand.length > 0) {
-            room.currentTurnIndex = lastPlayIndex;
-        } else {
-            // បើអ្នកបានដៃអស់បៀរមុន ផ្ទេរទៅអ្នកបន្ទាប់ដែលមានបៀរ
-            for (let i = 0; i < room.players.length; i++) {
-                let checkIdx = (room.lastPlayPlayerIdIndex + i) % room.players.length;
-                if (room.players[checkIdx].hand.length > 0) {
-                    room.currentTurnIndex = checkIdx;
-                    break;
-                }
-            }
-        }
-    } else {
+    if (found) {
         room.currentTurnIndex = nextIndex;
     }
 }
 
 function handleTurnAndRoundStatus(room) {
-    let activePlayersWithCards = room.players.filter(p => p.hand.length > 0 && !p.passed);
-    if (activePlayersWithCards.length <= 1) {
-        room.players.forEach(p => p.passed = false);
-        room.lastPlay = null;
-        let nextIdx = room.players.findIndex(p => p.id === room.lastPlayPlayerId);
-        if (nextIdx === -1 || room.players[nextIdx].hand.length === 0) {
-            nextIdx = room.players.findIndex(p => p.hand.length > 0);
+    const activePlayersInRound = room.players.filter(p => p.hand.length > 0 && !p.passed);
+    let lastPlayerIdx = room.players.findIndex(p => p.id === room.lastPlayerId);
+    const isLastPlayerOut = (lastPlayerIdx !== -1 && room.players[lastPlayerIdx].hand.length === 0);
+    const isRoundOver = isLastPlayerOut ? (activePlayersInRound.length === 0) : (activePlayersInRound.length <= 1);
+
+    if (isRoundOver) {
+        room.playedCards = [];
+        room.players.forEach(p => {
+            if (p.hand.length > 0) p.passed = false;
+        });
+
+        if (isLastPlayerOut) {
+            let nextIndex = (lastPlayerIdx + 1) % room.players.length;
+            while (room.players[nextIndex].hand.length === 0) {
+                nextIndex = (nextIndex + 1) % room.players.length;
+            }
+            room.currentTurnIndex = nextIndex;
+            room.lastPlayerId = room.players[nextIndex].id;
+        } else {
+            room.currentTurnIndex = lastPlayerIdx !== -1 ? lastPlayerIdx : room.currentTurnIndex;
         }
-        room.currentTurnIndex = nextIdx !== -1 ? nextIdx : 0;
+
+        io.to(room.roomId).emit('clearTable', { nextPlayer: room.players[room.currentTurnIndex].name });
+        io.to(room.roomId).emit('turnChanged', { 
+            currentTurnIndex: room.currentTurnIndex,
+            players: room.players 
+        });
     } else {
         moveToNextTurn(room);
     }
 }
 
-function checkGameEnd(room) {
-    let playersWithCards = room.players.filter(p => p.hand.length > 0);
-    if (playersWithCards.length <= 1) {
-        room.status = 'finished';
-        
-        if (playersWithCards.length === 1) {
-            playersWithCards[0].rank = room.nextRank;
-            room.nextRank++;
-        }
-
-        io.to(room.id).emit('gameEnd', room.players);
-    }
-}
-
 function broadcastRoomList() {
-    const list = Object.values(rooms)
-        .filter(r => r.status === 'waiting')
-        .map(r => ({ id: r.id, playerCount: r.players.length, hasPass: !!r.password }));
+    const list = Object.keys(rooms).map(id => {
+        return {
+            roomId: id,
+            playerCount: rooms[id].players.length,
+            status: rooms[id].status,
+            hasPassword: rooms[id].password && rooms[id].password !== "" ? true : false
+        };
+    });
     io.emit('roomList', list);
 }
 
-// === SOCKET CONNECTION ===
 io.on('connection', (socket) => {
-    
-    // 🎙️ ប្រព័ន្ធ VOICE CHAT RAW PCM ថ្មី (ដើរស្រួល ងាយនិយាយគ្នា)
-    socket.on('voiceData', (data) => {
-        if (socket.roomId) {
-            socket.to(socket.roomId).emit('audioStream', {
-                senderId: socket.id,
+    broadcastRoomList();
+
+    socket.on('createRoom', ({ roomId, password, playerName }) => {
+        if (rooms[roomId]) {
+            return socket.emit('errorMsg', 'បន្ទប់នេះមានរួចហើយ!');
+        }
+        
+        rooms[roomId] = {
+            roomId: roomId,
+            players: [{ id: socket.id, name: playerName || 'Player 1', hand: [], passed: false, isSpectator: false, rank: null }],
+            creatorId: socket.id,
+            status: 'waiting', 
+            password: password || "",
+            currentTurnIndex: 0,
+            playedCards: [],
+            lastPlayerId: null,
+            lastWinnerId: null,
+            nextRank: 1
+        };
+        
+        socket.join(roomId);
+        
+        // ➕ បន្ថែមបន្ទាត់នេះចូល ដើម្បីឱ្យអ្នកបង្កើតបន្ទប់ចាប់ផ្ដើមដំណើរការ Voice ដែរ
+        socket.emit('voice_user_joined', { id: socket.id }); 
+
+        socket.emit('roomCreated', { roomId, playerId: socket.id });
+        io.to(roomId).emit('updatePlayers', rooms[roomId].players);
+        broadcastRoomList();
+    });
+
+    // 🎙️ ទទួលទិន្នន័យសំឡេង Raw PCM ពីកូដ New (ស្រាល និងច្បាស់ជាង)
+    socket.on('audio_packet', (data) => {
+        if (data && data.roomId) {
+            socket.to(data.roomId).emit('audio_broadcast', {
+                from: socket.id,
                 buffer: data.buffer
             });
         }
     });
 
-    socket.on('createRoom', (data) => {
-        const { roomId, password, playerName } = data;
-        if (rooms[roomId]) {
-            return socket.emit('errorMsg', 'បន្ទប់នេះមានរួចហើយ!');
-        }
-        rooms[roomId] = {
-            id: roomId,
-            password: password || null,
-            status: 'waiting',
-            players: [],
-            lastPlay: null,
-            lastPlayPlayerId: null,
-            lastPlayPlayerIdIndex: 0,
-            currentTurnIndex: 0,
-            nextRank: 1,
-            creatorId: socket.id,
-            lastWinnerId: socket.id
-        };
-
-        joinRoomLogic(socket, roomId, playerName);
-    });
-
-    socket.on('joinRoom', (data) => {
-        const { roomId, password, playerName } = data;
+    socket.on('joinRoom', ({ roomId, password, playerName }) => {
         const room = rooms[roomId];
-        if (!room) return socket.emit('errorMsg', 'រកមិនឃើញបន្ទប់ឡើយ!');
-        if (room.status !== 'waiting') return socket.emit('errorMsg', 'ហ្គេមកំពុងលេង មិនអាចចូលបានទេ!');
-        if (room.players.length >= 4) return socket.emit('errorMsg', 'បន្ទប់ពេញហើយ (អតិបរមា ៤ នាក់)!');
+        if (!room) return socket.emit('errorMsg', 'រកមិនឃើញបន្ទប់នេះទេ!');
         if (room.password && room.password !== password) return socket.emit('errorMsg', 'លេខកូដសម្ងាត់មិនត្រឹមត្រូវ!');
+        if (room.players.length >= 4) return socket.emit('errorMsg', 'បន្ទប់ពេញហើយ!');
 
-        joinRoomLogic(socket, roomId, playerName);
-    });
+        const isSpectator = room.status === 'playing';
 
-    function joinRoomLogic(socket, roomId, playerName) {
-        const room = rooms[roomId];
-        const newPlayer = {
-            id: socket.id,
-            name: playerName || `Player_${socket.id.substring(0,4)}`,
-            hand: [],
+        // ➕ បញ្ជូនសញ្ញាប្រាប់អ្នកនៅក្នុង Room ថាមានសមាជិកថ្មីចូលរួម Voice Chat
+        socket.to(roomId).emit('voice_user_joined', { id: socket.id });
+
+        room.players.push({ 
+            id: socket.id, 
+            name: playerName || 'Guest', 
+            hand: [], 
             passed: false,
-            rank: null,
-            isSpectator: false
-        };
-        room.players.push(newPlayer);
-        socket.roomId = roomId;
-        socket.join(roomId);
-
-        socket.emit('joinSuccess', { roomId, creatorId: room.creatorId, myId: socket.id });
-        io.to(roomId).emit('updatePlayers', room.players);
-        broadcastRoomList();
-    }
-
-    socket.on('getRoomList', () => {
-        broadcastRoomList();
-    });
-
-    socket.on('startGame', () => {
-        const room = rooms[socket.roomId];
-        if (!room || room.creatorId !== socket.id) return;
-
-        room.status = 'playing';
-        room.nextRank = 1;
-        room.lastPlay = null;
-        room.lastPlayPlayerId = null;
-
-        let deck = createDeck();
-        shuffleDeck(deck);
-
-        // ចែកបៀរម្នាក់ ១៣ សន្លឹក
-        room.players.forEach(p => {
-            p.hand = sortCards(deck.splice(0, 13));
-            p.passed = false;
-            p.rank = null;
-            p.isSpectator = false;
+            isSpectator: isSpectator,
+            rank: null
         });
 
-        // ស្វែងរកអ្នកមានបៀរ ៣♠ ដើម្បីឱ្យចុះមុនគេនៅក្តារដំបូង
-        let startingIndex = room.players.findIndex(p => p.id === room.lastWinnerId);
-        if (startingIndex === -1) startingIndex = 0;
-
-        let hasThreeSpade = room.players.findIndex(p => p.hand.some(c => c.value === '3' && c.suit === '♠'));
-        if (hasThreeSpade !== -1 && room.lastWinnerId === room.creatorId && room.nextRank === 1) {
-            startingIndex = hasThreeSpade;
-        }
-
-        room.currentTurnIndex = startingIndex;
-        io.to(socket.roomId).emit('gameStarted', {
-            players: room.players,
+        socket.join(roomId);
+        
+        // 🛠️ កែសម្រួល៖ ផ្ញើទាំង playedCards និង currentTurnIndex ទៅឱ្យអ្នកលេងដែលទើបចូលរួម
+        socket.emit('roomJoined', { 
+            roomId, 
+            playerId: socket.id, 
+            isSpectator,
+            playedCards: room.playedCards,
             currentTurnIndex: room.currentTurnIndex
         });
+        
+        io.to(roomId).emit('updatePlayers', room.players);
         broadcastRoomList();
     });
 
-    socket.on('playCards', (selectedCards) => {
-        const room = rooms[socket.roomId];
-        if (!room || room.status !== 'playing') return;
+    socket.on('startGame', (roomId) => {
+        const room = rooms[roomId];
+        if (!room) return;
 
-        let playerIdx = room.players.findIndex(p => p.id === socket.id);
-        if (playerIdx !== room.currentTurnIndex) return socket.emit('errorMsg', 'មិនទាន់ដល់វេនអ្នកទេ!');
-
-        let player = room.players[playerIdx];
-
-        // ផ្ទៀងផ្ទាត់ថាអ្នកលេងមានបៀរទាំងនោះពិតមែន
-        let hasCards = selectedCards.every(sc => player.hand.some(hc => hc.value === sc.value && hc.suit === sc.suit));
-        if (!hasCards) return socket.emit('errorMsg', 'ទិន្នន័យបៀរមិនត្រឹមត្រូវ!');
-
-        // ពិនិត្យច្បាប់វាយកាត់បៀរលើតុ
-        if (!comparePlay(selectedCards, room.lastPlay)) {
-            return socket.emit('errorMsg', 'បៀរចុះមិនត្រូវតាមច្បាប់ ឬខ្សោយជាងបៀរលើតុ!');
-        }
-
-        // ដកបៀរចេញពីដៃអ្នកលេង
-        player.hand = player.hand.filter(hc => !selectedCards.some(sc => sc.value === hc.value && sc.suit === hc.suit));
-
-        room.lastPlay = selectedCards;
-        room.lastPlayPlayerId = player.id;
-        room.lastPlayPlayerIdIndex = playerIdx;
-
-        // ពិនិត្យករណីអស់បៀរពីដៃ (ឈ្នះបាន Rank)
-        if (player.hand.length === 0 && !player.rank) {
-            player.rank = room.nextRank;
-            if (room.nextRank === 1) {
-                room.lastWinnerId = player.id; // រក្សាទុកអ្នកឈ្នះលេខ១ ឱ្យបានដៃមុននៅក្តារក្រោយ
+        if (!room.lastWinnerId) {
+            if (room.creatorId !== socket.id) {
+                return socket.emit('errorMsg', 'មានតែម្ចាស់បន្ទប់ទេដែលអាចចាប់ផ្ដើមហ្គេមបាន!');
             }
-            room.nextRank++;
+        } else {
+            if (room.lastWinnerId !== socket.id) {
+                return socket.emit('errorMsg', 'មានតែអ្នកជាប់លេខ ១ ទេ ដែលអាចចុចចាប់ផ្ដើមវគ្គថ្មីបាន!');
+            }
         }
 
-        checkGameEnd(room);
+        room.players.forEach(p => {
+            p.isSpectator = false;
+            p.hand = [];
+            p.passed = false;
+            p.rank = null;
+        });
 
-        if (room.status === 'playing') {
-            handleTurnAndRoundStatus(room);
-            io.to(socket.roomId).emit('turnChanged', {
-                currentTurnIndex: room.currentTurnIndex,
-                lastPlay: room.lastPlay,
-                players: room.players
+        const playerCount = room.players.filter(p => !p.isSpectator).length;
+        if (playerCount < 2) {
+            return socket.emit('errorMsg', 'ត្រូវការអ្នកលេងយ៉ាងតិច ២ នាក់!');
+        }
+
+        const deck = shuffleDeck(createDeck());
+        room.status = 'playing'; 
+        room.playedCards = [];
+        room.lastPlayerId = null;
+        room.nextRank = 1; 
+        
+        room.players.forEach((p, i) => {
+            p.hand = sortCards(deck.slice(i * 13, (i + 1) * 13));
+            io.to(p.id).emit('dealCards', { hand: p.hand });
+        });
+
+        let startingIndex = -1;
+        if (room.lastWinnerId) {
+            startingIndex = room.players.findIndex(p => p.id === room.lastWinnerId);
+        }
+        if (startingIndex === -1) {
+            startingIndex = room.players.findIndex(p => p.hand.some(c => c.value === '3' && c.suit === '♠'));
+        }
+        if (startingIndex === -1) startingIndex = 0;
+
+        room.currentTurnIndex = startingIndex;
+
+        io.to(roomId).emit('gameStarted', { 
+            players: room.players, 
+            currentTurnIndex: room.currentTurnIndex,
+            lastRoundWinnerId: room.lastWinnerId
+        });
+        
+        broadcastRoomList();
+    });
+
+    // 🛠️ ប្រើ Logic ហ្គេមពី Old Code (playCard)
+    socket.on('playCard', ({ roomId, cards }) => {
+        const room = rooms[roomId];
+        if (!room) return;
+        const player = room.players[room.currentTurnIndex];
+        
+        if (!player || player.id !== socket.id) return socket.emit('errorMsg', 'មិនមែនវេនអ្នកទេ');
+        if (player.hand.length === 0) return socket.emit('errorMsg', 'អ្នកអស់បៀហើយ មិនអាចចុះបានទៀតទេ!');
+
+        if (getComboType(cards) && comparePlay(cards, room.playedCards)) {
+            cards.forEach(c => {
+                const idx = player.hand.findIndex(pc => pc.value === c.value && pc.suit === c.suit);
+                if (idx !== -1) player.hand.splice(idx, 1);
             });
+
+            room.playedCards = cards;
+            room.lastPlayerId = socket.id;
+            player.passed = false; 
+
+            if (player.hand.length === 0) {
+                player.rank = room.nextRank;
+                room.nextRank++;
+                
+                if (player.rank === 1) {
+                      room.lastWinnerId = player.id;
+                }
+            }
+
+            const remainingActivePlayers = room.players.filter(p => p.hand.length > 0);
+
+            if (remainingActivePlayers.length <= 1) {
+                if (remainingActivePlayers.length === 1) {
+                    remainingActivePlayers[0].rank = room.nextRank;
+                }
+
+                room.status = 'waiting'; 
+ 
+                const results = room.players.map(p => ({ 
+                    id: p.id,
+                    name: p.name, 
+                    remaining: [...p.hand], 
+                    isSpectator: p.hand.length === 0 && p.rank !== null ? false : p.isSpectator,
+                    rank: p.rank
+                }));
+
+                io.to(roomId).emit('cardPlayed', { 
+                    by: player.name, 
+                    cards, 
+                    nextTurn: room.currentTurnIndex,
+                    cardCount: player.hand.length,
+                    updatedHands: room.players 
+                });
+
+                  setTimeout(() => {
+                    const finalWinner = room.players.find(p => p.rank === 1);
+                    room.lastWinnerId = finalWinner ? finalWinner.id : null;
+
+                    io.to(roomId).emit('gameWon', { 
+                        winner: finalWinner ? finalWinner.name : 'រកមិនឃើញ', 
+                        winnerId: finalWinner ? finalWinner.id : null, 
+                        allHands: results 
+                    });
+                    broadcastRoomList();
+                }, 1500);
+
+            } else {
+                handleTurnAndRoundStatus(room);
+
+                io.to(roomId).emit('cardPlayed', { 
+                    by: player.name, 
+                    cards, 
+                    nextTurn: room.currentTurnIndex,
+                    cardCount: player.hand.length,
+                    updatedHands: room.players 
+                  });
+            }
+        } else {
+            socket.emit('errorMsg', 'ចុះមិនត្រូវក្បួន ឬបៀតូចជាង!');
         }
     });
 
-    socket.on('passTurn', () => {
-        const room = rooms[socket.roomId];
-        if (!room || room.status !== 'playing') return;
+    socket.on('passTurn', (roomId) => {
+        const room = rooms[roomId];
+        if (!room) return;
+        const player = room.players[room.currentTurnIndex];
+        if (!player || player.id !== socket.id) return;
 
-        let playerIdx = room.players.findIndex(p => p.id === socket.id);
-        if (playerIdx !== room.currentTurnIndex) return socket.emit('errorMsg', 'មិនទាន់ដល់វេនអ្នកទេ!');
-
-        if (!room.lastPlay) {
-            return socket.emit('errorMsg', 'មេដៃមិនអាច Pass បានទេ! ត្រូវតែចុះបៀរដំបូង។');
-        }
-
-        room.players[playerIdx].passed = true;
+        player.passed = true;
+        
+        io.to(roomId).emit('playerPassed', { 
+            name: player.name, 
+            id: player.id,
+            message: "Pass ❌"
+        });
+        
         handleTurnAndRoundStatus(room);
-
-        io.to(socket.roomId).emit('turnChanged', {
+        io.to(roomId).emit('turnChanged', { 
             currentTurnIndex: room.currentTurnIndex,
-            lastPlay: room.lastPlay,
-            players: room.players
+            players: room.players 
         });
     });
 
-    function handlePlayerLeave(socketInstance) {
-        const id = socketInstance.roomId;
-        if (id && rooms[id]) {
+    socket.on('leaveRoom', () => {
+        for (const id in rooms) {
             const room = rooms[id];
-            const pIdx = room.players.findIndex(p => p.id === socketInstance.id);
+            const pIdx = room.players.findIndex(p => p.id === socket.id);
+            
             if (pIdx !== -1) {
-                const leavingPlayerId = room.players[pIdx].id;
                 const wasSpectator = room.players[pIdx].isSpectator;
+                const leavingPlayerId = socket.id;
+                 
+                // 🛠️ ផ្ញើប្រាប់អ្នកផ្សេងឱ្យបិទសំឡេង Voice Chat
+                socket.to(id).emit('voice_user_left', { id: socket.id });
 
-                room.players.splice(pIdx, 1);
-                socketInstance.leave(id);
+                // លុប Player ចេញពីបន្ទប់
+                 room.players.splice(pIdx, 1);
+                socket.leave(id); 
+                socket.emit('leftRoom'); 
 
                 if (room.players.length === 0) {
-                    delete rooms[id];
+                    delete rooms[id]; 
                 } else {
-                    // ស្តារប្រព័ន្ធគ្រប់គ្រងការចាកចេញរបស់កូដចាស់
+                    // 1. 🛠️ logic ផ្ទេរសិទ្ធិករណីអ្នកឈ្នះចុងក្រោយ (lastWinnerId) ចាកចេញ
                     if (room.lastWinnerId === leavingPlayerId) {
-                        room.lastWinnerId = room.players[0].id;
-                    }
+                         const nextEligiblePlayer = room.players.find(p => !p.isSpectator);
+                        if (nextEligiblePlayer) {
+                            room.lastWinnerId = nextEligiblePlayer.id;
+                            
+                             // បើហ្គេមចប់ហើយ (ស្ថិតក្នុងវគ្គរង់ចាំ Start Again) ត្រូវផ្ទេរសិទ្ធិ Creator ទៅឱ្យគាត់តែម្តង
+                            if (room.status !== 'playing') {
+                                room.creatorId = nextEligiblePlayer.id;
+                            }
+                        } else {
+                            room.lastWinnerId = null;
+                        }
+                     }
+
+                    // 2. 🛠️ logic ផ្ទេរសិទ្ធិករណីអ្នកបង្កើតបន្ទប់ (creatorId) ចាកចេញ 
                     if (room.creatorId === leavingPlayerId && room.players.length > 0) {
                         room.creatorId = room.players[0].id;
                     }
 
+                    // 3. 🛠️ ករណីហ្គេមកំពុងលេង ហើយចំវេនអ្នកចាកចេញ
                     if (room.status === 'playing' && !wasSpectator && room.currentTurnIndex === pIdx) {
                         handleTurnAndRoundStatus(room);
                         io.to(id).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex });
                     }
                     
+                    // 📣 ផ្ញើព័ត៌មានបច្ចុប្បន្នភាពទៅកាន់ Client ទាំងអស់នៅក្នុង Room ភ្លាមៗ
                     io.to(id).emit('updatePlayers', room.players);
+                    io.to(id).emit('winnerTransferred', { 
+                        newWinnerId: room.lastWinnerId,
+                        creatorId: room.creatorId 
+                     });
+                }
+                broadcastRoomList();
+            }
+        }
+    });
+
+    socket.on('disconnect', () => {
+        for (const id in rooms) {
+            const room = rooms[id];
+            const pIdx = room.players.findIndex(p => p.id === socket.id);
+            
+            if (pIdx !== -1) {
+                const wasSpectator = room.players[pIdx].isSpectator;
+                const leavingPlayerId = socket.id;
+
+                 // 🛠️ ផ្ញើប្រាប់អ្នកផ្សេងឱ្យបិទសំឡេង Voice Chat
+                socket.to(id).emit('voice_user_left', { id: socket.id });
+
+                // លុប Player ចេញពីបន្ទប់
+                room.players.splice(pIdx, 1);
+                
+                if (room.players.length === 0) {
+                    delete rooms[id]; 
+                } else {
+                    // 1. 🛠️ logic ផ្ទេរសិទ្ធិករណីអ្នកឈ្នះចុងក្រោយ (lastWinnerId) ផ្តាច់ការតភ្ជាប់
+                    if (room.lastWinnerId === leavingPlayerId) {
+                        const nextEligiblePlayer = room.players.find(p => !p.isSpectator);
+                        if (nextEligiblePlayer) {
+                            room.lastWinnerId = nextEligiblePlayer.id;
+                            
+                             // បើហ្គេមចប់ហើយ (ស្ថិតក្នុងវគ្គរង់ចាំ Start Again) ត្រូវផ្ទេរសិទ្ធិ Creator ទៅឱ្យគាត់តែម្តង
+                            if (room.status !== 'playing') {
+                                room.creatorId = nextEligiblePlayer.id;
+                            }
+                        } else {
+                            room.lastWinnerId = null;
+                        }
+                     }
+
+                    // 2. 🛠️ logic ផ្ទេរសិទ្ធិករណីអ្នកបង្កើតបន្ទប់ (creatorId) ផ្តាច់ការតភ្ជាប់
+                    if (room.creatorId === leavingPlayerId && room.players.length > 0) {
+                        room.creatorId = room.players[0].id;
+                    }
+
+                    // 3. 🛠️ ករណីហ្គេមកំពុងលេង ហើយចំវេនអ្នកផ្តាច់ការតភ្ជាប់
+                    if (room.status === 'playing' && !wasSpectator && room.currentTurnIndex === pIdx) {
+                        handleTurnAndRoundStatus(room);
+                        io.to(id).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex });
+                    }
+                    
+                    // 📣 ផ្ញើព័ត៌មានបច្ចុប្បន្នភាពទៅកាន់ Client ទាំងអស់នៅក្នុង Room ភ្លាមៗ
+                    io.to(id).emit('updatePlayers', room.players);
+                    
+                    // 🛠️ ធ្វើបច្ចុប្បន្នភាព៖ ផ្ញើទាំង newWinnerId និង creatorId ទៅ Client ដើម្បីឱ្យ UI បង្ហាញប៊ូតុង Start Again
                     io.to(id).emit('winnerTransferred', { 
                         newWinnerId: room.lastWinnerId,
                         creatorId: room.creatorId
@@ -441,18 +569,8 @@ io.on('connection', (socket) => {
                 broadcastRoomList();
             }
         }
-    }
-
-    socket.on('leaveRoom', () => {
-        handlePlayerLeave(socket);
-    });
-
-    socket.on('disconnect', () => {
-        handlePlayerLeave(socket);
     });
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+server.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
