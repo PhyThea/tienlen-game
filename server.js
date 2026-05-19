@@ -262,11 +262,15 @@ io.on('connection', (socket) => {
         broadcastRoomList();
     });
 
+    // server.js (សូមដាក់កូដនេះក្នុង io.on('connection', ...))
     socket.on('audio_packet', (data) => {
-        socket.to(data.roomId).emit('audio_broadcast', {
-            from: socket.id,
-            buffer: data.buffer
-        });
+        if (data && data.roomId) {
+            // បាញ់សំឡេងទៅកាន់អ្នកដទៃទាំងអស់ក្នុង Room តែមួយ
+            socket.to(data.roomId).emit('audio_broadcast', {
+                from: socket.id,
+                buffer: data.buffer
+            });
+        }
     });
 
     socket.on('startGame', (roomId) => {
