@@ -646,22 +646,12 @@ socket.on('updatePlayers', (players) => {
         isCreator = (players[0].id === myId);
         amISpectator = me.isSpectator;
     }
-    
-    // 🛠️ បន្ថែម៖ បើខ្លួនយើងឡើងធ្វើជា Host ថ្មី ហើយហ្គេមកំពុងស្ថិតក្នុងផ្ទាំងលទ្ធផល (Result Area)
-    // ត្រូវបង្ហាញប៊ូតុង Restart ឱ្យយើងចុចចាប់ផ្ដើមឡើងវិញ
-    const resultArea = document.getElementById('resultArea');
-    const restartBtn = document.getElementById('restartGameBtn'); // ឬ 'startAgainBtn' ទៅតាម ID ក្នុងកូដរបស់អ្នក
-    
-    if (restartBtn && resultArea && resultArea.style.display === 'block') {
-        if (isCreator) {
-            restartBtn.style.display = 'block'; // បង្ហាញប៊ូតុងសម្រាប់ Host ថ្មី
-        } else {
-            restartBtn.style.display = 'none';  // លាក់ចំពោះអ្នកលេងធម្មតា
-        }
-    }
-    
     renderPlayers(players);
 });
+
+function startGame() {
+    socket.emit('startGame', currentRoom);
+}
 
 socket.on('gameStarted', ({ players, currentTurnIndex: turn, lastRoundWinnerId: serverWinnerId }) => {
     currentTurnIndex = turn;
