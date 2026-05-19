@@ -1,5 +1,5 @@
 // =================================================================
-// server.js (កំណែទម្រង់ជួសជុលបញ្ហា Create Room ចេញ ID: undefined)
+// server.js (កំណែទម្រង់រួមបញ្ចូលច្បាប់កាត់ពីកូដចាស់ និងប្រព័ន្ធ Voice Chat RAW PCM ថ្មី)
 // =================================================================
 const express = require('express');
 const http = require('http');
@@ -9,7 +9,7 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-    maxHttpBufferSize: 1e7 // ការពារទិន្នន័យសំឡេងធំរបស់ Voice Chat
+    maxHttpBufferSize: 1e7 // បង្កើនទំហំ Buffer ការពារទិន្នន័យសំឡេងធំរបស់ Voice Chat ថ្មី
 });
 
 app.use(express.static(__dirname));
@@ -50,6 +50,7 @@ function sortCards(cards) {
     return cards.sort((a, b) => getCardPower(a) - getCardPower(b));
 }
 
+// 🛠️ ស្តារពីកូដចាស់៖ គិតគូរៀបចាប់ពី ៤ សន្លឹកឡើងទៅ (២ គូរៀប, ៣ គូរៀប, ៤ គូរៀប)
 function isConsecutivePairs(cards) {
     const len = cards.length;
     if (len < 4 || len % 2 !== 0) return false;
@@ -62,9 +63,11 @@ function isConsecutivePairs(cards) {
     for (let i = 0; i < len - 2; i += 2) {
         const currentIdx = CARD_ORDER.indexOf(sorted[i].value);
         const nextIdx = CARD_ORDER.indexOf(sorted[i+2].value);
+        
         if (sorted[i].value === '2' || sorted[i+2].value === '2') return false;
         if (nextIdx !== currentIdx + 1) return false;
     }
+
     return true;
 }
 
@@ -104,6 +107,7 @@ function getComboType(cards) {
     return null;
 }
 
+// 🛠️ ស្តារឡើងវិញទាំងស្រុង៖ ច្បាប់វាយកាត់បៀរចាស់ (Cut Rules) ដ៏ម៉ត់ចត់
 function comparePlay(newCards, oldCards) {
     if (!oldCards || oldCards.length === 0) return true;
     
@@ -118,28 +122,34 @@ function comparePlay(newCards, oldCards) {
     const newMax = getCardPower(sortedNew[sortedNew.length - 1]);
     const oldMax = getCardPower(sortedOld[sortedOld.length - 1]);
 
+    // ច្បាប់វាយកាត់បៀរ ២ ទោល (Single 2)
     if (oldType === 'single' && oldCards[0].value === '2') {
         if (newType === 'triple_pair' || newType === 'quad_pair' || newType === 'bomb') return true;
     }
 
+    // ច្បាប់វាយកាត់បៀរគូ ២ (Pair 2) 
     if (oldType === 'pair' && oldCards[0].value === '2') {
         if (newType === 'quad_pair' || newType === 'bomb') return true;
     }
 
+    // ច្បាប់ប៊ុម/ណៅ (Bomb) កាត់ប៊ុម ឬកាត់គូរៀប
     if (oldType === 'bomb') {
         if (newType === 'bomb' && newMax > oldMax) return true;
         if (newType === 'quad_pair') return true;
     }
 
+    // ៣ គូរៀប កាត់គ្នា ឬត្រូវប៊ុម/៤គូរៀបកាត់
     if (oldType === 'triple_pair') {
         if (newType === 'triple_pair' && newMax > oldMax) return true;
         if (newType === 'quad_pair' || newType === 'bomb') return true;
     }
 
+    // ៤ គូរៀប
     if (oldType === 'quad_pair') {
         if (newType === 'quad_pair' && newMax > oldMax) return true;
     }
 
+    // ករណីបៀរប្រភេទដូចគ្នា និងចំនួនសន្លឹកស្មើគ្នា គឺវាស់កម្លាំងសន្លឹកធំបំផុត
     if (newType === oldType && newCards.length === oldCards.length) {
         return newMax > oldMax;
     }
@@ -163,6 +173,7 @@ function moveToNextTurn(room) {
     }
 
     if (!found) {
+        // ចប់ជុំមួយ (Round Over) -> អ្នកចុះចុងក្រោយគេបានដៃ
         room.players.forEach(p => p.passed = false);
         room.lastPlay = null;
         
@@ -170,6 +181,7 @@ function moveToNextTurn(room) {
         if (lastPlayIndex !== -1 && room.players[lastPlayIndex].hand.length > 0) {
             room.currentTurnIndex = lastPlayIndex;
         } else {
+            // បើអ្នកបានដៃអស់បៀរមុន ផ្ទេរទៅអ្នកបន្ទាប់ដែលមានបៀរ
             for (let i = 0; i < room.players.length; i++) {
                 let checkIdx = (room.lastPlayPlayerIdIndex + i) % room.players.length;
                 if (room.players[checkIdx].hand.length > 0) {
@@ -202,10 +214,12 @@ function checkGameEnd(room) {
     let playersWithCards = room.players.filter(p => p.hand.length > 0);
     if (playersWithCards.length <= 1) {
         room.status = 'finished';
+        
         if (playersWithCards.length === 1) {
             playersWithCards[0].rank = room.nextRank;
             room.nextRank++;
         }
+
         io.to(room.id).emit('gameEnd', room.players);
     }
 }
@@ -220,51 +234,40 @@ function broadcastRoomList() {
 // === SOCKET CONNECTION ===
 io.on('connection', (socket) => {
     
-    // បន្ថែមក្នុង server.js
+    // 🎙️ ប្រព័ន្ធ VOICE CHAT RAW PCM ថ្មី (ដើរស្រួល ងាយនិយាយគ្នា)
     socket.on('voiceData', (data) => {
-        // ស្វែងរកបន្ទប់ដែលអ្នកលេងកំពុងនៅ
-        const roomId = Object.keys(rooms).find(id => rooms[id].players.find(p => p.id === socket.id));
-        if (roomId) {
-            // បាញ់សំឡេងទៅអ្នកលេងទាំងអស់ក្នុងបន្ទប់ លើកលែងខ្លួនឯង
-            socket.to(roomId).emit('audio_broadcast', { 
-                buffer: data.buffer, 
-                from: socket.id 
+        if (socket.roomId) {
+            socket.to(socket.roomId).emit('audioStream', {
+                senderId: socket.id,
+                buffer: data.buffer
             });
         }
     });
 
-    // 🛠️ ជួសជុលការទាញយកទិន្នន័យឱ្យត្រូវគ្នា (ទប់ស្កាត់ ID: undefined)
     socket.on('createRoom', (data) => {
-        // ពិនិត្យមើលថាតើ data មានតម្លៃទេ
-        if (!data || !data.roomId) {
-            console.log("Error: Invalid room data received");
-            return;
-        }
-
         const { roomId, password, playerName } = data;
-
-        // បង្កើតបន្ទប់
+        if (rooms[roomId]) {
+            return socket.emit('errorMsg', 'បន្ទប់នេះមានរួចហើយ!');
+        }
         rooms[roomId] = {
-            players: [{ id: socket.id, username: playerName }],
-            password: password,
+            id: roomId,
+            password: password || null,
+            status: 'waiting',
+            players: [],
+            lastPlay: null,
+            lastPlayPlayerId: null,
+            lastPlayPlayerIdIndex: 0,
+            currentTurnIndex: 0,
+            nextRank: 1,
             creatorId: socket.id,
-            status: 'waiting'
+            lastWinnerId: socket.id
         };
 
-        socket.join(roomId);
-        socket.emit('roomCreated', { roomId: roomId }); // ផ្ញើ ID ត្រឡប់ទៅ Client
+        joinRoomLogic(socket, roomId, playerName);
     });
 
-    // 🛠️ ជួសជុលការចូលបន្ទប់ឱ្យស្របគ្នា
     socket.on('joinRoom', (data) => {
-        if (!data) return socket.emit('errorMsg', 'រកមិនឃើញទិន្នន័យឡើយ!');
-        
-        const roomId = data.roomId ? data.roomId.toString().trim() : null;
-        const password = data.password || null;
-        const playerName = data.playerName || null;
-
-        if (!roomId) return socket.emit('errorMsg', 'រកមិនឃើញលេខបន្ទប់ឡើយ!');
-
+        const { roomId, password, playerName } = data;
         const room = rooms[roomId];
         if (!room) return socket.emit('errorMsg', 'រកមិនឃើញបន្ទប់ឡើយ!');
         if (room.status !== 'waiting') return socket.emit('errorMsg', 'ហ្គេមកំពុងលេង មិនអាចចូលបានទេ!');
@@ -276,8 +279,6 @@ io.on('connection', (socket) => {
 
     function joinRoomLogic(socket, roomId, playerName) {
         const room = rooms[roomId];
-        if (!room) return;
-
         const newPlayer = {
             id: socket.id,
             name: playerName || `Player_${socket.id.substring(0,4)}`,
@@ -286,7 +287,6 @@ io.on('connection', (socket) => {
             rank: null,
             isSpectator: false
         };
-        
         room.players.push(newPlayer);
         socket.roomId = roomId;
         socket.join(roomId);
@@ -312,6 +312,7 @@ io.on('connection', (socket) => {
         let deck = createDeck();
         shuffleDeck(deck);
 
+        // ចែកបៀរម្នាក់ ១៣ សន្លឹក
         room.players.forEach(p => {
             p.hand = sortCards(deck.splice(0, 13));
             p.passed = false;
@@ -319,6 +320,7 @@ io.on('connection', (socket) => {
             p.isSpectator = false;
         });
 
+        // ស្វែងរកអ្នកមានបៀរ ៣♠ ដើម្បីឱ្យចុះមុនគេនៅក្តារដំបូង
         let startingIndex = room.players.findIndex(p => p.id === room.lastWinnerId);
         if (startingIndex === -1) startingIndex = 0;
 
@@ -343,22 +345,28 @@ io.on('connection', (socket) => {
         if (playerIdx !== room.currentTurnIndex) return socket.emit('errorMsg', 'មិនទាន់ដល់វេនអ្នកទេ!');
 
         let player = room.players[playerIdx];
+
+        // ផ្ទៀងផ្ទាត់ថាអ្នកលេងមានបៀរទាំងនោះពិតមែន
         let hasCards = selectedCards.every(sc => player.hand.some(hc => hc.value === sc.value && hc.suit === sc.suit));
         if (!hasCards) return socket.emit('errorMsg', 'ទិន្នន័យបៀរមិនត្រឹមត្រូវ!');
 
+        // ពិនិត្យច្បាប់វាយកាត់បៀរលើតុ
         if (!comparePlay(selectedCards, room.lastPlay)) {
             return socket.emit('errorMsg', 'បៀរចុះមិនត្រូវតាមច្បាប់ ឬខ្សោយជាងបៀរលើតុ!');
         }
 
+        // ដកបៀរចេញពីដៃអ្នកលេង
         player.hand = player.hand.filter(hc => !selectedCards.some(sc => sc.value === hc.value && sc.suit === hc.suit));
+
         room.lastPlay = selectedCards;
         room.lastPlayPlayerId = player.id;
         room.lastPlayPlayerIdIndex = playerIdx;
 
+        // ពិនិត្យករណីអស់បៀរពីដៃ (ឈ្នះបាន Rank)
         if (player.hand.length === 0 && !player.rank) {
             player.rank = room.nextRank;
             if (room.nextRank === 1) {
-                room.lastWinnerId = player.id;
+                room.lastWinnerId = player.id; // រក្សាទុកអ្នកឈ្នះលេខ១ ឱ្យបានដៃមុននៅក្តារក្រោយ
             }
             room.nextRank++;
         }
@@ -381,7 +389,10 @@ io.on('connection', (socket) => {
 
         let playerIdx = room.players.findIndex(p => p.id === socket.id);
         if (playerIdx !== room.currentTurnIndex) return socket.emit('errorMsg', 'មិនទាន់ដល់វេនអ្នកទេ!');
-        if (!room.lastPlay) return socket.emit('errorMsg', 'មេដៃមិនអាច Pass បានទេ!');
+
+        if (!room.lastPlay) {
+            return socket.emit('errorMsg', 'មេដៃមិនអាច Pass បានទេ! ត្រូវតែចុះបៀរដំបូង។');
+        }
 
         room.players[playerIdx].passed = true;
         handleTurnAndRoundStatus(room);
@@ -408,6 +419,7 @@ io.on('connection', (socket) => {
                 if (room.players.length === 0) {
                     delete rooms[id];
                 } else {
+                    // ស្តារប្រព័ន្ធគ្រប់គ្រងការចាកចេញរបស់កូដចាស់
                     if (room.lastWinnerId === leavingPlayerId) {
                         room.lastWinnerId = room.players[0].id;
                     }
