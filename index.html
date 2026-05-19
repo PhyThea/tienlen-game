@@ -406,13 +406,13 @@ button:disabled {
 </head>
 <body>
 
-<div class="container">
+<div class="container" onclick="triggerAudioContextResume()">
     <div id="loginArea" class="panel">
         <h1>🃏 Tien Len Online</h1>
         <input type="text" id="playerName" placeholder="បញ្ចូលឈ្មោះរបស់អ្នក...">
         <div style="margin-top: 15px;">
             <input type="text" id="roomInput" placeholder="លេខបន្ទប់ (Room ID)...">
-            <input type="password" id="roomPass" placeholder="លេខកូដសម្ងាត់បន្ទប់ (បើគ្មាន ទុកទទេ)...">
+            <input type="password" id="roomPass" placeholder="លេខកកូដសម្ងាត់បន្ទប់ (បើគ្មាន ទុកទទេ)...">
             <div style="display: flex; gap: 10px;">
                 <button class="btn-blue" onclick="createRoom()">➕ បង្កើតបន្ទប់ថ្មី</button>
                 <button class="btn-green" onclick="joinRoom()">🚪 ចូលរួមបន្ទប់</button>
@@ -482,11 +482,23 @@ let playersData = [];
 let amISpectator = false;
 let lastRoundWinnerId = null; 
 
-// ប្រព័ន្ធបាញ់សំឡេងតាម Socket (ជំនួសឱ្យ WebRTC)
+// ប្រព័ន្ធសំឡេងទាញយកទម្រង់ Raw PCM ថ្នាក់ខ្ពស់
 let localStream = null;
 let micEnabled = true;
 let audioCtx = null;
-let mediaRecorder = null;
+let scriptNode = null;
+let micSource = null;
+
+function triggerAudioContextResume() {
+    if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume().then(() => {
+            console.log("AudioContext activated by touch!");
+        });
+    }
+}
+
+document.addEventListener('click', triggerAudioContextResume, { passive: true });
+document.addEventListener('touchstart', triggerAudioContextResume, { passive: true });
 
 function getCardFileName(card) {
     let valStr = card.value;
@@ -588,15 +600,12 @@ socket.on('roomJoined', ({ roomId, playerId, isSpectator, playedCards, currentTu
     
     if (amISpectator) {
         currentTurnIndex = serverTurn;
-        
         document.body.classList.remove('round-over'); 
         document.body.classList.add('in-game');
-        
         document.getElementById('loginArea').style.display = 'none';
         document.getElementById('lobbyArea').style.display = 'none';
         document.getElementById('resultArea').style.display = 'none';
         document.getElementById('gameArea').style.display = 'block';
-        
         document.getElementById('actionControls').style.display = 'none';
         
         const tableDiv = document.getElementById('table');
@@ -637,6 +646,7 @@ socket.on('updatePlayers', (players) => {
 });
 
 function startGame() {
+    triggerAudioContextResume();
     socket.emit('startGame', currentRoom);
 }
 
@@ -829,6 +839,7 @@ function renderMyCards() {
         if (isSelected) el.classList.add('selected');
 
         el.onclick = () => {
+            triggerAudioContextResume();
             if (isSelected) {
                 selectedCards = selectedCards.filter(c => !(c.value === card.value && c.suit === card.suit));
             } else {
@@ -952,10 +963,8 @@ socket.on('gameOver', ({ winner, ranks }) => {
 });
 
 function leaveRoom() {
-    // ឈប់ថតសំឡេងពេលចេញពីបន្ទប់
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop();
-    }
+    if (scriptNode) { scriptNode.disconnect(); scriptNode = null; }
+    if (micSource) { micSource.disconnect(); micSource = null; }
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
         localStream = null;
@@ -978,44 +987,50 @@ function leaveRoom() {
     socket.emit('leaveRoom');
 }
 
-// ==========================================
-// 🎙️ មុខងារសំឡេងពិតប្រាកដតាម SOCKET (WEB AUDIO API)
-// ==========================================
+// =======================================================
+// 🎙️ VOICE CHAT: RAW PCM ENGINE 
+// =======================================================
 function initVoiceAndExecute(callback) {
     if (localStream) {
         if (callback) callback();
         return;
     }
 
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-            localStream = stream;
+    // បង្កើត Audio Context ជាមុនដើម្បីកុំឱ្យគាំងនៅ iOS
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
 
-            // បង្កើត Audio Context ដើម្បីដោះស្រាយ Autoplay លើ iOS ពេលមាន Interaction
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }).then(stream => {
+            localStream = stream;
+            micSource = audioCtx.createMediaStreamSource(stream);
             
-            // ប្រើប្រាស់ MediaRecorder ដើម្បីចាប់យកកញ្ចប់ទិន្នន័យសំឡេងតូចៗ
-            mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+            // ប្រើប្រាស់ Buffer ទំហំ 2048 ដើម្បីកាត់បន្ថយភាពយឺតយ៉ាវ (Latency)
+            scriptNode = audioCtx.createScriptProcessor(2048, 1, 1);
             
-            mediaRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0 && micEnabled && currentRoom) {
-                    event.data.arrayBuffer().then(buffer => {
-                        socket.emit('audio_packet', { roomId: currentRoom, buffer: buffer });
-                    });
+            scriptNode.onaudioprocess = (e) => {
+                if (!micEnabled || !currentRoom) return;
+                const inputData = e.inputBuffer.getChannelData(0);
+                
+                // បំប្លែង Float32 ទៅជា Int16Array
+                const int16Buffer = new Int16Array(inputData.length);
+                for (let i = 0; i < inputData.length; i++) {
+                    let s = Math.max(-1, Math.min(1, inputData[i]));
+                    int16Buffer[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
                 }
+                socket.emit('audio_packet', { roomId: currentRoom, buffer: int16Buffer.buffer });
             };
 
-            // បញ្ជាឱ្យទាញយកទិន្នន័យរៀងរាល់ ២៥០ មីលីវិនាទី (កាត់បន្ថយការទាក់ ឬយឺត)
-            setInterval(() => {
-                if (mediaRecorder.state === 'recording') {
-                    mediaRecorder.requestData();
-                }
-            }, 250);
+            micSource.connect(scriptNode);
+            scriptNode.connect(audioCtx.destination); 
 
-            mediaRecorder.start();
             if (callback) callback();
         }).catch(err => {
-            console.log("ការចូលប្រើប្រាស់ Mic ត្រូវបានបដិសេធ ឬមានកំហុស៖", err);
+            console.log("Mic error:", err);
             if (callback) callback();
         });
     } else {
@@ -1023,9 +1038,9 @@ function initVoiceAndExecute(callback) {
     }
 }
 
-// ទទួលលេងសំឡេងពីសមាជិកដទៃក្នុងបន្ទប់
-socket.on('audio_broadcast', async (data) => {
-    if (data.from === socket.id) return; // មិនលេងសំឡេងខ្លួនឯងទេ
+// ទទួលទិន្នន័យពី Server រួចចាក់ចូល Audio Context ភ្លាមៗ
+socket.on('audio_broadcast', (data) => {
+    if (data.from === socket.id) return;
     
     try {
         if (!audioCtx) {
@@ -1035,25 +1050,30 @@ socket.on('audio_broadcast', async (data) => {
             audioCtx.resume();
         }
         
-        // Decode ArrayBuffer ទៅជា AudioData រួចបញ្ចេញទៅកាន់ Speaker
-        const audioBuffer = await audioCtx.decodeAudioData(data.buffer);
+        const int16Array = new Int16Array(data.buffer);
+        const float32Array = new Float32Array(int16Array.length);
+        for (let i = 0; i < int16Array.length; i++) {
+            float32Array[i] = int16Array[i] / 32768.0;
+        }
+        
+        const audioBuffer = audioCtx.createBuffer(1, float32Array.length, audioCtx.sampleRate);
+        audioBuffer.getChannelData(0).set(float32Array);
+        
         const source = audioCtx.createBufferSource();
         source.buffer = audioBuffer;
         source.connect(audioCtx.destination);
-        source.start();
+        source.start(0);
     } catch (e) {
-        // កំហុសឆ្គងតូចតាចនៃការ decode កញ្ចប់សំឡេងដាច់ៗ មិនឱ្យប៉ះពាល់ដល់ហ្គេមទេ
+        // បញ្ចៀសការចេញលោត Error ប៉ះពាល់ដំណើរការហ្គេម
     }
 });
 
 function toggleMic() {
+    triggerAudioContextResume();
     if (!localStream) {
-        initVoiceAndExecute(() => {
-            alert("ម៉ៃក្រូហ្វូនបើកហើយ!");
-        });
+        initVoiceAndExecute(() => { updateMicButtonUI(); });
         return;
     }
-    
     micEnabled = !micEnabled;
     localStream.getAudioTracks().forEach(track => {
         track.enabled = micEnabled;
@@ -1072,11 +1092,6 @@ function updateMicButtonUI() {
         btn.classList.add('muted');
     }
 }
-
-// មុខងារចាស់ដែលលែងប្រើ ប៉ុន្តែរក្សាទុកឈ្មោះកុំឱ្យទាក់កូដហៅពីកន្លែងផ្សេង
-function startPlay() {}
-function removeAudioElement(id) {}
-function closeAllVoiceConnections() {}
 </script>
 </body>
 </html>
