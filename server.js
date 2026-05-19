@@ -1,5 +1,5 @@
 // =================================================================
-// server.js (កំណែ Old + Voice Chat RAW PCM ពី New)
+// server.js (កំណែទម្រង់រួមបញ្ចូលច្បាប់កាត់ពីកូដចាស់ និងប្រព័ន្ធ Voice Chat)
 // =================================================================
 const express = require('express');
 const http = require('http');
@@ -8,9 +8,7 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-    maxHttpBufferSize: 1e7 // បង្កើនទំហំ Buffer សម្រាប់ Voice Chat
-});
+const io = new Server(server);
 
 app.use(express.static(__dirname));
 
@@ -55,7 +53,7 @@ function isConsecutivePairs(cards) {
     const len = cards.length;
     if (len < 4 || len % 2 !== 0) return false;
     const sorted = sortCards([...cards]);
-    
+
     for (let i = 0; i < len; i += 2) {
         if (sorted[i].value !== sorted[i+1].value) return false;
     }
@@ -117,17 +115,17 @@ function comparePlay(newCards, oldCards) {
     if (!newType) return false; 
 
     const sortedNew = sortCards([...newCards]);
-    const sortedOld = sortCards([...oldCards]); // Fixed typo from old code
+    const sortedOld = sortCards([...oldCards]);
 
     const newMax = getCardPower(sortedNew[sortedNew.length - 1]);
     const oldMax = getCardPower(sortedOld[sortedOld.length - 1]);
 
-    // 🛠️ យកតាមកូដចាស់៖ ច្បាប់វាយកាត់បៀរ ២ ទោល (Single 2)
+    // 🛠️ យកតាមកូដចាស់៖ ច្បាប់វាយកាត់ប ៀរ ២ ទោល (Single 2)
     if (oldType === 'single' && oldCards[0].value === '2') {
         if (newType === 'triple_pair' || newType === 'quad_pair' || newType === 'bomb') return true;
     }
 
-    // 🛠️ យកតាមកូដចាស់៖ ច្បាប់វាយកាត់បៀរគូ ២ (Pair 2) អនុញ្ញាតឱ្យ Bomb ស៊ីកាត់បាន
+    // 🛠️ យកតាមកូដចាស់៖ ច្បាប់វាយកាត់បៀរគូ ២ (Pair 2 ) អនុញ្ញាតឱ្យ Bomb ស៊ីកាត់បាន
     if (oldType === 'pair' && oldCards[0].value === '2') {
         if (newType === 'quad_pair' || newType === 'bomb') return true;
     }
@@ -251,12 +249,12 @@ io.on('connection', (socket) => {
         broadcastRoomList();
     });
 
-    // 🎙️ ទទួលទិន្នន័យសំឡេង Raw PCM ពីកូដ New (ស្រាល និងច្បាស់ជាង)
-    socket.on('audio_packet', (data) => {
-        if (data && data.roomId) {
-            socket.to(data.roomId).emit('audio_broadcast', {
+    // ប្ដូរទៅជាការបោះបន្តរាល់ទិន្នន័យសញ្ញាទាំងអស់ដែលហូរចូលមក (Support Trickle ICE)
+    socket.on('voice_signal', (data) => {
+        if (data && data.to) {
+            io.to(data.to).emit('voice_signal', {
                 from: socket.id,
-                buffer: data.buffer
+                signal: data.signal
             });
         }
     });
@@ -353,7 +351,6 @@ io.on('connection', (socket) => {
         broadcastRoomList();
     });
 
-    // 🛠️ ប្រើ Logic ហ្គេមពី Old Code (playCard)
     socket.on('playCard', ({ roomId, cards }) => {
         const room = rooms[roomId];
         if (!room) return;
@@ -377,7 +374,7 @@ io.on('connection', (socket) => {
                 room.nextRank++;
                 
                 if (player.rank === 1) {
-                      room.lastWinnerId = player.id;
+                     room.lastWinnerId = player.id;
                 }
             }
 
@@ -406,7 +403,7 @@ io.on('connection', (socket) => {
                     updatedHands: room.players 
                 });
 
-                  setTimeout(() => {
+                 setTimeout(() => {
                     const finalWinner = room.players.find(p => p.rank === 1);
                     room.lastWinnerId = finalWinner ? finalWinner.id : null;
 
@@ -427,7 +424,7 @@ io.on('connection', (socket) => {
                     nextTurn: room.currentTurnIndex,
                     cardCount: player.hand.length,
                     updatedHands: room.players 
-                  });
+                 });
             }
         } else {
             socket.emit('errorMsg', 'ចុះមិនត្រូវក្បួន ឬបៀតូចជាង!');
@@ -445,7 +442,7 @@ io.on('connection', (socket) => {
         io.to(roomId).emit('playerPassed', { 
             name: player.name, 
             id: player.id,
-            message: "Pass ❌"
+            message: "Pass ❌ "
         });
         
         handleTurnAndRoundStatus(room);
@@ -463,12 +460,12 @@ io.on('connection', (socket) => {
             if (pIdx !== -1) {
                 const wasSpectator = room.players[pIdx].isSpectator;
                 const leavingPlayerId = socket.id;
-                 
+                
                 // 🛠️ ផ្ញើប្រាប់អ្នកផ្សេងឱ្យបិទសំឡេង Voice Chat
                 socket.to(id).emit('voice_user_left', { id: socket.id });
 
                 // លុប Player ចេញពីបន្ទប់
-                 room.players.splice(pIdx, 1);
+                room.players.splice(pIdx, 1);
                 socket.leave(id); 
                 socket.emit('leftRoom'); 
 
@@ -477,20 +474,21 @@ io.on('connection', (socket) => {
                 } else {
                     // 1. 🛠️ logic ផ្ទេរសិទ្ធិករណីអ្នកឈ្នះចុងក្រោយ (lastWinnerId) ចាកចេញ
                     if (room.lastWinnerId === leavingPlayerId) {
-                         const nextEligiblePlayer = room.players.find(p => !p.isSpectator);
+                        const nextEligiblePlayer = room.players.find(p => !p.isSpectator);
                         if (nextEligiblePlayer) {
                             room.lastWinnerId = nextEligiblePlayer.id;
                             
-                             // បើហ្គេមចប់ហើយ (ស្ថិតក្នុងវគ្គរង់ចាំ Start Again) ត្រូវផ្ទេរសិទ្ធិ Creator ទៅឱ្យគាត់តែម្តង
+                            // បើហ្គេមចប់ហើយ (ស្ថិតក្នុងវគ្គរង់ចាំ Start Again) ត្រូវផ្ទេរសិទ្ធិ Creator ទៅឱ្យគាត់តែម្តង
                             if (room.status !== 'playing') {
                                 room.creatorId = nextEligiblePlayer.id;
                             }
                         } else {
                             room.lastWinnerId = null;
                         }
-                     }
+                    }
 
                     // 2. 🛠️ logic ផ្ទេរសិទ្ធិករណីអ្នកបង្កើតបន្ទប់ (creatorId) ចាកចេញ 
+                    // (បន្ថែមលក្ខខណ្ឌ check ក្រែងលោត្រូវបានផ្ទេរនៅជំហានទី 1 រួចហើយ)
                     if (room.creatorId === leavingPlayerId && room.players.length > 0) {
                         room.creatorId = room.players[0].id;
                     }
@@ -506,7 +504,7 @@ io.on('connection', (socket) => {
                     io.to(id).emit('winnerTransferred', { 
                         newWinnerId: room.lastWinnerId,
                         creatorId: room.creatorId 
-                     });
+                    });
                 }
                 broadcastRoomList();
             }
@@ -522,7 +520,7 @@ io.on('connection', (socket) => {
                 const wasSpectator = room.players[pIdx].isSpectator;
                 const leavingPlayerId = socket.id;
 
-                 // 🛠️ ផ្ញើប្រាប់អ្នកផ្សេងឱ្យបិទសំឡេង Voice Chat
+                // 🛠️ ផ្ញើប្រាប់អ្នកផ្សេងឱ្យបិទសំឡេង Voice Chat
                 socket.to(id).emit('voice_user_left', { id: socket.id });
 
                 // លុប Player ចេញពីបន្ទប់
@@ -537,16 +535,17 @@ io.on('connection', (socket) => {
                         if (nextEligiblePlayer) {
                             room.lastWinnerId = nextEligiblePlayer.id;
                             
-                             // បើហ្គេមចប់ហើយ (ស្ថិតក្នុងវគ្គរង់ចាំ Start Again) ត្រូវផ្ទេរសិទ្ធិ Creator ទៅឱ្យគាត់តែម្តង
+                            // បើហ្គេមចប់ហើយ (ស្ថិតក្នុងវគ្គរង់ចាំ Start Again) ត្រូវផ្ទេរសិទ្ធិ Creator ទៅឱ្យគាត់តែម្តង
                             if (room.status !== 'playing') {
                                 room.creatorId = nextEligiblePlayer.id;
                             }
                         } else {
                             room.lastWinnerId = null;
                         }
-                     }
+                    }
 
                     // 2. 🛠️ logic ផ្ទេរសិទ្ធិករណីអ្នកបង្កើតបន្ទប់ (creatorId) ផ្តាច់ការតភ្ជាប់
+                    // (បន្ថែមលក្ខខណ្ឌ check ក្រែងលោត្រូវបានផ្ទេរនៅជំហានទី 1 រួចហើយ)
                     if (room.creatorId === leavingPlayerId && room.players.length > 0) {
                         room.creatorId = room.players[0].id;
                     }
@@ -570,7 +569,9 @@ io.on('connection', (socket) => {
             }
         }
     });
-});
 
+}); // <--- វង់ក្រចកបិទ io.on('connection')
+
+// 🛠️ ជួសជុលរួចរាល់៖ បើកដំណើរការ Server ត្រឹមត្រូវតាមស្ដង់ដារ Node.js
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
