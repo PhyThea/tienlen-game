@@ -235,36 +235,24 @@ io.on('connection', (socket) => {
 
     // 🛠️ ជួសជុលការទាញយកទិន្នន័យឱ្យត្រូវគ្នា (ទប់ស្កាត់ ID: undefined)
     socket.on('createRoom', (data) => {
-        if (!data) return socket.emit('errorMsg', 'ទិន្នន័យមិនត្រឹមត្រូវ!');
-        
-        // គាំទ្រទាំងទម្រង់ Object ធម្មតា និងទម្រង់ Destructuring ដើម្បីកុំឱ្យស្វែងរក roomId មិនឃើញ
-        const roomId = (data.roomId || data).toString().trim();
-        const password = data.password || null;
-        const playerName = data.playerName || null;
-
-        if (!roomId || roomId === "[object Object]") {
-            return socket.emit('errorMsg', 'លេខបន្ទប់មិនអាចទទេបានទេ!');
+        // ពិនិត្យមើលថាតើ data មានតម្លៃទេ
+        if (!data || !data.roomId) {
+            console.log("Error: Invalid room data received");
+            return;
         }
 
-        if (rooms[roomId]) {
-            return socket.emit('errorMsg', 'បន្ទប់នេះមានរួចហើយ!');
-        }
+        const { roomId, password, playerName } = data;
 
+        // បង្កើតបន្ទប់
         rooms[roomId] = {
-            id: roomId,
+            players: [{ id: socket.id, username: playerName }],
             password: password,
-            status: 'waiting',
-            players: [],
-            lastPlay: null,
-            lastPlayPlayerId: null,
-            lastPlayPlayerIdIndex: 0,
-            currentTurnIndex: 0,
-            nextRank: 1,
             creatorId: socket.id,
-            lastWinnerId: socket.id
+            status: 'waiting'
         };
 
-        joinRoomLogic(socket, roomId, playerName);
+        socket.join(roomId);
+        socket.emit('roomCreated', { roomId: roomId }); // ផ្ញើ ID ត្រឡប់ទៅ Client
     });
 
     // 🛠️ ជួសជុលការចូលបន្ទប់ឱ្យស្របគ្នា
