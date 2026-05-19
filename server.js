@@ -300,18 +300,22 @@ io.on('connection', (socket) => {
 
     socket.on('startGame', (roomId) => {
         const room = rooms[roomId];
-        // ធានាថាទាល់តែ Host (creatorId) ពិតប្រាកដ ទើបមានសិទ្ធិ Start បាន
-        if (!room || room.creatorId !== socket.id) return; 
-        if (room.players.length < 2) return socket.emit('errorMsg', 'ត្រូវការអ្នកលេងយ៉ាងតិច ២នាក់!');
+        if (!room) return;
 
-        room.status = 'playing';
-        room.playedCards = [];
-        room.lastValidCombination = null;
-        room.lastPlayerId = null;
+        if (!room.lastWinnerId) {
+            if (room.creatorId !== socket.id) {
+                return socket.emit('errorMsg', 'មានតែម្ចាស់បន្ទប់ទេដែលអាចចាប់ផ្ដើមហ្គេមបាន!');
+            }
+        } else {
+            if (room.lastWinnerId !== socket.id) {
+                return socket.emit('errorMsg', 'មានតែអ្នកជាប់លេខ ១ ទេដែលអាចចុចចាប់ផ្ដើមវគ្គថ្មីបាន!');
+            }
+        }
+
         room.players.forEach(p => {
+            p.isSpectator = false;
             p.hand = [];
             p.passed = false;
-            p.isSpectator = false; // Reset ត្រង់នេះ
             p.rank = null;
         });
 
@@ -466,18 +470,14 @@ io.on('connection', (socket) => {
                 socket.to(id).emit('voice_user_left', { id: socket.id });
 
                 if (room.players.length === 0) {
-                    delete rooms[roomId];
+                    delete rooms[id]; 
                 } else {
-                    if (room.creatorId === socket.id) {
-                        room.creatorId = room.players[0].id;
-                        // ➕ ផ្ញើប្រាប់គ្រប់គ្នាក្នុងបន្ទប់ពី Host ថ្មី
-                        io.to(roomId).emit('updateCreator', { creatorId: room.creatorId });
-                    }
+                    if (room.creatorId === socket.id) room.creatorId = room.players[0].id; 
                     if (room.status === 'playing' && !wasSpectator && room.currentTurnIndex === pIdx) {
                         handleTurnAndRoundStatus(room);
-                        io.to(roomId).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex });
+                        io.to(id).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex });
                     }
-                    io.to(roomId).emit('updatePlayers', room.players);
+                    io.to(id).emit('updatePlayers', room.players);
                 }
                 broadcastRoomList();
             }
@@ -498,11 +498,7 @@ io.on('connection', (socket) => {
                 if (room.players.length === 0) {
                     delete rooms[id]; 
                 } else {
-                    if (room.creatorId === socket.id) {
-                        room.creatorId = room.players[0].id;
-                        // ➕ ផ្ញើប្រាប់គ្រប់គ្នាក្នុងបន្ទប់ពី Host ថ្មី
-                        io.to(id).emit('updateCreator', { creatorId: room.creatorId });
-                    }
+                    if (room.creatorId === socket.id) room.creatorId = room.players[0].id;
                     if (room.status === 'playing' && !wasSpectator && room.currentTurnIndex === pIdx) {
                         handleTurnAndRoundStatus(room);
                         io.to(id).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex });
