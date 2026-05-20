@@ -222,7 +222,13 @@ function broadcastRoomList() {
 
 io.on('connection', (socket) => {
     broadcastRoomList();
-
+    socket.on('audio_packet', (data) => {
+        // បញ្ជូនទិន្នន័យសំឡេងទៅអ្នកផ្សេងក្នុង Room
+        socket.to(data.roomId).emit('audio_broadcast', {
+            from: socket.id,
+            audioData: data.audioData
+        });
+    });
     socket.on('createRoom', ({ roomId, password, playerName }) => {
         if (rooms[roomId]) {
             return socket.emit('errorMsg', 'បន្ទប់នេះមានរួចហើយ!');
@@ -262,17 +268,15 @@ io.on('connection', (socket) => {
         broadcastRoomList();
     });
 
-    // server.js (សូមដាក់កូដនេះក្នុង io.on('connection', ...))
-    socket.on('audio_packet', (data) => {
-        if (data && data.roomId) {
-            // បាញ់សំឡេងទៅកាន់អ្នកដទៃទាំងអស់ក្នុង Room តែមួយ
-            socket.to(data.roomId).emit('audio_broadcast', {
-                from: socket.id,
-                buffer: data.buffer
-            });
-        }
+    // ដាក់កូដនេះក្នុង server.js ខាងក្នុង io.on('connection', (socket) => { ... })
+    socket.on('audio_packet', (packet) => {
+        // បញ្ជូនទៅគ្រប់គ្នាដែលនៅក្នុងបន្ទប់នោះ លើកលែងតែអ្នកដែលកំពុងនិយាយ (sender)
+        socket.to(packet.roomId).emit('audio_broadcast', {
+            from: socket.id,
+            data: packet.data
+        });
     });
-
+    
     socket.on('startGame', (roomId) => {
         const room = rooms[roomId];
         if (!room) return;
