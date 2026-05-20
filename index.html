@@ -1170,38 +1170,41 @@ socket.on('leftRoom', () => {
 // =================================================================
 // 🛠️ ផ្នែក LOGIC ជួសជុលបន្ថែមប្រព័ន្ធ ICE SERVERS ឱ្យនិយាយឮច្បាស់
 // =================================================================
-
 function initVoiceAndExecute(callback) {
-    if (localStream) {
-        callback();
+    // ពិនិត្យមើលថាតើឧបករណ៍មាន Mic ឬអត់
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.log("Browser មិនគាំទ្រ Mic, បន្តលេងហ្គេមធម្មតា...");
+        if (callback) callback(); // បន្តដំណើរការហ្គេមទោះគ្មាន Mic
         return;
     }
 
-    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+    navigator.mediaDevices.getUserMedia({ audio: true })
         .then(stream => {
             localStream = stream;
-            micEnabled = true;
-            updateMicButtonUI();
-            console.log("🎤 ម៉ៃក្រូហ្វូនត្រូវបានបើកជោគជ័យ!");
-            callback();
+            if (callback) callback();
         })
         .catch(err => {
-            console.warn("មិនអាចបើក Mic បានទេ:", err);
-            alert("ដើម្បីនិយាយគ្នាបាន សូមអនុញ្ញាត (Allow) ឱ្យហ្គេមប្រើប្រាស់ម៉ៃក្រូហ្វូនរបស់អ្នក!");
-            callback(); 
+            console.warn("អ្នកលេងមិនមាន Mic ឬបដិសេធការប្រើប្រាស់, បន្តលេងហ្គេមធម្មតា:", err);
+            // កុំប្រើ alert() កុំឱ្យរំខានអ្នកលេង
+            localStream = null; // គ្មាន Mic គឺគ្មាន stream
+            if (callback) callback(); // បន្តដំណើរការហ្គេមទោះគ្មាន Mic
         });
 }
 
-// កែសម្រួល៖ ពេលមានអ្នកចូលរួមថ្មី ឱ្យអ្នកនៅក្នុងបន្ទប់ចាស់ធ្វើជា "អ្នកចាប់ផ្តើម Call" (Initiator: true)
 socket.on('voice_user_joined', ({ id }) => {
     if (peers[id]) return;
 
     console.log("📞 ចាប់ផ្ដើមតភ្ជាប់សំឡេងទៅកាន់សមាជិកថ្មី ID:", id);
     const peer = new SimplePeer({
-        initiator: true, // 👈 ប្តូរទៅ true ដើម្បីឱ្យអ្នកចាស់តេទៅអ្នកថ្មី
-        trickle: true, 
+        initiator: true, 
+        trickle: false, // 👈 ផ្លាស់ប្តូរដើម្បីភាពស្ថិរភាពលើ Safari
         stream: localStream,
-        config: iceConfig.config
+        config: {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        }
     });
 
     peer.on('signal', signal => {
@@ -1219,15 +1222,20 @@ socket.on('voice_user_joined', ({ id }) => {
     peers[id] = peer;
 });
 
-// កែសម្រួល៖ ទទួលការ Call ពីអ្នកចាស់ (បង្កើត Peer មកទទួល Initiator: false)
 socket.on('voice_signal', ({ from, signal }) => {
     if (!peers[from]) {
         console.log("📥 ទទួលការសុំតភ្ជាប់សំឡេងពី ID:", from);
+        
         const peer = new SimplePeer({
-            initiator: false, // 👈 ទទួលសញ្ញាពីគេ គឺរង់ចាំឆ្លើយតប
-            trickle: true, 
+            initiator: false, 
+            trickle: false, // 👈 ផ្លាស់ប្តូរពី true មក false ដើម្បីភាពស្ថិរភាពលើ iPhone
             stream: localStream,
-            config: iceConfig.config
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ]
+            }
         });
 
         peer.on('signal', sig => {
@@ -1291,17 +1299,28 @@ function removeAudioElement(id) {
 }
 
 function toggleMic() {
+    // 1. ពិនិត្យមើលថាតើ Mic ត្រូវបានអនុញ្ញាតឱ្យប្រើពីមុនមកឬនៅ
     if (!localStream) {
         initVoiceAndExecute(() => {
-            alert("ម៉ៃក្រូហ្វូនបើកហើយ!");
+            // ពិនិត្យម្តងទៀតបន្ទាប់ពី initVoiceAndExecute រត់ចប់
+            if (localStream) {
+                alert("ម៉ៃក្រូហ្វូនបើកហើយ!");
+                updateMicButtonUI();
+            } else {
+                // ប្រសិនបើនៅតែគ្មាន Mic (ដោយសារអ្នកប្រើចុចបដិសេធ ឬគ្មាន Hardware)
+                alert("មិនអាចបើក Microphone បានទេ (រកមិនឃើញឧបករណ៍ ឬមិនត្រូវបានអនុញ្ញាត)។");
+            }
         });
         return;
     }
     
+    // 2. បិទ/បើក track តែនៅពេលដែលមាន localStream ពិតប្រាកដ
     micEnabled = !micEnabled;
-    localStream.getAudioTracks().forEach(track => {
-        track.enabled = micEnabled;
-    });
+    if (localStream.getAudioTracks().length > 0) {
+        localStream.getAudioTracks().forEach(track => {
+            track.enabled = micEnabled;
+        });
+    }
     updateMicButtonUI();
 }
 
