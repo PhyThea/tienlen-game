@@ -367,15 +367,12 @@ button:disabled {
     text-align: left;
 }
 
-/* បន្ថែមក្នុង CSS របស់អ្នក */
 .result-cards {
     display: flex;
-    flex-wrap: wrap;
     gap: 4px;
-    margin-top: 5px;
-    padding: 5px;
-    background: #0f172a;
-    border-radius: 6px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+    align-items: center;
     min-height: 40px;
 }
 
@@ -474,57 +471,22 @@ button:disabled {
 <script src="https://unpkg.com/simple-peer@9.11.1/simplepeer.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script>
-
-    // ដាក់កូដទាំងពីរនេះនៅខាងលើគេក្នុង Script
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-    function resumeAudioContext() {
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume().then(() => {
-                console.log("AudioContext បានដាស់ជោគជ័យ");
-            });
-        }
-    }
-
-async function toggleMic() {
-    // ១. ដាស់ AudioContext គ្រប់ពេលដែលចុច
-    if (audioCtx.state === 'suspended') {
-        await audioCtx.resume();
-    }
-
-    // ២. ប្រសិនបើមិនទាន់បានស្នើសុំសិទ្ធិ
-    if (!localStream) {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            localStream = stream;
-            micEnabled = true;
-            alert("✅ Microphone បើកដំណើរការហើយ!");
-        } catch (err) {
-            alert("❌ មិនអាចបើក Mic បានទេ៖ សូមប្រាកដថាអ្នកប្រើ HTTPS ហើយអនុញ្ញាតក្នុង Safari Settings។");
-            return;
-        }
-    } else {
-        // ៣. បិទ/បើក (Mute/Unmute)
-        micEnabled = !micEnabled;
-        localStream.getAudioTracks()[0].enabled = micEnabled;
-    }
-    
-    updateMicButtonUI();
-}
-
-function updateMicButtonUI() {
-    const btn = document.getElementById('micToggleBtn');
-    if (!btn) return;
-    btn.innerHTML = micEnabled ? "🎙️ Mic: On" : "🔇 Mic: Muted";
-    btn.className = micEnabled ? "mic-btn" : "mic-btn muted";
-}
-
 const socket = io();
 
-// កែសម្រួលអថេរទាំងនេះ
+let myId = null;
+let currentRoom = null;
+let isCreator = false;
+let myHand = [];
+let selectedCards = [];
+let currentTurnIndex = 0;
+let playersData = [];
+let amISpectator = false;
+let lastRoundWinnerId = null; 
+
 let localStream = null;
-let micEnabled = false; // ចាប់ផ្ដើមដោយបិទ (Muted) ដើម្បីសុវត្ថិភាព
 let peers = {};
+let micEnabled = true;
+
 const iceConfig = {
     config: {
         iceServers: [
@@ -605,11 +567,12 @@ function createRoom() {
     if (!playerName) return;
     const roomId = document.getElementById('roomInput').value.trim();
     const password = document.getElementById('roomPass').value;
-    if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!"); 
+    if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!");
     initVoiceAndExecute(() => {
         socket.emit('createRoom', { roomId, password, playerName });
     });
 }
+
 function joinRoom() {
     const playerName = getPlayerName();
     if (!playerName) return;
@@ -933,8 +896,8 @@ function renderMyCards() {
 }
 
 function playSelectedCards() {
-    const playBtn = document.getElementById('playBtn');
-    playBtn.disabled = true; // បិទភ្លាមៗកុំឱ្យចុចជាន់
+    if (!isMyTurn()) return alert("មិនទាន់ដល់វេនរបស់អ្នកឡើយ!");
+    if (selectedCards.length === 0) return alert("សូមជ្រើសរើសសន្លឹកបៀរមុននឹងចុះ!");
     socket.emit('playCard', { roomId: currentRoom, cards: selectedCards });
 }
 
@@ -1113,15 +1076,18 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
         
         playAgainBtn.onclick = null;
         playAgainBtn.ontouchstart = null;
+
         playAgainBtn.onclick = function() {
-            playAgainBtn.disabled = true;
-            playAgainBtn.innerText = "⏳ កំពុងរៀបចំ...";
-            
             if (currentRoom) {
                 socket.emit('startGame', currentRoom);
             }
         };
-
+        playAgainBtn.ontouchstart = function(e) {
+            e.preventDefault(); 
+            if (currentRoom) {
+                socket.emit('startGame', currentRoom);
+            }
+        };
     } else {
         playAgainBtn.style.display = 'none';
         waitText.style.display = 'block';
@@ -1204,40 +1170,38 @@ socket.on('leftRoom', () => {
 // =================================================================
 // 🛠️ ផ្នែក LOGIC ជួសជុលបន្ថែមប្រព័ន្ធ ICE SERVERS ឱ្យនិយាយឮច្បាស់
 // =================================================================
-async function initVoiceAndExecute(callback) {
-    try {
-        // ១. ដាស់ AudioContext
-        if (audioCtx.state === 'suspended') {
-            await audioCtx.resume();
-        }
-        // ២. ស្នើសុំសិទ្ធិ Mic
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        localStream = stream;
-        micEnabled = true;
-        updateMicButtonUI();
-        
-        // ៣. បន្តប្រតិបត្តិការណ៍ដែលនៅសល់ (ឧ. ចូលបន្ទប់)
-        if (callback) callback();
-    } catch (err) {
-        console.error("កំហុស៖", err);
-        alert("មិនអាចបើក Microphone បានទេ។ សូមប្រាកដថាអ្នកប្រើ HTTPS ហើយបានអនុញ្ញាតក្នុង Safari Settings។");
+
+function initVoiceAndExecute(callback) {
+    if (localStream) {
+        callback();
+        return;
     }
+
+    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+        .then(stream => {
+            localStream = stream;
+            micEnabled = true;
+            updateMicButtonUI();
+            console.log("🎤 ម៉ៃក្រូហ្វូនត្រូវបានបើកជោគជ័យ!");
+            callback();
+        })
+        .catch(err => {
+            console.warn("មិនអាចបើក Mic បានទេ:", err);
+            alert("ដើម្បីនិយាយគ្នាបាន សូមអនុញ្ញាត (Allow) ឱ្យហ្គេមប្រើប្រាស់ម៉ៃក្រូហ្វូនរបស់អ្នក!");
+            callback(); 
+        });
 }
 
+// កែសម្រួល៖ ពេលមានអ្នកចូលរួមថ្មី ឱ្យអ្នកនៅក្នុងបន្ទប់ចាស់ធ្វើជា "អ្នកចាប់ផ្តើម Call" (Initiator: true)
 socket.on('voice_user_joined', ({ id }) => {
     if (peers[id]) return;
 
     console.log("📞 ចាប់ផ្ដើមតភ្ជាប់សំឡេងទៅកាន់សមាជិកថ្មី ID:", id);
     const peer = new SimplePeer({
-        initiator: true, 
-        trickle: false, // 👈 ផ្លាស់ប្តូរដើម្បីភាពស្ថិរភាពលើ Safari
+        initiator: true, // 👈 ប្តូរទៅ true ដើម្បីឱ្យអ្នកចាស់តេទៅអ្នកថ្មី
+        trickle: true, 
         stream: localStream,
-        config: {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
-            ]
-        }
+        config: iceConfig.config
     });
 
     peer.on('signal', signal => {
@@ -1255,20 +1219,15 @@ socket.on('voice_user_joined', ({ id }) => {
     peers[id] = peer;
 });
 
+// កែសម្រួល៖ ទទួលការ Call ពីអ្នកចាស់ (បង្កើត Peer មកទទួល Initiator: false)
 socket.on('voice_signal', ({ from, signal }) => {
     if (!peers[from]) {
         console.log("📥 ទទួលការសុំតភ្ជាប់សំឡេងពី ID:", from);
-        
         const peer = new SimplePeer({
-            initiator: false, 
-            trickle: false, // 👈 ផ្លាស់ប្តូរពី true មក false ដើម្បីភាពស្ថិរភាពលើ iPhone
+            initiator: false, // 👈 ទទួលសញ្ញាពីគេ គឺរង់ចាំឆ្លើយតប
+            trickle: true, 
             stream: localStream,
-            config: {
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' }
-                ]
-            }
+            config: iceConfig.config
         });
 
         peer.on('signal', sig => {
@@ -1299,36 +1258,61 @@ socket.on('voice_user_left', ({ id }) => {
     removeAudioElement(id);
 });
 
+// បង្កើត AudioContext តែមួយ (Singleton)
+let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
 function createAudioElement(id, stream) {
     let audio = document.getElementById(`audio-${id}`);
+    
     if (!audio) {
         audio = document.createElement('audio');
         audio.id = `audio-${id}`;
-        
-        // បន្ថែម Attribute ដើម្បីធានាការចាក់សំឡេងលើទូរស័ព្ទ (iOS / Android)
-        audio.setAttribute('playsinline', 'true');
-        audio.setAttribute('autoplay', 'true');
-        audio.muted = false; 
-        audio.controls = false; 
-        
+        audio.setAttribute('playsinline', 'true'); // សំខាន់បំផុតសម្រាប់ iOS
+        audio.autoplay = true;
+        audio.style.display = 'none';
         document.body.appendChild(audio);
     }
+    
     audio.srcObject = stream;
     
-    // ដំណោះស្រាយបញ្ហា Autoplay Blocked (Browser មិនឱ្យចាក់សំឡេងស្វ័យប្រវត្ត)
-    // យើងដាស់វាឱ្យលឺភ្លាម នៅពេលអ្នកលេងចុច Touch លើអេក្រង់ហ្គេម
-    const startPlay = () => {
-        audio.play().catch(e => console.log("Autoplay ត្រូវបានទប់ស្កាត់ជាបណ្ដោះអាសន្ន៖", e));
-    };
+    // ជំហានសំខាន់សម្រាប់ iOS៖ ដោះសោរ AudioContext
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume().then(() => console.log("AudioContext resumed!"));
+    }
+
+    // ការតភ្ជាប់សម្លេង (Web Audio API)
+    try {
+        const source = audioCtx.createMediaStreamSource(stream);
+        const gainNode = audioCtx.createGain();
+        gainNode.gain.value = 1.0; // កម្រិត ១០០% ពេញ
+        
+        source.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+    } catch (e) {
+        console.error("កំហុសក្នុងការតភ្ជាប់សំឡេង:", e);
+    }
     
-    startPlay();
-    document.addEventListener('click', startPlay, { once: true });
-    document.addEventListener('touchstart', startPlay, { once: true });
+    audio.play().catch(e => console.log("Autoplay ត្រូវបានទប់ស្កាត់៖", e));
 }
 
 function removeAudioElement(id) {
     const audio = document.getElementById(`audio-${id}`);
     if (audio) audio.remove();
+}
+
+function toggleMic() {
+    if (!localStream) {
+        initVoiceAndExecute(() => {
+            alert("ម៉ៃក្រូហ្វូនបើកហើយ!");
+        });
+        return;
+    }
+    
+    micEnabled = !micEnabled;
+    localStream.getAudioTracks().forEach(track => {
+        track.enabled = micEnabled;
+    });
+    updateMicButtonUI();
 }
 
 function updateMicButtonUI() {
