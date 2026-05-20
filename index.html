@@ -1171,22 +1171,23 @@ socket.on('leftRoom', () => {
 // 🛠️ ផ្នែក LOGIC ជួសជុលបន្ថែមប្រព័ន្ធ ICE SERVERS ឱ្យនិយាយឮច្បាស់
 // =================================================================
 function initVoiceAndExecute(callback) {
-    const constraints = { 
-        audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: false
-        } 
-    };
+    // ពិនិត្យមើលថាតើឧបករណ៍មាន Mic ឬអត់
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.log("Browser មិនគាំទ្រ Mic, បន្តលេងហ្គេមធម្មតា...");
+        if (callback) callback(); // បន្តដំណើរការហ្គេមទោះគ្មាន Mic
+        return;
+    }
 
-    navigator.mediaDevices.getUserMedia(constraints)
+    navigator.mediaDevices.getUserMedia({ audio: true })
         .then(stream => {
             localStream = stream;
             if (callback) callback();
         })
         .catch(err => {
-            console.error("Error accessing mic:", err);
-            alert("រកមិនឃើញ Microphone ឬអ្នកបានបិទវា។ សូមពិនិត្យ Settings!");
+            console.warn("អ្នកលេងមិនមាន Mic ឬបដិសេធការប្រើប្រាស់, បន្តលេងហ្គេមធម្មតា:", err);
+            // កុំប្រើ alert() កុំឱ្យរំខានអ្នកលេង
+            localStream = null; // គ្មាន Mic គឺគ្មាន stream
+            if (callback) callback(); // បន្តដំណើរការហ្គេមទោះគ្មាន Mic
         });
 }
 
@@ -1298,18 +1299,28 @@ function removeAudioElement(id) {
 }
 
 function toggleMic() {
+    // 1. ពិនិត្យមើលថាតើ Mic ត្រូវបានអនុញ្ញាតឱ្យប្រើពីមុនមកឬនៅ
     if (!localStream) {
         initVoiceAndExecute(() => {
-            alert("ម៉ៃក្រូហ្វូនបើកហើយ!");
+            // ពិនិត្យម្តងទៀតបន្ទាប់ពី initVoiceAndExecute រត់ចប់
+            if (localStream) {
+                alert("ម៉ៃក្រូហ្វូនបើកហើយ!");
+                updateMicButtonUI();
+            } else {
+                // ប្រសិនបើនៅតែគ្មាន Mic (ដោយសារអ្នកប្រើចុចបដិសេធ ឬគ្មាន Hardware)
+                alert("មិនអាចបើក Microphone បានទេ (រកមិនឃើញឧបករណ៍ ឬមិនត្រូវបានអនុញ្ញាត)។");
+            }
         });
         return;
     }
     
-    // បិទ/បើក track តាមលក្ខខណ្ឌ
+    // 2. បិទ/បើក track តែនៅពេលដែលមាន localStream ពិតប្រាកដ
     micEnabled = !micEnabled;
-    localStream.getAudioTracks().forEach(track => {
-        track.enabled = micEnabled;
-    });
+    if (localStream.getAudioTracks().length > 0) {
+        localStream.getAudioTracks().forEach(track => {
+            track.enabled = micEnabled;
+        });
+    }
     updateMicButtonUI();
 }
 
