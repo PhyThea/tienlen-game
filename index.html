@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>🃏 Tien Len Online</title>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: #0f172a;
+    color: white;
+    overflow: hidden; 
+    position: fixed;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh; 
+}
+
+.container {
+    max-width: 1200px;
+    margin: auto;
+    padding: 10px;
+    width: 100%;
+    height: 100%;
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 12px;
+    font-size: 22px;
+}
+
+.panel {
+    background: #1e293b;
+    padding: 20px;
+    border-radius: 15px;
+    margin-bottom: 20px;
+}
+
+input {
+    width: 100%;
+    padding: 12px;
+    margin-top: 10px;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    background: #334155;
+    color: white;
+}
+
+button {
+    padding: 12px 20px;
+    margin-top: 15px;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    width: 100%;
+    transition: background 0.2s ease, transform 0.1s ease;
+}
+button:active {
+    transform: scale(0.98);
+}
+
+button:disabled {
+    background: #475569 !important;
+    color: #94a3b8 !important;
+    cursor: not-allowed;
+    transform: none !important;
+    opacity: 0.6;
+}
+
+.btn-blue { background: #3b82f6; color: white; }
+.btn-blue:hover:not(:disabled) { background: #2563eb; }
+.btn-green { background: #22c55e; color: white; }
+.btn-green:hover:not(:disabled) { background: #16a34a; }
+.btn-red { background: #ef4444; color: white; }
+.btn-red:hover:not(:disabled) { background: #dc2626; }
+
+.room-item {
+    background: #334155;
+    padding: 15px;
+    border-radius: 10px;
+    margin-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#gameArea {
+    display: none;
+    width: 100%;
+    height: 100%;
+}
+
+@media screen and (max-width: 932px) and (orientation: portrait) {
+    body.in-game .container, body.round-over .container {
+        padding: 0;
+        max-width: 100%;
+        width: 100%;
+        height: 100%;
+    }
+
+    body.in-game #gameArea {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        width: 100dvh; 
+        height: 100dvw;
+        transform: translate(-50%, -50%) rotate(90deg);
+        transform-origin: center center;
+        background: #0f172a;
+        padding: 10px 13px 10px 10px; 
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        overflow: hidden; 
+    }
+
+    body.round-over #resultArea {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        width: 100dvh;
+        height: 100dvw;
+        transform: translate(-50%, -50%) rotate(90deg);
+        transform-origin: center center;
+        max-height: 100dvw !important;
+        background: #0f172a;
+        box-sizing: border-box;
+        padding: 15px;
+        display: block; 
+    }
+}
+
+@media screen and (min-width: 600px) and (orientation: landscape), screen and (min-width: 933px) {
+    body.in-game #gameArea {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 100%;
+        width: 100%;
+        gap: 6px;
+        transform: none !important; 
+        position: static !important;
+    }
+}
+
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #1e293b;
+    padding: 5px 10px;
+    border-radius: 8px;
+    flex-shrink: 0;
+    height: 32px;
+}
+
+#players {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    flex-shrink: 0;
+    height: 42px;
+    margin-top: 2px;
+}
+
+.player {
+    background: #334155;
+    padding: 3px 6px;
+    border-radius: 6px;
+    min-width: 80px;
+    flex: 1;
+    max-width: 140px;
+    position: relative;
+    border: 1.5px solid transparent; 
+    transition: all 0.25s ease;
+    text-align: center;
+    font-size: 11px;
+}
+
+.player.active-turn {
+    border: 1.5px solid #22c55e !important;
+    box-shadow: 0 0 6px rgba(34, 197, 94, 0.5) !important;
+    background: #1e293b !important;
+}
+
+.player-passed {
+    background: #451a1a !important;
+    border: 1.5px solid #ef4444 !important;
+    opacity: 0.5;
+}
+
+.player-rank-1 {
+    background: #422006 !important;
+    border: 1.5px solid #eab308 !important;
+}
+
+.player-rank-2 {
+    background: #1e293b !important;
+    border: 1.5px solid #3b82f6 !important;
+}
+
+.turn-badge {
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #22c55e;
+    color: white;
+    font-size: 7px;
+    font-weight: bold;
+    padding: 0px 4px;
+    border-radius: 10px;
+    white-space: nowrap;
+}
+
+.card-counter {
+    background: #1e293b;
+    border-radius: 3px;
+    padding: 0px 3px;
+    font-weight: bold;
+    font-size: 9px;
+    color: #f59e0b;
+    border: 1px solid #475569;
+    display: inline-block;
+}
+
+.table-area {
+    background: #14532d; 
+    border: 2px dashed #22c55e;
+    border-radius: 10px;
+    flex: 1; 
+    min-height: 60px; 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: nowrap;
+    overflow-x: auto;  
+    gap: 4px;
+    padding: 6px;
+    position: relative;
+    margin: 4px 0;
+}
+
+.hand-and-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: #1e293b;
+    padding: 6px;
+    border-radius: 10px;
+    flex-shrink: 0; 
+    padding-bottom: max(6px, env(safe-area-inset-bottom)); 
+}
+
+.card-container {
+    display: flex;
+    justify-content: center;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 2px 0;
+    height: 130px;       
+    align-items: flex-end;
+}
+
+.card {
+    width: 65px;         
+    height: 95px;        
+    background-size: cover;
+    background-position: center;
+    border-radius: 6px;  
+    cursor: pointer;
+    user-select: none;
+    box-shadow: -2px 2px 4px rgba(0,0,0,0.4);
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+    flex-shrink: 0;
+    margin-right: -28px; 
+    position: relative; 
+}
+
+.card:last-child {
+    margin-right: 0;
+}
+
+.card.first-turn-highlight {
+    box-shadow: 0 0 8px #eab308 !important;
+    filter: drop-shadow(0 0 5px #eab308);
+}
+
+.card.selected {
+    transform: translate(-25px, -25px) !important; 
+    box-shadow: 0 8px 15px rgba(59, 130, 246, 0.8) !important; 
+    border: 2px solid #3b82f6; 
+    position: relative; 
+}
+
+.card.disabled-card {
+    opacity: 0.4;
+    cursor: not-allowed;
+    box-shadow: none !important;
+}
+
+.table-card-img {
+    width: 42px;
+    height: auto;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.controls {
+    display: flex;
+    gap: 6px;
+}
+.controls button {
+    margin-top: 0;
+    padding: 7px;
+    font-size: 13px;
+    border-radius: 6px;
+    height: 36px; 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.bubble-msg {
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #ef4444;
+    color: white;
+    padding: 1px 5px;
+    border-radius: 5px;
+    font-size: 9px;
+    font-weight: bold;
+    white-space: nowrap;
+    z-index: 10;
+}
+
+#resultArea {
+    display: none;
+    text-align: center;
+    overflow-y: auto;
+    max-height: 90vh;
+}
+
+.result-player {
+    background: #334155;
+    padding: 10px;
+    border-radius: 10px;
+    margin-top: 10px;
+    text-align: left;
+}
+
+.result-cards {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+    align-items: center;
+    min-height: 40px;
+}
+
+.animate-play-card {
+    animation: popInCard 0.2s ease-out forwards;
+}
+
+@keyframes popInCard {
+    0% { opacity: 0; transform: scale(0.5) translateY(30px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.mic-btn {
+    background: #f59e0b;
+    color: black;
+    font-size: 11px;
+    padding: 2px 8px;
+    width: auto;
+    height: 24px;
+    margin-top: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 6px;
+}
+.mic-btn.muted {
+    background: #ef4444;
+    color: white;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+    <div id="loginArea" class="panel">
+        <h1>🃏 Tien Len Online</h1>
+        <input type="text" id="playerName" placeholder="បញ្ចូលឈ្មោះរបស់អ្នក...">
+        <div style="margin-top: 15px;">
+            <input type="text" id="roomInput" placeholder="លេខបន្ទប់ (Room ID)...">
+            <input type="password" id="roomPass" placeholder="លេខកូដសម្ងាត់បន្ទប់ (បើគ្មាន ទុកទទេ)...">
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-blue" onclick="createRoom()">➕ បង្កើតបន្ទប់ថ្មី</button>
+                <button class="btn-green" onclick="joinRoom()">🚪 ចូលរួមបន្ទប់</button>
+            </div>
+        </div>
+        <hr style="margin-top: 20px; border-color: #334155;">
+        <h3 style="margin-top: 15px;">🏰 បញ្ជីបន្ទប់កំពុងរង់ចាំ៖</h3>
+        <div id="roomList"></div>
+    </div>
+
+    <div id="lobbyArea" class="panel" style="display: none;">
+        <h1>🃏 Tien Len Online</h1>
+        <h2>Room: <span id="showRoom" style="color: #3b82f6;"></span></h2>
+        <br>
+        <div id="lobbyPlayers" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;"></div>
+        <button id="startBtn" class="btn-green" onclick="startGame()" style="display: none;">🚀 Start Game</button>
+        <button class="btn-red" onclick="leaveRoom()">🚪 ចាកចេញ (Leave)</button>
+    </div>
+
+    <div id="gameArea">
+        <div class="game-header">
+            <div id="status" style="font-weight: bold; color: #22c55e; font-size: 12px;">Waiting...</div>
+            <div style="display: flex; gap: 6px; align-items: center;">
+                <button id="micToggleBtn" class="mic-btn" onclick="toggleMic()">🎙️ Mic: On</button>
+                <button class="btn-red" onclick="leaveRoom()" style="margin-top: 0; padding: 2px 8px; font-size: 11px; width: auto; height: 24px;">🚪 ផ្ទះដើម</button>
+            </div>
+        </div>
+
+        <div id="players"></div>
+
+        <div class="table-area" id="table">
+            <div style="color: #a7f3d0; font-size: 12px;">មិនទាន់មានបៀរចុះឡើយ</div>
+        </div>
+
+        <div class="hand-and-controls">
+            <div class="card-container" id="myCards"></div>
+            <div class="controls" id="actionControls">
+                <button id="playBtn" class="btn-green" onclick="playSelectedCards()">🎯 ចុះបៀរ (Play)</button>
+                <button id="passBtn" class="btn-red" onclick="passTurn()">❌ រំលង (Pass)</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="resultArea" class="panel">
+        <h2 style="color: #22c55e;">🎉 ជ័យជម្នះបានទៅលើ៖ <span id="winnerName"></span></h2>
+        <br>
+        <h3>📊 ចំណាត់ថ្នាក់ និងសន្លឹកបៀដែលនៅសល់៖</h3>
+        <div id="resultList"></div>
+        <br>
+        <button id="hostPlayAgainBtn" class="btn-green" onclick="startGame()" style="display: none;">🔄 លេងម្ដងទៀត (Play Again)</button>
+        <div id="waitHostText" style="color: #94a3b8; margin-top: 15px;">សូមរង់ចាំ Host ចាប់ផ្ដើមវគ្គថ្មី...</div>
+        <button class="btn-red" onclick="leaveRoom()">🚪 ចាកចេញទៅទំព័រដើម</button>
+    </div>
+</div>
+
+<script src="https://unpkg.com/simple-peer@9.11.1/simplepeer.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+
+let myId = null;
+let currentRoom = null;
+let isCreator = false;
+let myHand = [];
+let selectedCards = [];
+let currentTurnIndex = 0;
+let playersData = [];
+let amISpectator = false;
+let lastRoundWinnerId = null; 
+
+let localStream = null;
+let peers = {};
+let micEnabled = true;
+
+const iceConfig = {
+    config: {
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' }
+        ]
+    }
+};
+
+function getCardFileName(card) {
+    let valStr = card.value;
+    if (valStr === 'A') valStr = 'ace';
+    else if (valStr === 'J') valStr = 'jack';
+    else if (valStr === 'Q') valStr = 'queen';
+    else if (valStr === 'K') valStr = 'king';
+
+    let suitStr = '';
+    if (card.suit === '♠') suitStr = 'spades';
+    else if (card.suit === '♣') suitStr = 'clubs';
+    else if (card.suit === '♦') suitStr = 'diamonds';
+    else if (card.suit === '♥') suitStr = 'hearts';
+
+    return `PNG-cards/${valStr}_of_${suitStr}.png`;
+}
+
+if (localStorage.getItem('tienlen_name')) {
+    document.getElementById('playerName').value = localStorage.getItem('tienlen_name');
+}
+
+socket.on('roomList', (rooms) => {
+    const div = document.getElementById('roomList');
+    div.innerHTML = '';
+    if (rooms.length === 0) {
+        div.innerHTML = '<div style="color: #64748b; margin-top: 10px;">មិនទាន់មានបន្ទប់នៅឡើយទេ...</div>';
+        return;
+    }
+    rooms.forEach(r => {
+        const item = document.createElement('div');
+        item.className = 'room-item';
+        const lockIcon = r.hasPassword ? '🔒' : '🔓';
+        const statusText = r.status === 'playing' ? '<span style="color: #ef4444;">(កំពុងលេង)</span>' : '<span style="color: #22c55e;">(ទំនេរ)</span>';
+        
+        item.innerHTML = `
+            <div>
+                <strong>បន្ទប់ ID: ${r.roomId}</strong> ${lockIcon} <br>
+                <small style="color: #94a3b8;">សមាជិក៖ ${r.playerCount}/4 នាក់ ${statusText}</small>
+            </div>
+            <button class="btn-blue" style="width: auto; margin-top: 0; padding: 6px 12px;" onclick="quickJoin('${r.roomId}', ${r.hasPassword})">ចូលរួម</button>
+        `;
+        div.appendChild(item);
+    });
+});
+
+function quickJoin(roomId, hasPassword) {
+    document.getElementById('roomInput').value = roomId;
+    if (hasPassword) {
+        const pass = prompt("សូមបញ្ចូលលេខកូដសម្ងាត់បន្ទប់៖");
+        if (pass !== null) document.getElementById('roomPass').value = pass;
+    }
+    joinRoom();
+}
+
+function getPlayerName() {
+    const name = document.getElementById('playerName').value.trim();
+    if (!name) {
+        alert("សូមបញ្ចូលឈ្មោះរបស់អ្នកជាមុនសិន!");
+        return null;
+    }
+    localStorage.setItem('tienlen_name', name);
+    return name;
+}
+
+function createRoom() {
+    const playerName = getPlayerName();
+    if (!playerName) return;
+    const roomId = document.getElementById('roomInput').value.trim();
+    const password = document.getElementById('roomPass').value;
+    if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!");
+    initVoiceAndExecute(() => {
+        socket.emit('createRoom', { roomId, password, playerName });
+    });
+}
+
+function joinRoom() {
+    const playerName = getPlayerName();
+    if (!playerName) return;
+    const roomId = document.getElementById('roomInput').value.trim();
+    const password = document.getElementById('roomPass').value;
+    if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!");
+    initVoiceAndExecute(() => {
+        socket.emit('joinRoom', { roomId, password, playerName });
+    });
+}
+
+socket.on('roomCreated', ({ roomId, playerId }) => {
+    myId = playerId;
+    currentRoom = roomId;
+    isCreator = true;
+    showLobby(roomId);
+});
+
+socket.on('roomJoined', ({ roomId, playerId, isSpectator, playedCards, currentTurnIndex: serverTurn }) => {
+    myId = playerId;
+    currentRoom = roomId;
+    isCreator = false;
+    amISpectator = isSpectator;
+    
+    if (amISpectator) {
+        // 🛠️ បន្ថែម៖ បើហ្គេមកំពុងលេង ឱ្យអ្នកមើលចូលទៅកាន់ផ្ទាំង Game ភ្លាមៗ និងបង្ហាញបៀរលើតុ
+        currentTurnIndex = serverTurn;
+        
+        document.body.classList.remove('round-over'); 
+        document.body.classList.add('in-game');
+        
+        document.getElementById('loginArea').style.display = 'none';
+        document.getElementById('lobbyArea').style.display = 'none';
+        document.getElementById('resultArea').style.display = 'none';
+        document.getElementById('gameArea').style.display = 'block';
+        
+        document.getElementById('actionControls').style.display = 'none';
+        
+        // បង្ហាញបៀរដែលមាននៅលើតុស្រាប់
+        const tableDiv = document.getElementById('table');
+        tableDiv.innerHTML = ''; 
+        if (playedCards && playedCards.length > 0) {
+            playedCards.forEach((card) => {
+                const el = document.createElement('img');
+                el.src = getCardFileName(card);
+                el.className = 'table-card-img';
+                tableDiv.appendChild(el);
+            });
+        } else {
+            tableDiv.innerHTML = '<div style="color: #a7f3d0; font-size:12px;">មិនទាន់មានបៀរចុះឡើយ</div>';
+        }
+    } else {
+        // បើហ្គេមមិនទាន់លេង ឱ្យទៅរង់ចាំនៅផ្ទាំង Lobby សិន
+        showLobby(roomId);
+    }
+});
+
+function showLobby(roomId) {
+    document.body.classList.remove('in-game');
+    document.getElementById('loginArea').style.display = 'none';
+    document.getElementById('lobbyArea').style.display = 'block';
+    document.getElementById('gameArea').style.display = 'none';
+    document.getElementById('resultArea').style.display = 'none';
+    document.getElementById('showRoom').innerText = roomId;
+}
+
+socket.on('updatePlayers', (players) => {
+    playersData = players;
+    const me = players.find(p => p.id === myId);
+    if (me) {
+        isCreator = (players[0].id === myId);
+        amISpectator = me.isSpectator;
+    }
+    renderPlayers(players);
+    
+    // ➕ បន្ថែមការហៅអនុគមន៍នេះនៅចុងក្រោយគេ
+    updateRoomUI(); 
+});
+
+function startGame() {
+    socket.emit('startGame', currentRoom);
+}
+
+socket.on('gameStarted', ({ players, currentTurnIndex: turn, lastRoundWinnerId: serverWinnerId }) => {
+    currentTurnIndex = turn;
+    playersData = players;
+    lastRoundWinnerId = serverWinnerId; 
+    
+    const myData = players.find(p => p.id === myId);
+    amISpectator = myData ? myData.isSpectator : false;
+
+    document.body.classList.remove('round-over'); 
+    document.body.classList.add('in-game');
+    
+    document.getElementById('lobbyArea').style.display = 'none';
+    document.getElementById('resultArea').style.display = 'none';
+    document.getElementById('gameArea').style.display = 'block';
+    
+    document.getElementById('table').innerHTML = '<div style="color: #a7f3d0; font-size:12px;">ចាប់ផ្ដើមហ្គេម!</div>';
+    
+    if (playersData[currentTurnIndex]) {
+        document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
+    }
+
+    if (amISpectator) {
+        document.getElementById('actionControls').style.display = 'none';
+    } else {
+        document.getElementById('actionControls').style.display = 'flex';
+    }
+
+    renderPlayers(players);
+    updateControlsState();
+    
+    setTimeout(() => {
+        renderMyCards(); 
+    }, 50);
+});
+
+// 🛠️ បន្ថែម៖ ស្ដាប់សញ្ញាផ្ទេរសិទ្ធិមេបន្ទប់/អ្នកឈ្នះ ពេលមានមនុស្ស Disconnect
+socket.on('winnerTransferred', (data) => {
+    // ធ្វើបច្ចុប្បន្នភាពអថេរនៅក្នុង Client
+    lastRoundWinnerId = data.newWinnerId;
+    
+    // ហៅអនុគមន៍ឱ្យ Update UI ប៊ូតុងភ្លាមៗ
+    updateRoomUI(data);
+});
+
+function updateRoomUI(data) {
+    // សម្គាល់៖ បើហៅមកធម្មតាគ្មាន data ឱ្យប្រើទិន្នន័យដែលមានស្រាប់
+    const targetWinnerId = data ? data.newWinnerId : lastRoundWinnerId;
+    const targetCreatorId = data ? data.creatorId : (playersData[0] ? playersData[0].id : null);
+    
+    // 🛠️ ជួសជុល៖ ប្រើ socket.id ផ្ទាល់របស់ Client ជំនួសឱ្យការប្រកាសជាន់អថេរចាស់
+    const mySessionId = socket.id; 
+
+    // ពិនិត្យមើលថាតើខ្លួនយើងជា Creator ឬជា Last Winner ដែរឬទេ?
+    const hasControl = (targetWinnerId === mySessionId || targetCreatorId === mySessionId);
+
+    // 1. គ្រប់គ្រង Button "Start Game" នៅក្នុងផ្ទាំង Lobby
+    const startBtn = document.getElementById('startBtn');
+    if (startBtn) {
+        if (hasControl) {
+            startBtn.style.display = 'inline-block';
+            startBtn.disabled = false;
+            startBtn.innerText = "🚀 Start Game";
+            startBtn.classList.remove('btn-blue');
+            startBtn.classList.add('btn-green');
+        } else {
+            startBtn.style.display = 'none';
+        }
+    }
+
+    // 2. គ្រប់គ្រងប៊ូតុងនៅក្នុងផ្ទាំង Result (ពេលចប់ហ្គេម)
+    const playAgainBtn = document.getElementById('hostPlayAgainBtn');
+    const waitText = document.getElementById('waitHostText');
+    
+    if (playAgainBtn && waitText) {
+        if (hasControl) {
+            playAgainBtn.style.display = 'block';
+            waitText.style.display = 'none';
+        } else {
+            playAgainBtn.style.display = 'none';
+            waitText.style.display = 'block';
+            
+            // ស្វែងរកឈ្មោះអ្នកកាន់សិទ្ធិថ្មីមកបង្ហាញឱ្យស្អាត
+            let managerName = 'មេបន្ទប់';
+            const targetId = targetWinnerId || targetCreatorId;
+            const manager = playersData.find(p => p.id === targetId);
+            if (manager) {
+                managerName = manager.name;
+            }
+            waitText.innerText = `សូមរង់ចាំ ${managerName} ចាប់ផ្ដើមវគ្គថ្មី...`;
+        }
+    }
+}
+
+socket.on('dealCards', ({ hand }) => {
+    myHand = hand;
+    selectedCards = [];
+    renderPlayers(playersData);
+    updateControlsState();
+    renderMyCards();
+});
+
+function isMyTurn() {
+    if (amISpectator || currentTurnIndex === null || currentTurnIndex === undefined) return false;
+    const activePlayer = playersData[currentTurnIndex];
+    return activePlayer && activePlayer.id === myId;
+}
+
+function updateControlsState() {
+    const playBtn = document.getElementById('playBtn');
+    const passBtn = document.getElementById('passBtn');
+    
+    if (playBtn && passBtn) {
+        if (isMyTurn()) {
+            playBtn.disabled = false;
+            const tableDiv = document.getElementById('table');
+            const isNewRound = tableDiv && (
+                tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || 
+                tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || 
+                tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត!')
+            );
+            if (isNewRound) {
+                passBtn.disabled = true; 
+            } else {
+                passBtn.disabled = false; 
+            }
+        } else {
+            playBtn.disabled = true;
+            passBtn.disabled = true;
+        }
+    }
+}
+
+function renderPlayers(players) {
+    playersData = players;
+    const div = document.getElementById('players');
+    const lobby = document.getElementById('lobbyPlayers');
+
+    div.innerHTML = '';
+    lobby.innerHTML = '';
+
+    players.forEach((p, index) => {
+        const el = document.createElement('div');
+        el.className = 'player';
+        el.id = `player-card-${p.id}`; 
+        
+        const isCurrentTurn = (currentTurnIndex !== null && index === currentTurnIndex && !p.isSpectator && p.hand && p.hand.length > 0);
+        if (isCurrentTurn) el.classList.add('active-turn'); 
+
+        const count = p.hand ? p.hand.length : (p.cardCount !== undefined ? p.cardCount : 13);
+
+        if (p.passed && count > 0) el.classList.add('player-passed'); 
+
+        if (!p.isSpectator && p.rank !== null && p.rank > 0) {
+            if (p.rank === 1) el.classList.add('player-rank-1');
+            else if (p.rank === 2) el.classList.add('player-rank-2');
+        }
+
+        let roleText = '';
+        if (p.isSpectator) {
+            roleText = '<span style="color: #94a3b8;">(អ្នកមើល)</span>';
+        } else if (p.rank !== null && p.rank > 0) {
+            let rankBadge = p.rank === 1 ? '👑 លំដាប់ ១' : `🥈 លំដាប់ ២`;
+            let badgeColor = p.rank === 1 ? '#eab308' : '#3b82f6';
+            roleText = `<div style="color: ${badgeColor}; font-weight: bold; font-size:9px; margin-top:1px;">${rankBadge}</div>`;
+        } else {
+            roleText = `<div class="card-counter">🃏 សល់៖ ${count}</div>`;
+        }
+
+        if (p.passed && !p.isSpectator && count > 0) {
+            roleText += '<br><span style="color: #ef4444; font-weight: bold; font-size: 9px;">❌ Pass</span>';
+        }
+
+        let turnBadgeHTML = isCurrentTurn ? `<div class="turn-badge">${p.id === myId ? '🟢 ខ្ញុំ' : '🎯 លេង'}</div>` : '';
+
+        el.innerHTML = `
+            ${turnBadgeHTML}
+            <strong>👤 ${p.name.substring(0, 5)}</strong>
+            <br>
+            ${roleText}
+        `;
+        div.appendChild(el);
+
+        const el2 = document.createElement('div');
+        el2.className = 'player';
+        el2.style.marginBottom = '10px';
+        el2.innerHTML = `👤 ${p.name} ${p.id === myId ? '(ខ្ញុំ)' : ''} ${p.isSpectator ? '<span style="color: #ef4444;">(អ្នកមើល)</span>' : ''}`;
+        lobby.appendChild(el2);
+    });
+}
+
+function renderMyCards() {
+    const div = document.getElementById('myCards');
+    div.innerHTML = '';
+    if (amISpectator) {
+        div.innerHTML = '<div style="color: #94a3b8; font-style: italic; font-size:13px;">អ្នកកំពុងចូលរួមមើលការប្រកួត...</div>';
+        return;
+    }
+    
+    const myTurn = isMyTurn(); 
+    const tableDiv = document.getElementById('table');
+    const isNewRound = tableDiv && (tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត!'));
+
+    myHand.forEach((card, index) => {
+        const el = document.createElement('div'); 
+        el.className = 'card'; 
+        el.style.backgroundImage = `url('${getCardFileName(card)}')`;
+        el.style.position = 'relative';
+        el.style.zIndex = index + 1;
+        
+        if (!myTurn) {
+            el.classList.add('disabled-card');
+        } else {
+            if (isNewRound) {
+                if (!lastRoundWinnerId) {
+                    if (card.value === '3' && card.suit === '♠') {
+                        el.classList.add('first-turn-highlight');
+                    }
+                } else {
+                    if (myId === lastRoundWinnerId) {
+                        el.classList.add('first-turn-highlight');
+                    }
+                }
+            }
+        }
+        
+        const isSelected = selectedCards.some(c => c.value === card.value && c.suit === card.suit);
+        if (isSelected && myTurn) {
+            el.classList.add('selected'); 
+            el.style.zIndex = 200 + index; 
+        }
+        
+        el.onclick = () => {
+            if (!isMyTurn()) return; 
+            toggleCard(card);
+        };
+        div.appendChild(el);
+    });
+}
+
+function playSelectedCards() {
+    if (!isMyTurn()) return alert("មិនទាន់ដល់វេនរបស់អ្នកឡើយ!");
+    if (selectedCards.length === 0) return alert("សូមជ្រើសរើសសន្លឹកបៀរមុននឹងចុះ!");
+    socket.emit('playCard', { roomId: currentRoom, cards: selectedCards });
+}
+
+function toggleCard(card) {
+    const index = selectedCards.findIndex(c => c.value === card.value && c.suit === card.suit);
+    if (index > -1) {
+        selectedCards.splice(index, 1);
+    } else {
+        selectedCards.push(card);
+    }
+    renderMyCards();
+}
+
+function passTurn() {
+    if (!isMyTurn()) return alert("មិនទាន់ដល់វេនរបស់អ្នកឡើយ!");
+    socket.emit('passTurn', currentRoom);
+}
+
+socket.on('turnChanged', ({ currentTurnIndex: turn, players }) => {
+    currentTurnIndex = turn;
+    if (players) playersData = players;
+    if (playersData[currentTurnIndex]) {
+        document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
+    }
+    renderPlayers(playersData);
+    updateControlsState();
+    renderMyCards(); 
+});
+
+socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
+    currentTurnIndex = nextTurn;
+    updatedHands.forEach(p => {
+        const found = playersData.find(oldP => oldP.id === p.id);
+        if (found) {
+            found.cardCount = p.hand ? p.hand.length : p.cardCount;
+            found.rank = p.rank; 
+            found.passed = p.passed; 
+        }
+    });
+    playersData = updatedHands;
+    
+    const me = updatedHands.find(p => p.id === myId);
+    if (me && me.hand) myHand = me.hand;
+
+    renderPlayers(updatedHands);
+
+    if (playersData[currentTurnIndex]) {
+        document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
+    }
+
+    const tableDiv = document.getElementById('table');
+    tableDiv.innerHTML = ''; 
+    
+    if (cards && cards.length > 0) {
+        cards.forEach((card, index) => {
+            const el = document.createElement('img');
+            el.src = getCardFileName(card);
+            el.className = 'table-card-img animate-play-card';
+            el.style.animationDelay = `${index * 0.03}s`;
+            tableDiv.appendChild(el);
+        });
+    } else {
+        tableDiv.innerHTML = '<div style="color: #a7f3d0; font-size:12px;">មិនទាន់មានបៀរចុះឡើយ</div>';
+    }
+    
+    selectedCards = [];
+    updateControlsState(); 
+    renderMyCards();
+});
+
+socket.on('playerPassed', ({ name, id, message }) => {
+    const playerCard = document.getElementById(`player-card-${id}`);
+    if (playerCard) {
+        const oldBubble = playerCard.querySelector('.bubble-msg');
+        if (oldBubble) oldBubble.remove();
+
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble-msg';
+        bubble.style.cssText = "position: absolute; top: -20px; left: 50%; transform: translateX(-50%); background: #ef4444; color: white; padding: 2px 5px; border-radius: 5px; font-size: 10px; font-weight: bold; z-index: 99; box-shadow: 0 2px 4px rgba(0,0,0,0.5);";
+        bubble.innerText = "❌ Pass";
+        
+        playerCard.appendChild(bubble);
+        setTimeout(() => {
+            if (bubble) bubble.remove();
+        }, 1500);
+    }
+});
+
+socket.on('clearTable', ({ nextPlayer }) => {
+    document.getElementById('table').innerHTML = '<div style="color: #64748b; font-size:12px;">តុត្រូវបានសម្អាត! ជុំថ្មី...</div>';
+    document.getElementById('status').innerHTML = `🎯 វេន៖ ${nextPlayer} (បានសិទ្ធិស៊ីផ្តាច់)`;
+    updateControlsState(); 
+    renderMyCards();
+});
+
+socket.on('errorMsg', (msg) => {
+    alert("⚠️ " + msg);
+    selectedCards = [];
+    renderMyCards();
+});
+
+socket.on('gameWon', ({ winner, winnerId, allHands }) => {
+    lastRoundWinnerId = winnerId;
+    document.body.classList.remove('in-game');
+    document.getElementById('gameArea').style.display = 'none';
+    document.getElementById('resultArea').style.display = 'block';
+    document.getElementById('winnerName').innerText = winner;
+
+    const resultList = document.getElementById('resultList');
+    resultList.innerHTML = '';
+
+    const sortedFinalResults = [...allHands].sort((a, b) => {
+        const rankA = a.rank || 99;
+        const rankB = b.rank || 99;
+        return rankA - rankB;
+    });
+
+    sortedFinalResults.forEach((p) => {
+        const playerDiv = document.createElement('div');
+        playerDiv.className = 'result-player';
+        
+        if (!p.isSpectator && p.rank === 1) {
+            playerDiv.style.border = '1.5px solid #eab308';
+            playerDiv.style.background = '#1e293b';
+        }
+
+        let rankBadgeHTML = '';
+        let cardsHTML = '';
+
+        if (p.isSpectator) {
+            rankBadgeHTML = `<span style="color: #94a3b8; font-weight: bold;">👀 អ្នកមើល</span>`;
+            cardsHTML = `<span style="color: #64748b; font-style: italic;">(គ្មានសន្លឹកបៀរឡើយ)</span>`;
+        } else {
+            if (p.rank === 1) rankBadgeHTML = `<span style="color: #eab308; font-weight: bold;">👑 លេខ ១ (🏆 អ្នកឈ្នះ)</span>`;
+            else if (p.rank === 2) rankBadgeHTML = `<span style="color: #3b82f6; font-weight: bold;">🥈 លេខ ២</span>`;
+            else if (p.rank === 3) rankBadgeHTML = `<span style="color: #a855f7; font-weight: bold;">🥉 លេខ ៣</span>`;
+            else rankBadgeHTML = `<span style="color: #ef4444; font-weight: bold;">❌ អ្នកចាញ់</span>`;
+
+            const remainingCards = p.remaining || p.hand || [];
+            if (remainingCards.length > 0) {
+                remainingCards.forEach(card => {
+                    cardsHTML += `
+                        <img src="${getCardFileName(card)}" style="width: 34px; height: auto; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); margin-right: 3px; margin-bottom: 3px;">
+                    `;
+                });
+            } else {
+                cardsHTML = `<span style="color: #22c55e; font-style: italic;">🎉 អស់បៀរពីដៃ!</span>`;
+            }
+        }
+
+        const remainingCount = p.remaining ? p.remaining.length : (p.hand ? p.hand.length : 0);
+        const countText = (p.isSpectator || p.rank === 1 || remainingCount === 0) 
+            ? '' 
+            : `<span style="color: #f59e0b; font-size: 10px; margin-left: 5px;">(នៅសល់ ${remainingCount} សន្លឹក)</span>`;
+
+        playerDiv.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; border-bottom: 1px solid #475569; padding-bottom: 3px;">
+                <div>
+                    <strong>👤 ${p.name}</strong>
+                    ${countText}
+                </div>
+                <div>${rankBadgeHTML}</div>
+            </div>
+            <div class="result-cards">${cardsHTML}</div>
+        `;
+        resultList.appendChild(playerDiv);
+    });
+
+    const playAgainBtn = document.getElementById('hostPlayAgainBtn');
+    const waitText = document.getElementById('waitHostText');
+    
+    if (myId === lastRoundWinnerId) {
+        playAgainBtn.style.display = 'block';
+        waitText.style.display = 'none';
+        playAgainBtn.innerText = "🔄 ចាប់ផ្ដើមវគ្គថ្មី (Start Next Round)";
+        
+        playAgainBtn.onclick = null;
+        playAgainBtn.ontouchstart = null;
+
+        playAgainBtn.onclick = function() {
+            if (currentRoom) {
+                socket.emit('startGame', currentRoom);
+            }
+        };
+        playAgainBtn.ontouchstart = function(e) {
+            e.preventDefault(); 
+            if (currentRoom) {
+                socket.emit('startGame', currentRoom);
+            }
+        };
+    } else {
+        playAgainBtn.style.display = 'none';
+        waitText.style.display = 'block';
+        waitText.innerText = `សូមរង់ចាំអ្នកឈ្នះ (${winner}) ចាប់ផ្ដើមវគ្គថ្មី...`;
+    }
+});
+
+// 🛠️ ជួសជុល៖ ស្ដាប់សញ្ញាផ្ទេរសិទ្ធិមេបន្ទប់/អ្នកឈ្នះ ពេលមានមនុស្ស Disconnect ឬចាកចេញ
+socket.on('winnerTransferred', (data) => {
+    // ធ្វើបច្ចុប្បន្នភាពអថេរដែលអាចទុកចិត្តបាននៅក្នុង Client ភ្លាមៗ
+    lastRoundWinnerId = data.newWinnerId;
+    
+    // ពិនិត្យមើលថាតើខ្លួនយើងជាអ្នកទទួលបានសិទ្ធិថ្មីមែនទេ? (ពិនិត្យតាម socket.id ផ្ទាល់)
+    const mySessionId = socket.id;
+    const hasControl = (data.newWinnerId === mySessionId || data.creatorId === mySessionId);
+
+    // 1. គ្រប់គ្រងប៊ូតុង "Start Game" នៅក្នុងផ្ទាំង Lobby
+    const startBtn = document.getElementById('startBtn');
+    if (startBtn) {
+        if (hasControl) {
+            startBtn.style.display = 'inline-block';
+            startBtn.disabled = false;
+            startBtn.innerText = "🚀 Start Game";
+            startBtn.classList.remove('btn-blue');
+            startBtn.classList.add('btn-green');
+        } else {
+            startBtn.style.display = 'none';
+        }
+    }
+
+    // 2. គ្រប់គ្រងប៊ូតុងនៅក្នុងផ្ទាំង Result (ពេលចប់ហ្គេម)
+    const playAgainBtn = document.getElementById('hostPlayAgainBtn');
+    const waitText = document.getElementById('waitHostText');
+    
+    if (playAgainBtn && waitText) {
+        if (hasControl) {
+            playAgainBtn.style.display = 'block';
+            waitText.style.display = 'none';
+        } else {
+            playAgainBtn.style.display = 'none';
+            waitText.style.display = 'block';
+            
+            // ស្វែងរកឈ្មោះអ្នកកាន់សិទ្ធិថ្មីមកបង្ហាញពី playersData ឱ្យបានត្រឹមត្រូវ
+            let newManagerName = 'មេបន្ទប់';
+            const targetId = data.newWinnerId || data.creatorId;
+            const newManager = playersData.find(p => p.id === targetId);
+            if (newManager) {
+                newManagerName = newManager.name;
+            }
+            
+            waitText.innerText = `សូមរង់ចាំ ${newManagerName} ចាប់ផ្ដើមវគ្គថ្មី...`;
+        }
+    }
+});
+
+function leaveRoom() {
+    if (confirm("តើអ្នកពិតជាចង់ចាកចេញពីបន្ទប់នេះមែនទេ?")) {
+        socket.emit('leaveRoom');
+        closeAllVoiceConnections(); // 🛠️ ជួសជុល៖ ហៅមុខងារសម្អាតភ្លាមៗពេលចុចចាកចេញ
+    }
+}
+
+socket.on('leftRoom', () => {
+    document.body.classList.remove('in-game');
+    currentRoom = null;
+    myHand = [];
+    selectedCards = [];
+    playersData = [];
+    amISpectator = false;
+    lastRoundWinnerId = null; 
+    
+    closeAllVoiceConnections(); // 🛠️ ជួសជុល៖ ធានាសម្អាតខ្សែតភ្ជាប់ទាំងអស់ពេលត្រឡប់មកអេក្រង់ដើម
+
+    document.getElementById('loginArea').style.display = 'block';
+    document.getElementById('lobbyArea').style.display = 'none';
+    document.getElementById('gameArea').style.display = 'none';
+    document.getElementById('resultArea').style.display = 'none';
+});
+
+// =================================================================
+// 🛠️ ផ្នែក LOGIC ជួសជុលបន្ថែមប្រព័ន្ធ ICE SERVERS ឱ្យនិយាយឮច្បាស់
+// =================================================================
+
+function initVoiceAndExecute(callback) {
+    if (localStream) {
+        callback();
+        return;
+    }
+
+    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+        .then(stream => {
+            localStream = stream;
+            micEnabled = true;
+            updateMicButtonUI();
+            console.log("🎤 ម៉ៃក្រូហ្វូនត្រូវបានបើកជោគជ័យ!");
+            callback();
+        })
+        .catch(err => {
+            console.warn("មិនអាចបើក Mic បានទេ:", err);
+            alert("ដើម្បីនិយាយគ្នាបាន សូមអនុញ្ញាត (Allow) ឱ្យហ្គេមប្រើប្រាស់ម៉ៃក្រូហ្វូនរបស់អ្នក!");
+            callback(); 
+        });
+}
+
+// កែសម្រួល៖ ពេលមានអ្នកចូលរួមថ្មី ឱ្យអ្នកនៅក្នុងបន្ទប់ចាស់ធ្វើជា "អ្នកចាប់ផ្តើម Call" (Initiator: true)
+socket.on('voice_user_joined', ({ id }) => {
+    if (peers[id]) return;
+
+    console.log("📞 ចាប់ផ្ដើមតភ្ជាប់សំឡេងទៅកាន់សមាជិកថ្មី ID:", id);
+    const peer = new SimplePeer({
+        initiator: true, // 👈 ប្តូរទៅ true ដើម្បីឱ្យអ្នកចាស់តេទៅអ្នកថ្មី
+        trickle: true, 
+        stream: localStream,
+        config: iceConfig.config
+    });
+
+    peer.on('signal', signal => {
+        socket.emit('voice_signal', { to: id, signal: signal });
+    });
+
+    peer.on('stream', stream => {
+        console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", id);
+        createAudioElement(id, stream);
+    });
+
+    peer.on('error', err => console.error('Peer error:', err));
+    peer.on('close', () => removeAudioElement(id));
+
+    peers[id] = peer;
+});
+
+// កែសម្រួល៖ ទទួលការ Call ពីអ្នកចាស់ (បង្កើត Peer មកទទួល Initiator: false)
+socket.on('voice_signal', ({ from, signal }) => {
+    if (!peers[from]) {
+        console.log("📥 ទទួលការសុំតភ្ជាប់សំឡេងពី ID:", from);
+        const peer = new SimplePeer({
+            initiator: false, // 👈 ទទួលសញ្ញាពីគេ គឺរង់ចាំឆ្លើយតប
+            trickle: true, 
+            stream: localStream,
+            config: iceConfig.config
+        });
+
+        peer.on('signal', sig => {
+            socket.emit('voice_signal', { to: from, signal: sig });
+        });
+
+        peer.on('stream', stream => {
+            console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", from);
+            createAudioElement(from, stream);
+        });
+
+        peer.on('error', err => console.error('Peer error:', err));
+        peer.on('close', () => removeAudioElement(from));
+
+        peers[from] = peer;
+    }
+
+    if (signal) {
+        peers[from].signal(signal);
+    }
+});
+
+socket.on('voice_user_left', ({ id }) => {
+    if (peers[id]) {
+        peers[id].destroy();
+        delete peers[id];
+    }
+    removeAudioElement(id);
+});
+
+// បង្កើត AudioContext តែមួយ (Singleton)
+let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function createAudioElement(id, stream) {
+    let audio = document.getElementById(`audio-${id}`);
+    
+    if (!audio) {
+        audio = document.createElement('audio');
+        audio.id = `audio-${id}`;
+        audio.setAttribute('playsinline', 'true'); // សំខាន់បំផុតសម្រាប់ iOS
+        audio.autoplay = true;
+        audio.style.display = 'none';
+        document.body.appendChild(audio);
+    }
+    
+    audio.srcObject = stream;
+    
+    // ជំហានសំខាន់សម្រាប់ iOS៖ ដោះសោរ AudioContext
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume().then(() => console.log("AudioContext resumed!"));
+    }
+
+    // ការតភ្ជាប់សម្លេង (Web Audio API)
+    try {
+        const source = audioCtx.createMediaStreamSource(stream);
+        const gainNode = audioCtx.createGain();
+        gainNode.gain.value = 1.0; // កម្រិត ១០០% ពេញ
+        
+        source.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+    } catch (e) {
+        console.error("កំហុសក្នុងការតភ្ជាប់សំឡេង:", e);
+    }
+    
+    audio.play().catch(e => console.log("Autoplay ត្រូវបានទប់ស្កាត់៖", e));
+}
+
+function removeAudioElement(id) {
+    const audio = document.getElementById(`audio-${id}`);
+    if (audio) audio.remove();
+}
+
+async function toggleMic() {
+    // 1. បើមិនទាន់មាន Stream (មិនទាន់បើក Mic)
+    if (!localStream) {
+        initVoiceAndExecute(async () => {
+            // ដាស់ AudioContext ដើម្បីឱ្យ Safari យល់ព្រមដំណើរការសំឡេង
+            if (window.AudioContext || window.webkitAudioContext) {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                await audioCtx.resume();
+            }
+            
+            alert("ម៉ៃក្រូហ្វូនបើកហើយ!");
+            micEnabled = true;
+            updateMicButtonUI();
+        });
+        return;
+    }
+    
+    // 2. បើមាន Stream ហើយ គ្រាន់តែបិទ/បើក (Toggle)
+    micEnabled = !micEnabled;
+    if (localStream) {
+        localStream.getAudioTracks().forEach(track => {
+            track.enabled = micEnabled;
+        });
+    }
+    updateMicButtonUI();
+}
+
+function updateMicButtonUI() {
+    const btn = document.getElementById('micToggleBtn');
+    if (!btn) return;
+    if (micEnabled) {
+        btn.innerText = "🎙️ Mic: On";
+        btn.classList.remove('muted');
+    } else {
+        btn.innerText = "🔇 Mic: Muted";
+        btn.classList.add('muted');
+    }
+}
+
+function closeAllVoiceConnections() {
+    for (let id in peers) {
+        try {
+            peers[id].destroy();
+        } catch (e) {
+            console.log("Error destroying peer:", e);
+        }
+    }
+    peers = {};
+    
+    const audios = document.querySelectorAll('audio');
+    audios.forEach(a => a.remove());
+
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+    }
+    
+    micEnabled = false;
+    updateMicButtonUI();
+}
+</script>
+</body>
+</html>
