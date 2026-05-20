@@ -367,12 +367,15 @@ button:disabled {
     text-align: left;
 }
 
+/* បន្ថែមក្នុង CSS របស់អ្នក */
 .result-cards {
     display: flex;
-    gap: 4px;
     flex-wrap: wrap;
-    margin-top: 6px;
-    align-items: center;
+    gap: 4px;
+    margin-top: 5px;
+    padding: 5px;
+    background: #0f172a;
+    border-radius: 6px;
     min-height: 40px;
 }
 
@@ -483,52 +486,45 @@ button:disabled {
         }
     }
 
-function toggleMic() {
-    // ហៅមុខងារដាស់នៅទីនេះ (ភ្លាមៗពេលចុច)
-    resumeAudioContext(); 
-
-    if (!localStream) {
-        navigator.mediaDevices.getUserMedia({ audio: true })
-            .then(stream => {
-                localStream = stream;
-                micEnabled = true;
-                
-                // ហៅដាស់ម្តងទៀតនៅទីនេះ ដើម្បីធានាថាវាដំណើរការ
-                resumeAudioContext(); 
-                
-                alert("ម៉ៃក្រូហ្វូនបើកហើយ!");
-                updateMicButtonUI();
-            })
-            .catch(err => {
-                alert("មិនអាចបើក Microphone បានទេ។ សូមពិនិត្យការកំណត់ Safari!");
-            });
-        return;
+async function toggleMic() {
+    // ១. ដាស់ AudioContext គ្រប់ពេលដែលចុច
+    if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
     }
 
-    // ៤. កូដបិទ/បើក (Mute/Unmute)
-    micEnabled = !micEnabled;
-    localStream.getAudioTracks().forEach(track => {
-        track.enabled = micEnabled;
-    });
+    // ២. ប្រសិនបើមិនទាន់បានស្នើសុំសិទ្ធិ
+    if (!localStream) {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            localStream = stream;
+            micEnabled = true;
+            alert("✅ Microphone បើកដំណើរការហើយ!");
+        } catch (err) {
+            alert("❌ មិនអាចបើក Mic បានទេ៖ សូមប្រាកដថាអ្នកប្រើ HTTPS ហើយអនុញ្ញាតក្នុង Safari Settings។");
+            return;
+        }
+    } else {
+        // ៣. បិទ/បើក (Mute/Unmute)
+        micEnabled = !micEnabled;
+        localStream.getAudioTracks()[0].enabled = micEnabled;
+    }
+    
     updateMicButtonUI();
+}
+
+function updateMicButtonUI() {
+    const btn = document.getElementById('micToggleBtn');
+    if (!btn) return;
+    btn.innerHTML = micEnabled ? "🎙️ Mic: On" : "🔇 Mic: Muted";
+    btn.className = micEnabled ? "mic-btn" : "mic-btn muted";
 }
 
 const socket = io();
 
-let myId = null;
-let currentRoom = null;
-let isCreator = false;
-let myHand = [];
-let selectedCards = [];
-let currentTurnIndex = 0;
-let playersData = [];
-let amISpectator = false;
-let lastRoundWinnerId = null; 
-
+// កែសម្រួលអថេរទាំងនេះ
 let localStream = null;
+let micEnabled = false; // ចាប់ផ្ដើមដោយបិទ (Muted) ដើម្បីសុវត្ថិភាព
 let peers = {};
-let micEnabled = true;
-
 const iceConfig = {
     config: {
         iceServers: [
@@ -609,12 +605,11 @@ function createRoom() {
     if (!playerName) return;
     const roomId = document.getElementById('roomInput').value.trim();
     const password = document.getElementById('roomPass').value;
-    if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!");
+    if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!"); 
     initVoiceAndExecute(() => {
         socket.emit('createRoom', { roomId, password, playerName });
     });
 }
-
 function joinRoom() {
     const playerName = getPlayerName();
     if (!playerName) return;
@@ -938,8 +933,8 @@ function renderMyCards() {
 }
 
 function playSelectedCards() {
-    if (!isMyTurn()) return alert("មិនទាន់ដល់វេនរបស់អ្នកឡើយ!");
-    if (selectedCards.length === 0) return alert("សូមជ្រើសរើសសន្លឹកបៀរមុននឹងចុះ!");
+    const playBtn = document.getElementById('playBtn');
+    playBtn.disabled = true; // បិទភ្លាមៗកុំឱ្យចុចជាន់
     socket.emit('playCard', { roomId: currentRoom, cards: selectedCards });
 }
 
@@ -1118,18 +1113,15 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
         
         playAgainBtn.onclick = null;
         playAgainBtn.ontouchstart = null;
-
         playAgainBtn.onclick = function() {
+            playAgainBtn.disabled = true;
+            playAgainBtn.innerText = "⏳ កំពុងរៀបចំ...";
+            
             if (currentRoom) {
                 socket.emit('startGame', currentRoom);
             }
         };
-        playAgainBtn.ontouchstart = function(e) {
-            e.preventDefault(); 
-            if (currentRoom) {
-                socket.emit('startGame', currentRoom);
-            }
-        };
+
     } else {
         playAgainBtn.style.display = 'none';
         waitText.style.display = 'block';
@@ -1212,25 +1204,24 @@ socket.on('leftRoom', () => {
 // =================================================================
 // 🛠️ ផ្នែក LOGIC ជួសជុលបន្ថែមប្រព័ន្ធ ICE SERVERS ឱ្យនិយាយឮច្បាស់
 // =================================================================
-function initVoiceAndExecute(callback) {
-    // ពិនិត្យមើលថាតើឧបករណ៍មាន Mic ឬអត់
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        console.log("Browser មិនគាំទ្រ Mic, បន្តលេងហ្គេមធម្មតា...");
-        if (callback) callback(); // បន្តដំណើរការហ្គេមទោះគ្មាន Mic
-        return;
+async function initVoiceAndExecute(callback) {
+    try {
+        // ១. ដាស់ AudioContext
+        if (audioCtx.state === 'suspended') {
+            await audioCtx.resume();
+        }
+        // ២. ស្នើសុំសិទ្ធិ Mic
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        localStream = stream;
+        micEnabled = true;
+        updateMicButtonUI();
+        
+        // ៣. បន្តប្រតិបត្តិការណ៍ដែលនៅសល់ (ឧ. ចូលបន្ទប់)
+        if (callback) callback();
+    } catch (err) {
+        console.error("កំហុស៖", err);
+        alert("មិនអាចបើក Microphone បានទេ។ សូមប្រាកដថាអ្នកប្រើ HTTPS ហើយបានអនុញ្ញាតក្នុង Safari Settings។");
     }
-
-    navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
-            localStream = stream;
-            if (callback) callback();
-        })
-        .catch(err => {
-            console.warn("អ្នកលេងមិនមាន Mic ឬបដិសេធការប្រើប្រាស់, បន្តលេងហ្គេមធម្មតា:", err);
-            // កុំប្រើ alert() កុំឱ្យរំខានអ្នកលេង
-            localStream = null; // គ្មាន Mic គឺគ្មាន stream
-            if (callback) callback(); // បន្តដំណើរការហ្គេមទោះគ្មាន Mic
-        });
 }
 
 socket.on('voice_user_joined', ({ id }) => {
