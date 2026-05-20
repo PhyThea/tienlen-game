@@ -428,7 +428,7 @@ button:disabled {
         <h2>Room: <span id="showRoom" style="color: #3b82f6;"></span></h2>
         <br>
         <div id="lobbyPlayers" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;"></div>
-        <button id="startBtn" class="btn-green" onclick="startGame()" style="display: none;">🚀 Start Game</button>
+        <button id="startBtn" class="btn-green" onclick="resumeAudio(); startGame()" style="display: none;">🚀 Start Game</button>
         <button class="btn-red" onclick="leaveRoom()">🚪 ចាកចេញ (Leave)</button>
     </div>
 
@@ -462,7 +462,7 @@ button:disabled {
         <h3>📊 ចំណាត់ថ្នាក់ និងសន្លឹកបៀដែលនៅសល់៖</h3>
         <div id="resultList"></div>
         <br>
-        <button id="hostPlayAgainBtn" class="btn-green" onclick="startGame()" style="display: none;">🔄 លេងម្ដងទៀត (Play Again)</button>
+        <button id="hostPlayAgainBtn" class="btn-green" onclick="resumeAudio(); startGame()" style="display: none;">🔄 ចាប់ផ្ដើមវគ្គថ្មី (Start Next Round)</button>
         <div id="waitHostText" style="color: #94a3b8; margin-top: 15px;">សូមរង់ចាំ Host ចាប់ផ្ដើមវគ្គថ្មី...</div>
         <button class="btn-red" onclick="leaveRoom()">🚪 ចាកចេញទៅទំព័រដើម</button>
     </div>
@@ -1267,63 +1267,40 @@ function createAudioElement(id, stream) {
     if (!audio) {
         audio = document.createElement('audio');
         audio.id = `audio-${id}`;
-        audio.setAttribute('playsinline', 'true'); // សំខាន់បំផុតសម្រាប់ iOS
+        audio.setAttribute('playsinline', 'true');
         audio.autoplay = true;
         audio.style.display = 'none';
         document.body.appendChild(audio);
     }
     
+    // បង្ហាញ stream ដោយផ្ទាល់ទៅកាន់ audio element (វិធីនេះស្រួលជាង និងមានស្ថេរភាពជាង)
     audio.srcObject = stream;
-    
-    // ជំហានសំខាន់សម្រាប់ iOS៖ ដោះសោរ AudioContext
-    if (audioCtx.state === 'suspended') {
-        audioCtx.resume().then(() => console.log("AudioContext resumed!"));
-    }
 
-    // ការតភ្ជាប់សម្លេង (Web Audio API)
-    try {
-        const source = audioCtx.createMediaStreamSource(stream);
-        const gainNode = audioCtx.createGain();
-        gainNode.gain.value = 1.0; // កម្រិត ១០០% ពេញ
-        
-        source.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-    } catch (e) {
-        console.error("កំហុសក្នុងការតភ្ជាប់សំឡេង:", e);
-    }
-    
-    audio.play().catch(e => console.log("Autoplay ត្រូវបានទប់ស្កាត់៖", e));
+    // ព្យាយាម Play ភ្លាមៗ (ត្រូវប្រាកដថាបានហៅ resumeAudio() ក្នុងប៊ូតុងរួចហើយ)
+    audio.play().catch(e => {
+        console.warn("Autoplay ទប់ស្កាត់, កំពុងរង់ចាំសកម្មភាពអ្នកប្រើ:", e);
+    });
+
+    // ចំណុចសំខាន់៖ មិនចាំបាច់ប្រើ createMediaStreamSource ប្រសិនបើអ្នកមិនកែសម្រួលសំឡេង (ដូចជាដាក់ Effect)
+    // ប្រសិនបើអ្នកមិនត្រូវការកែសំឡេងទេ សូមកាត់កូដ Web Audio API ចេញ
+    // ព្រោះការ connect ទៅ audioCtx.destination ជួនកាលបង្កបញ្ហាលើ Mobile
 }
-
 function removeAudioElement(id) {
     const audio = document.getElementById(`audio-${id}`);
     if (audio) audio.remove();
 }
 
-async function toggleMic() {
-    // 1. បើមិនទាន់មាន Stream (មិនទាន់បើក Mic)
+function toggleMic() {
     if (!localStream) {
-        initVoiceAndExecute(async () => {
-            // ដាស់ AudioContext ដើម្បីឱ្យ Safari យល់ព្រមដំណើរការសំឡេង
-            if (window.AudioContext || window.webkitAudioContext) {
-                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                await audioCtx.resume();
-            }
-            
-            alert("ម៉ៃក្រូហ្វូនបើកហើយ!");
-            micEnabled = true;
-            updateMicButtonUI();
-        });
+        initVoiceAndExecute(() => { alert("ម៉ៃក្រូហ្វូនបើកហើយ!"); });
         return;
     }
     
-    // 2. បើមាន Stream ហើយ គ្រាន់តែបិទ/បើក (Toggle)
     micEnabled = !micEnabled;
-    if (localStream) {
-        localStream.getAudioTracks().forEach(track => {
-            track.enabled = micEnabled;
-        });
-    }
+    // កែសម្រួលត្រង់នេះ ដើម្បីធានាថាវា Enable track ឡើងវិញ
+    localStream.getAudioTracks().forEach(track => {
+        track.enabled = micEnabled;
+    });
     updateMicButtonUI();
 }
 
@@ -1340,21 +1317,22 @@ function updateMicButtonUI() {
 }
 
 function closeAllVoiceConnections() {
+    // បិទតែ Peer connections ប៉ុណ្ណោះ
     for (let id in peers) {
-        try {
-            peers[id].destroy();
-        } catch (e) {
-            console.log("Error destroying peer:", e);
+        if (peers[id]) {
+            try { peers[id].destroy(); } catch (e) { console.log(e); }
         }
     }
     peers = {};
     
+    // លុបធាតុអូឌីយ៉ូ
     const audios = document.querySelectorAll('audio');
     audios.forEach(a => a.remove());
 
+    // កុំហៅ localStream.getTracks().forEach(track => track.stop())
+    // គ្រាន់តែបិទកុំឱ្យវាបញ្ជូនសំឡេង (Disable) គឺគ្រប់គ្រាន់ហើយ
     if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-        localStream = null;
+        localStream.getAudioTracks().forEach(track => track.enabled = false);
     }
     
     micEnabled = false;
