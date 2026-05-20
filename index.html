@@ -471,7 +471,6 @@ button:disabled {
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
-
 let myId = null;
 let currentRoom = null;
 let isCreator = false;
@@ -488,6 +487,93 @@ let micEnabled = true;
 let audioCtx = null;
 let scriptNode = null;
 let micSource = null;
+let processor = null;
+
+// មុខងារតែមួយគត់សម្រាប់គ្រប់គ្រងសំឡេង
+async function initVoiceAndExecute(callback) {
+    try {
+        if (!localStream) {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            localStream = stream;
+            
+            // កំណត់ Audio Context
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            const source = audioCtx.createMediaStreamSource(stream);
+            const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+            
+            source.connect(processor);
+            processor.connect(audioCtx.destination);
+            
+            processor.onaudioprocess = (e) => {
+                if (!micEnabled) return;
+                const inputData = e.inputBuffer.getChannelData(0);
+                socket.emit('audio_packet', { 
+                    roomId: currentRoom, 
+                    audioData: Array.from(inputData) 
+                });
+            };
+        }
+        
+        micEnabled = true;
+        updateMicButtonUI();
+        if (callback) callback();
+    } catch (err) {
+        alert("មិនអាចប្រើ Mic បានទេ: " + err.message);
+    }
+}
+
+// មុខងារសម្រាប់ទទួលសំឡេងពីមិត្តភក្តិ
+socket.on('audio_broadcast', (packet) => {
+    try {
+        const audioBuffer = audioCtx.createBuffer(1, packet.audioData.length, audioCtx.sampleRate);
+        audioBuffer.getChannelData(0).set(new Float32Array(packet.audioData));
+        
+        const source = audioCtx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioCtx.destination);
+        source.start();
+    } catch (e) {
+        console.error("កំហុសក្នុងការចាក់សំឡេង:", e);
+    }
+});
+
+function toggleMic() {
+    if (!localStream) {
+        initVoiceAndExecute(() => {
+            console.log("Mic initialized and started!");
+        });
+        return;
+    }
+    
+    micEnabled = !micEnabled;
+    if (localStream) {
+        localStream.getAudioTracks().forEach(track => {
+            track.enabled = micEnabled;
+        });
+    }
+    updateMicButtonUI();
+}
+// មុខងារសម្រាប់បើក Mic
+async function initVoiceChat(roomId) {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const source = audioCtx.createMediaStreamSource(stream);
+        const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+
+        source.connect(processor);
+        processor.connect(audioCtx.destination);
+
+        processor.onaudioprocess = (e) => {
+            if (!micEnabled) return;
+            const inputData = e.inputBuffer.getChannelData(0);
+            socket.emit('audio_packet', { roomId: roomId, audioData: Array.from(inputData) });
+        };
+        micEnabled = true;
+    } catch (err) {
+        alert("មិនអាចប្រើ Mic បានទេ: " + err.message);
+    }
+}
 
 function getCardFileName(card) {
     let valStr = card.value;
@@ -681,66 +767,44 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn, lastRoundWinnerId: 
     }, 50);
 });
 
-// 🛠️ បន្ថែម៖ ស្ដាប់សញ្ញាផ្ទេរសិទ្ធិមេបន្ទប់/អ្នកឈ្នះ ពេលមានមនុស្ស Disconnect
 socket.on('winnerTransferred', (data) => {
-    // ធ្វើបច្ចុប្បន្នភាពអថេរនៅក្នុង Client
     lastRoundWinnerId = data.newWinnerId;
-    
-    // ហៅអនុគមន៍ឱ្យ Update UI ប៊ូតុងភ្លាមៗ
     updateRoomUI(data);
 });
 
 function updateRoomUI(data) {
-    // សម្គាល់៖ បើហៅមកធម្មតាគ្មាន data ឱ្យប្រើទិន្នន័យដែលមានស្រាប់
     const targetWinnerId = data ? data.newWinnerId : lastRoundWinnerId;
     const targetCreatorId = data ? data.creatorId : (playersData[0] ? playersData[0].id : null);
     
-    // 🛠️ ជួសជុល៖ ប្រើ socket.id ផ្ទាល់របស់ Client ជំនួសឱ្យការប្រកាសជាន់អថេរចាស់
-    const mySessionId = socket.id; 
-
-    // ពិនិត្យមើលថាតើខ្លួនយើងជា Creator ឬជា Last Winner ដែរឬទេ?
-    const hasControl = (targetWinnerId === mySessionId || targetCreatorId === mySessionId);
-
-    // 1. គ្រប់គ្រង Button "Start Game" នៅក្នុងផ្ទាំង Lobby
-    const startBtn = document.getElementById('startBtn');
-    if (startBtn) {
-        if (hasControl) {
-            startBtn.style.display = 'inline-block';
-            startBtn.disabled = false;
-            startBtn.innerText = "🚀 Start Game";
-            startBtn.classList.remove('btn-blue');
-            startBtn.classList.add('btn-green');
-        } else {
-            startBtn.style.display = 'none';
-        }
-    }
+    // ត្រួតពិនិត្យថាអ្នកណាម្នាក់ក្នុងចំណោមអ្នកឈ្នះ ឬម្ចាស់បន្ទប់ គឺជាយើងមែនទេ
+    const amITheHost = (targetWinnerId === socket.id || targetCreatorId === socket.id);
 
     const playAgainBtn = document.getElementById('hostPlayAgainBtn');
     const waitText = document.getElementById('waitHostText');
+
     if (playAgainBtn && waitText) {
-        if (hasControl) {
+        if (amITheHost) {
             playAgainBtn.style.display = 'block';
             waitText.style.display = 'none';
         } else {
             playAgainBtn.style.display = 'none';
             waitText.style.display = 'block';
-            let managerName = 'មេបន្ទប់';
-            const targetId = targetWinnerId || targetCreatorId;
-            const manager = playersData.find(p => p.id === targetId);
-            if (manager) {
-                managerName = manager.name;
-            }
-            waitText.innerText = `សូមរង់ចាំ ${managerName} ចាប់ផ្ដើមវគ្គថ្មី...`;
+            
+            const managerId = targetWinnerId || targetCreatorId;
+            const manager = playersData.find(p => p.id === managerId);
+            waitText.innerText = `សូមរង់ចាំ ${manager ? manager.name : 'មេបន្ទប់'} ចាប់ផ្ដើមវគ្គថ្មី...`;
         }
     }
 }
 
+
 socket.on('dealCards', ({ hand }) => {
+    console.log("Received hand from server:", hand);
     myHand = hand;
     selectedCards = [];
     renderPlayers(playersData);
     updateControlsState();
-    renderMyCards();
+    renderMyCards(); // Ensure this is called here
 });
 
 function isMyTurn() {
@@ -913,70 +977,126 @@ socket.on('turnChanged', ({ currentTurnIndex: turn, players }) => {
     renderMyCards(); 
 });
 
+// ២. ដាក់ Listener ផ្សេងៗរបស់អ្នកនៅកន្លែងតែមួយ
+socket.on('connect', () => {
+    console.log("Connected to server:", socket.id);
+});
+
+socket.on('updatePlayers', (players) => {
+    // កូដសម្រាប់ update អ្នកលេង
+});
+
+socket.on('turnChanged', (data) => {
+    // កូដសម្រាប់ប្តូរវេន
+});
+
+socket.on('gameOver', ({ winner, players }) => {
+    // 1. ប្ដូរផ្ទាំង UI
+    document.body.classList.remove('in-game');
+    document.body.classList.add('round-over');
+    
+    document.getElementById('gameArea').style.display = 'none';
+    document.getElementById('resultArea').style.display = 'block';
+    
+    // 2. បង្ហាញអ្នកឈ្នះ
+    document.getElementById('winnerName').innerText = winner ? winner.name : 'Unknown';
+    
+    // 3. បង្ហាញលទ្ធផលកីឡាករម្នាក់ៗ
+    const list = document.getElementById('resultList');
+    list.innerHTML = '';
+    
+    players.forEach(p => {
+        const item = document.createElement('div');
+        item.className = 'result-player';
+        
+        // បង្ហាញឈ្មោះ និងចំណាត់ថ្នាក់
+        const rankText = p.rank ? `ចំណាត់ថ្នាក់៖ ${p.rank}` : 'ចាញ់';
+        
+        // បង្ហាញបៀរដែលនៅសល់ (ប្រសិនបើមាន)
+        const cardsHTML = (p.hand && p.hand.length > 0) 
+            ? p.hand.map(c => `<img src="${getCardFileName(c)}" class="table-card-img" style="width: 30px;">`).join('') 
+            : 'អស់បៀរ!';
+            
+        item.innerHTML = `
+            <strong>${p.name}</strong> (${rankText})
+            <div class="result-cards">
+                ${cardsHTML}
+            </div>
+        `;
+        list.appendChild(item);
+    });
+
+    const isHost = (currentRoom && isCreator); 
+    const playAgainBtn = document.getElementById('hostPlayAgainBtn');
+    const waitText = document.getElementById('waitHostText');
+
+    if (isHost) {
+        playAgainBtn.style.display = 'block';
+        waitText.style.display = 'none';
+    } else {
+        playAgainBtn.style.display = 'none';
+        waitText.style.display = 'block';
+        // បង្ហាញឈ្មោះមេបន្ទប់ (ស្រេចចិត្ត)
+        waitText.innerText = "សូមរង់ចាំ Host ចាប់ផ្ដើមវគ្គថ្មី...";
+    }
+});
+
 socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
     currentTurnIndex = nextTurn;
+    
+    // Update player data
     updatedHands.forEach(p => {
         const found = playersData.find(oldP => oldP.id === p.id);
         if (found) {
-            found.cardCount = p.hand ? p.hand.length : p.cardCount;
-            found.rank = p.rank; 
-            found.passed = p.passed; 
+            found.cardCount = p.cardCount;
+            found.passed = false; 
         }
     });
-    playersData = updatedHands;
-    
-    const me = updatedHands.find(p => p.id === myId);
-    if (me && me.hand) myHand = me.hand;
 
-    renderPlayers(updatedHands);
-
-    if (playersData[currentTurnIndex]) {
-        document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
-    }
-
+    // បង្ហាញបៀលើតុ
     const tableDiv = document.getElementById('table');
-    tableDiv.innerHTML = ''; 
+    tableDiv.innerHTML = '';
+    cards.forEach(card => {
+        const el = document.createElement('img');
+        el.src = getCardFileName(card);
+        el.className = 'table-card-img animate-play-card';
+        tableDiv.appendChild(el);
+    });
+
+    // ប្រសិនបើជាវេនខ្ញុំដែលបានចុះបៀ
+    if (by === myId) {
+        // លុបបៀដែលបានចុះចេញពី myHand
+        myHand = myHand.filter(h => 
+            !cards.some(c => c.value === h.value && c.suit === h.suit)
+        );
+        selectedCards = []; // សម្អាតបៀដែលបានជ្រើសរើស
+        renderMyCards();    // បង្ហាញបៀក្នុងដៃដែលនៅសល់
+    }
+
+    renderPlayers(playersData);
+    updateControlsState();
+});
+
+socket.on('playerPassed', ({ playerId, nextTurn }) => {
+    currentTurnIndex = nextTurn;
     
-    if (cards && cards.length > 0) {
-        cards.forEach((card, index) => {
-            const el = document.createElement('img');
-            el.src = getCardFileName(card);
-            el.className = 'table-card-img animate-play-card';
-            el.style.animationDelay = `${index * 0.03}s`;
-            tableDiv.appendChild(el);
-        });
-    } else {
-        tableDiv.innerHTML = '<div style="color: #a7f3d0; font-size:12px;">មិនទាន់មានបៀរចុះឡើយ</div>';
+    // រកអ្នកលេងដែលបានរំលង
+    const player = playersData.find(p => p.id === playerId);
+    if (player) {
+        player.passed = true;
     }
     
+    renderPlayers(playersData);
+    updateControlsState();
+});
+
+socket.on('clearTable', () => {
+    const tableDiv = document.getElementById('table');
+    tableDiv.innerHTML = '<div style="color: #a7f3d0; font-size: 12px;">តុត្រូវបានសម្អាត!</div>';
+    // លុបសន្លឹកបៀដែលបានជ្រើសរើសចោលបន្ទាប់ពីចុះជោគជ័យ
     selectedCards = [];
-    updateControlsState(); 
     renderMyCards();
-});
-
-socket.on('playerPassed', ({ name, id, message }) => {
-    const playerCard = document.getElementById(`player-card-${id}`);
-    if (playerCard) {
-        const oldBubble = playerCard.querySelector('.bubble-msg');
-        if (oldBubble) oldBubble.remove();
-
-        const bubble = document.createElement('div');
-        bubble.className = 'bubble-msg';
-        bubble.style.cssText = "position: absolute; top: -20px; left: 50%; transform: translateX(-50%); background: #ef4444; color: white; padding: 2px 5px; border-radius: 5px; font-size: 10px; font-weight: bold; z-index: 99; box-shadow: 0 2px 4px rgba(0,0,0,0.5);";
-        bubble.innerText = "❌ Pass";
-        
-        playerCard.appendChild(bubble);
-        setTimeout(() => {
-            if (bubble) bubble.remove();
-        }, 1500);
-    }
-});
-
-socket.on('clearTable', ({ nextPlayer }) => {
-    document.getElementById('table').innerHTML = '<div style="color: #64748b; font-size:12px;">តុត្រូវបានសម្អាត! ជុំថ្មី...</div>';
-    document.getElementById('status').innerHTML = `🎯 វេន៖ ${nextPlayer} (បានសិទ្ធិស៊ីផ្តាច់)`;
-    updateControlsState(); 
-    renderMyCards();
+    updateControlsState();
 });
 
 socket.on('errorMsg', (msg) => {
@@ -1209,35 +1329,6 @@ function initVoiceAndExecute(callback) {
 
 
     let nextStartTime = 0; 
-
-    // មុខងារសម្រាប់ទទួលសំឡេងពី Server
-    socket.on('audio_broadcast', (data) => {
-        try {
-            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-
-            const int16Array = new Int16Array(data.buffer);
-            const float32Array = new Float32Array(int16Array.length);
-            for (let i = 0; i < int16Array.length; i++) {
-                float32Array[i] = int16Array[i] / 32768.0;
-            }
-
-            const audioBuffer = audioCtx.createBuffer(1, float32Array.length, 44100);
-            audioBuffer.getChannelData(0).set(float32Array);
-
-            const source = audioCtx.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(audioCtx.destination);
-
-            // ការពារសំឡេងត្រួតគ្នា (Audio Overlap)
-            const currentTime = audioCtx.currentTime;
-            if (nextStartTime < currentTime) nextStartTime = currentTime + 0.1;
-            
-            source.start(nextStartTime);
-            nextStartTime += audioBuffer.duration;
-        } catch (e) { console.error("Error playing audio:", e); }
-    });
-
     // មុខងារសម្រាប់ចាប់ផ្តើម Mic
     async function initVoiceAndExecute(callback) {
         try {
