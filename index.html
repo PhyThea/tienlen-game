@@ -1300,30 +1300,18 @@ function removeAudioElement(id) {
     if (audio) audio.remove();
 }
 
-async function toggleMic() {
-    // 1. បើមិនទាន់មាន Stream (មិនទាន់បើក Mic)
+function toggleMic() {
     if (!localStream) {
-        initVoiceAndExecute(async () => {
-            // ដាស់ AudioContext ដើម្បីឱ្យ Safari យល់ព្រមដំណើរការសំឡេង
-            if (window.AudioContext || window.webkitAudioContext) {
-                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                await audioCtx.resume();
-            }
-            
+        initVoiceAndExecute(() => {
             alert("ម៉ៃក្រូហ្វូនបើកហើយ!");
-            micEnabled = true;
-            updateMicButtonUI();
         });
         return;
     }
     
-    // 2. បើមាន Stream ហើយ គ្រាន់តែបិទ/បើក (Toggle)
     micEnabled = !micEnabled;
-    if (localStream) {
-        localStream.getAudioTracks().forEach(track => {
-            track.enabled = micEnabled;
-        });
-    }
+    localStream.getAudioTracks().forEach(track => {
+        track.enabled = micEnabled;
+    });
     updateMicButtonUI();
 }
 
