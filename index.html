@@ -1193,21 +1193,20 @@ function initVoiceAndExecute(callback) {
 }
 
 // កែសម្រួល៖ ពេលមានអ្នកចូលរួមថ្មី ឱ្យអ្នកនៅក្នុងបន្ទប់ចាស់ធ្វើជា "អ្នកចាប់ផ្តើម Call" (Initiator: true)
-socket.on('voice_user_joined', ({ id }) => {
+Socket.on('voice_user_joined', ({ id }) => {
     if (peers[id]) return;
 
     console.log("📞 ចាប់ផ្ដើមតភ្ជាប់សំឡេងទៅកាន់សមាជិកថ្មី ID:", id);
     const peer = new SimplePeer({
-        initiator: true, // 👈 ប្តូរទៅ true ដើម្បីឱ្យអ្នកចាស់តេទៅអ្នកថ្មី
-        trickle: true, 
+        initiator: true, 
+        trickle: false, // 👈 ណែនាំឱ្យប្តូរជា false ដើម្បីកាត់បន្ថយបញ្ហា Network
         stream: localStream,
-        config: iceConfig.config
+        config: iceConfig.config // ប្រើប្រាស់ config ដែលយើងបានកំណត់ខាងលើ
     });
 
     peer.on('signal', signal => {
         socket.emit('voice_signal', { to: id, signal: signal });
     });
-
     peer.on('stream', stream => {
         console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", id);
         createAudioElement(id, stream);
@@ -1220,14 +1219,14 @@ socket.on('voice_user_joined', ({ id }) => {
 });
 
 // កែសម្រួល៖ ទទួលការ Call ពីអ្នកចាស់ (បង្កើត Peer មកទទួល Initiator: false)
-socket.on('voice_signal', ({ from, signal }) => {
+Socket.on('voice_signal', ({ from, signal }) => {
     if (!peers[from]) {
         console.log("📥 ទទួលការសុំតភ្ជាប់សំឡេងពី ID:", from);
         const peer = new SimplePeer({
-            initiator: false, // 👈 ទទួលសញ្ញាពីគេ គឺរង់ចាំឆ្លើយតប
-            trickle: true, 
+            initiator: false, 
+            trickle: false, // 👈 ប្តូរមក false ដូចគ្នានឹងកន្លែង joined
             stream: localStream,
-            config: iceConfig.config
+            config: iceConfig.config // ប្រើប្រាស់ config ដដែល
         });
 
         peer.on('signal', sig => {
