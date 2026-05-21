@@ -485,28 +485,13 @@ let lastRoundWinnerId = null;
 let micEnabled = true;
 
 const iceConfig = {
+    iceTransportPolicy: 'all', // ព្យាយាមតភ្ជាប់ដោយផ្ទាល់
     iceServers: [
-        { urls: "stun:stun.relay.metered.ca:80" },
-        {
-            urls: "turn:global.relay.metered.ca:80",
-            username: "70c58d936fe4c62e38eff96c",
-            credential: "4tMqFurEIksvhg2h",
-        },
-        {
-            urls: "turn:global.relay.metered.ca:80?transport=tcp",
-            username: "70c58d936fe4c62e38eff96c",
-            credential: "4tMqFurEIksvhg2h",
-        },
-        {
-            urls: "turn:global.relay.metered.ca:443",
-            username: "70c58d936fe4c62e38eff96c",
-            credential: "4tMqFurEIksvhg2h",
-        },
-        {
-            urls: "turns:global.relay.metered.ca:443?transport=tcp",
-            username: "70c58d936fe4c62e38eff96c",
-            credential: "4tMqFurEIksvhg2h",
-        },
+        // ប្រើតែ STUN servers ដែលជាសេវាកម្មឥតគិតថ្លៃ និងមិនស៊ី Data ឆ្លងកាត់ Server
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+        { urls: "stun:stun2.l.google.com:19302" },
+        { urls: "stun:stun3.l.google.com:19302" }
     ]
 };
 
@@ -1225,7 +1210,7 @@ socket.on('voice_user_joined', ({ id }) => {
     
     const peer = new SimplePeer({
         initiator: amIInitiator, 
-        trickle: true, 
+        trickle: false, 
         stream: localStream,
         config: iceConfig // 👈 កែត្រង់នេះឱ្យទៅជា iceConfig ត្រឹមត្រូវ
     });
@@ -1249,7 +1234,7 @@ socket.on('voice_signal', ({ from, signal }) => {
         console.log("📥 ទទួលការសុំតភ្ជាប់សំឡេងពី ID:", from);
         const peer = new SimplePeer({
             initiator: false, 
-            trickle: true, 
+            trickle: false, 
             stream: localStream,
             config: iceConfig // 👈 កន្លែងនេះអ្នកកែត្រូវហើយ!
         });
