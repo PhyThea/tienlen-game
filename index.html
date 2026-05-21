@@ -1216,7 +1216,7 @@ socket.on('voice_user_joined', ({ id }) => {
     
     const peer = new SimplePeer({
         initiator: amIInitiator, 
-        trickle: false, 
+        trickle: true, 
         stream: localStream,
         config: iceConfig // 👈 កែត្រង់នេះឱ្យទៅជា iceConfig ត្រឹមត្រូវ
     });
@@ -1240,7 +1240,7 @@ socket.on('voice_signal', ({ from, signal }) => {
         console.log("📥 ទទួលការសុំតភ្ជាប់សំឡេងពី ID:", from);
         const peer = new SimplePeer({
             initiator: false, 
-            trickle: false, 
+            trickle: true, 
             stream: localStream,
             config: iceConfig // 👈 កន្លែងនេះអ្នកកែត្រូវហើយ!
         });
