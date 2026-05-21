@@ -485,14 +485,11 @@ let lastRoundWinnerId = null;
 let micEnabled = true;
 
 const iceConfig = {
-    iceTransportPolicy: 'all', 
+    iceTransportPolicy: 'all',
     iceServers: [
-        // ប្រើ STUN សម្រាប់តភ្ជាប់ផ្ទាល់ (មិនស៊ី Data)
-        { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:stun1.l.google.com:19302" },
-        // បន្ថែម TURN សម្រាប់ករណីដែល STUN ភ្ជាប់មិនបាន
+        { urls: "stun:stun.l.google.com:19302" }, // STUN សំខាន់
         {
-            urls: "turn:global.relay.metered.ca:80",
+            urls: "turn:global.relay.metered.ca:80", // TURN ទុកមួយបានហើយ
             username: "70c58d936fe4c62e38eff96c",
             credential: "4tMqFurEIksvhg2h",
         }
@@ -1205,18 +1202,30 @@ function initVoiceAndExecute(callback) {
 }
 
 socket.on('voice_user_joined', ({ id }) => {
-    if (peers[id]) return;
+    // សម្អាត Peer ចាស់ចោលសិន ដើម្បីកុំឱ្យជាន់គ្នា (ដោះស្រាយបញ្ហា User-Initiated Abort)
+    if (peers[id]) {
+        peers[id].destroy();
+        delete peers[id];
+    }
 
-    // ប្រើការប្រៀបធៀប String នៃ ID ដើម្បីធានាថាមានតែម្នាក់ប៉ុណ្ណោះដែលជា Initiator
     const amIInitiator = myId < id; 
-
     console.log(`📞 តភ្ជាប់សំឡេងជាមួយ ${id} (ខ្ញុំជា Initiator: ${amIInitiator})`);
     
     const peer = new SimplePeer({
-        initiator: amIInitiator, // ប្រើលក្ខខណ្ឌនេះវិញ
-        trickle: false, 
+        initiator: amIInitiator,
+        trickle: false, // រង់ចាំគ្រប់យ៉ាងរួចរាល់ ទើបតភ្ជាប់ (ស្ថេរភាពជាង)
         stream: localStream,
-        config: iceConfig 
+        config: {
+            iceTransportPolicy: 'all', 
+            iceServers: [
+                { urls: "stun:stun.l.google.com:19302" },
+                {
+                    urls: "turn:global.relay.metered.ca:80",
+                    username: "70c58d936fe4c62e38eff96c",
+                    credential: "4tMqFurEIksvhg2h"
+                }
+            ]
+        }
     });
 
     peer.on('signal', signal => {
@@ -1224,10 +1233,22 @@ socket.on('voice_user_joined', ({ id }) => {
     });
 
     peer.on('stream', stream => {
+        console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", id);
         createAudioElement(id, stream);
     });
 
-    peer.on('error', err => console.error('Peer error:', err));
+    // បន្ថែមត្រង់នេះដើម្បីតាមដានស្ថានភាពតភ្ជាប់
+    peer.on('connect', () => console.log(`✅ ការតភ្ជាប់ជាមួយ ${id} ជោគជ័យ!`));
+
+    peer.on('error', err => {
+        console.error('Peer error:', err);
+        // បើមាន Error ចាំបាច់ អាចលុប Peer នោះចោល
+        if (peers[id]) {
+            peers[id].destroy();
+            delete peers[id];
+        }
+    });
+
     peer.on('close', () => removeAudioElement(id));
 
     peers[id] = peer;
