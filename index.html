@@ -485,11 +485,14 @@ let lastRoundWinnerId = null;
 let micEnabled = true;
 
 const iceConfig = {
-    iceTransportPolicy: 'all',
+    iceTransportPolicy: 'all', 
     iceServers: [
-        { urls: "stun:stun.l.google.com:19302" }, // STUN សំខាន់
+        // ប្រើ STUN សម្រាប់តភ្ជាប់ផ្ទាល់ (មិនស៊ី Data)
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+        // បន្ថែម TURN សម្រាប់ករណីដែល STUN ភ្ជាប់មិនបាន
         {
-            urls: "turn:global.relay.metered.ca:80", // TURN ទុកមួយបានហើយ
+            urls: "turn:global.relay.metered.ca:80",
             username: "70c58d936fe4c62e38eff96c",
             credential: "4tMqFurEIksvhg2h",
         }
@@ -497,6 +500,8 @@ const iceConfig = {
 };
 
 let peers = {};
+let localStream = null;
+
 function getCardFileName(card) {
     let valStr = card.value;
     if (valStr === 'A') valStr = 'ace';
@@ -1169,64 +1174,49 @@ socket.on('leftRoom', () => {
 // 🛠️ ផ្នែក LOGIC ជួសជុលបន្ថែមប្រព័ន្ធ ICE SERVERS ឱ្យនិយាយឮច្បាស់
 // =================================================================
 
-let localStream = null;
 function initVoiceAndExecute(callback) {
-    // ១. ពិនិត្យមើលថាតើ Browser អាចចូលប្រើ Media Devices បានដែរឬទេ
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        console.log("Browser នេះមិនគាំទ្រការប្រើប្រាស់ Mic");
-        if (callback) callback(); // បន្តដំណើរការហ្គេមធម្មតាដោយគ្មានសំឡេង
+    if (localStream) {
+        callback();
         return;
     }
 
-    // ២. ពិនិត្យមើលថាតើមាន Mic ដែរឬទេ
-    navigator.mediaDevices.enumerateDevices().then(devices => {
-        const hasMic = devices.some(device => device.kind === 'audioinput');
-        
-        if (!hasMic) {
-            console.warn("មិនមាន Microphone ទេ, បន្តការលេងដោយគ្មានសម្លេង");
-            if (callback) callback(); 
-            return;
-        }
-
-        // ៣. បើមាន Mic ទើបព្យាយាមបើក
-        navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
         .then(stream => {
             localStream = stream;
-            console.log("🎤 Microphone បានដំណើរការ!");
-            if (callback) callback();
+            
+            // ពិនិត្យមើលស្ថានភាពចុងក្រោយពី localStorage
+            const savedMicState = localStorage.getItem('mic_enabled');
+            micEnabled = (savedMicState !== 'false'); // បើគ្មានកំណត់ទេ គឺទុកជា On
+            
+            // កំណត់ស្ថានភាពទៅកាន់ Track ភ្លាមៗ
+            localStream.getAudioTracks().forEach(track => {
+                track.enabled = micEnabled;
+            });
+            
+            updateMicButtonUI();
+            console.log("🎤 ម៉ៃក្រូហ្វូនត្រូវបានកំណត់តាមស្ថានភាពមុន៖", micEnabled ? "On" : "Muted");
+            callback();
         })
         .catch(err => {
-            console.error("❌ កំហុស:", err);
-            if (callback) callback(); // បន្តលេងហ្គេម ទោះបើក Mic មិនបាន
+            console.warn("មិនអាចបើក Mic បានទេ:", err);
+            alert("សូមអនុញ្ញាត (Allow) ឱ្យហ្គេមប្រើប្រាស់ម៉ៃក្រូហ្វូន!");
+            callback(); 
         });
-    });
 }
 
 socket.on('voice_user_joined', ({ id }) => {
-    // សម្អាត Peer ចាស់ចោលសិន ដើម្បីកុំឱ្យជាន់គ្នា (ដោះស្រាយបញ្ហា User-Initiated Abort)
-    if (peers[id]) {
-        peers[id].destroy();
-        delete peers[id];
-    }
+    if (peers[id]) return;
 
+    // ប្រើការប្រៀបធៀប String នៃ ID ដើម្បីធានាថាមានតែម្នាក់ប៉ុណ្ណោះដែលជា Initiator
     const amIInitiator = myId < id; 
+
     console.log(`📞 តភ្ជាប់សំឡេងជាមួយ ${id} (ខ្ញុំជា Initiator: ${amIInitiator})`);
     
     const peer = new SimplePeer({
-        initiator: amIInitiator,
-        trickle: false, // រង់ចាំគ្រប់យ៉ាងរួចរាល់ ទើបតភ្ជាប់ (ស្ថេរភាពជាង)
+        initiator: amIInitiator, // ប្រើលក្ខខណ្ឌនេះវិញ
+        trickle: false, 
         stream: localStream,
-        config: {
-            iceTransportPolicy: 'all', 
-            iceServers: [
-                { urls: "stun:stun.l.google.com:19302" },
-                {
-                    urls: "turn:global.relay.metered.ca:80",
-                    username: "70c58d936fe4c62e38eff96c",
-                    credential: "4tMqFurEIksvhg2h"
-                }
-            ]
-        }
+        config: iceConfig 
     });
 
     peer.on('signal', signal => {
@@ -1234,22 +1224,10 @@ socket.on('voice_user_joined', ({ id }) => {
     });
 
     peer.on('stream', stream => {
-        console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", id);
         createAudioElement(id, stream);
     });
 
-    // បន្ថែមត្រង់នេះដើម្បីតាមដានស្ថានភាពតភ្ជាប់
-    peer.on('connect', () => console.log(`✅ ការតភ្ជាប់ជាមួយ ${id} ជោគជ័យ!`));
-
-    peer.on('error', err => {
-        console.error('Peer error:', err);
-        // បើមាន Error ចាំបាច់ អាចលុប Peer នោះចោល
-        if (peers[id]) {
-            peers[id].destroy();
-            delete peers[id];
-        }
-    });
-
+    peer.on('error', err => console.error('Peer error:', err));
     peer.on('close', () => removeAudioElement(id));
 
     peers[id] = peer;
@@ -1296,18 +1274,11 @@ socket.on('voice_user_left', ({ id }) => {
 let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
 function resumeAudio() {
-    if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    
-    if (audioCtx.state === 'suspended') {
-        audioCtx.resume().then(() => {
-            console.log("🔊 AudioContext បានដំណើរការជោគជ័យ!");
-        }).catch(err => {
-            console.error("❌ មិនអាច Resume សំឡេងបានទេ:", err);
-        });
+    if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
     }
 }
+
 function createAudioElement(id, stream) {
     let audio = document.getElementById(`audio-${id}`);
     
