@@ -1171,27 +1171,34 @@ socket.on('leftRoom', () => {
 
 let localStream = null;
 function initVoiceAndExecute(callback) {
-    if (localStream) {
-        if (callback) callback();
+    // ១. ពិនិត្យមើលថាតើ Browser អាចចូលប្រើ Media Devices បានដែរឬទេ
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.log("Browser នេះមិនគាំទ្រការប្រើប្រាស់ Mic");
+        if (callback) callback(); // បន្តដំណើរការហ្គេមធម្មតាដោយគ្មានសំឡេង
         return;
     }
 
-    navigator.mediaDevices.getUserMedia({ 
-        audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: false
-        }, 
-        video: false 
-    })
-    .then(stream => {
-        localStream = stream;
-        console.log("🎤 Microphone បានដំណើរការ!");
-        if (callback) callback();
-    })
-    .catch(err => {
-        console.error("❌ កំហុសក្នុងការបើក Mic:", err);
-        alert("សូមអនុញ្ញាតឱ្យប្រើប្រាស់ Microphone ដើម្បីអាចនិយាយគ្នាបាន។");
+    // ២. ពិនិត្យមើលថាតើមាន Mic ដែរឬទេ
+    navigator.mediaDevices.enumerateDevices().then(devices => {
+        const hasMic = devices.some(device => device.kind === 'audioinput');
+        
+        if (!hasMic) {
+            console.warn("មិនមាន Microphone ទេ, បន្តការលេងដោយគ្មានសម្លេង");
+            if (callback) callback(); 
+            return;
+        }
+
+        // ៣. បើមាន Mic ទើបព្យាយាមបើក
+        navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+        .then(stream => {
+            localStream = stream;
+            console.log("🎤 Microphone បានដំណើរការ!");
+            if (callback) callback();
+        })
+        .catch(err => {
+            console.error("❌ កំហុស:", err);
+            if (callback) callback(); // បន្តលេងហ្គេម ទោះបើក Mic មិនបាន
+        });
     });
 }
 
