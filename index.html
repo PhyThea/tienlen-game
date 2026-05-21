@@ -1194,14 +1194,23 @@ function initVoiceAndExecute(callback) {
     navigator.mediaDevices.getUserMedia({ audio: true, video: false })
         .then(stream => {
             localStream = stream;
-            micEnabled = true;
+            
+            // ពិនិត្យមើលស្ថានភាពចុងក្រោយពី localStorage
+            const savedMicState = localStorage.getItem('mic_enabled');
+            micEnabled = (savedMicState !== 'false'); // បើគ្មានកំណត់ទេ គឺទុកជា On
+            
+            // កំណត់ស្ថានភាពទៅកាន់ Track ភ្លាមៗ
+            localStream.getAudioTracks().forEach(track => {
+                track.enabled = micEnabled;
+            });
+            
             updateMicButtonUI();
-            console.log("🎤 ម៉ៃក្រូហ្វូនត្រូវបានបើកជោគជ័យ!");
+            console.log("🎤 ម៉ៃក្រូហ្វូនត្រូវបានកំណត់តាមស្ថានភាពមុន៖", micEnabled ? "On" : "Muted");
             callback();
         })
         .catch(err => {
             console.warn("មិនអាចបើក Mic បានទេ:", err);
-            alert("ដើម្បីនិយាយគ្នាបាន សូមអនុញ្ញាត (Allow) ឱ្យហ្គេមប្រើប្រាស់ម៉ៃក្រូហ្វូនរបស់អ្នក!");
+            alert("សូមអនុញ្ញាត (Allow) ឱ្យហ្គេមប្រើប្រាស់ម៉ៃក្រូហ្វូន!");
             callback(); 
         });
 }
@@ -1313,12 +1322,17 @@ function removeAudioElement(id) {
 
 function toggleMic() {
     if (!localStream) {
-        initVoiceAndExecute(() => { alert("ម៉ៃក្រូហ្វូនបើកហើយ!"); });
+        initVoiceAndExecute(() => { 
+            // បើទើបតែបើក Mic លើកដំបូង ឱ្យវាចាប់យកតម្លៃពី localStorage ឬដាក់ Default ជា true
+            micEnabled = localStorage.getItem('mic_enabled') !== 'false';
+            updateMicButtonUI();
+        });
         return;
     }
     
     micEnabled = !micEnabled;
-    // កែសម្រួលត្រង់នេះ ដើម្បីធានាថាវា Enable track ឡើងវិញ
+    localStorage.setItem('mic_enabled', micEnabled); // រក្សាទុកស្ថានភាព
+    
     localStream.getAudioTracks().forEach(track => {
         track.enabled = micEnabled;
     });
@@ -1338,7 +1352,6 @@ function updateMicButtonUI() {
 }
 
 function closeAllVoiceConnections() {
-    // បិទតែ Peer connections ប៉ុណ្ណោះ
     for (let id in peers) {
         if (peers[id]) {
             try { peers[id].destroy(); } catch (e) { console.log(e); }
@@ -1346,18 +1359,16 @@ function closeAllVoiceConnections() {
     }
     peers = {};
     
-    // លុបធាតុអូឌីយ៉ូ
     const audios = document.querySelectorAll('audio');
     audios.forEach(a => a.remove());
 
-    // កុំហៅ localStream.getTracks().forEach(track => track.stop())
-    // គ្រាន់តែបិទកុំឱ្យវាបញ្ជូនសំឡេង (Disable) គឺគ្រប់គ្រាន់ហើយ
+    // ជួសជុល៖ កុំកំណត់ micEnabled = false ទៀត នៅទីនេះ
+    // គ្រាន់តែរក្សាទុកស្ថានភាព track ទៅតាម micEnabled ដែលមានស្រាប់
     if (localStream) {
-        localStream.getAudioTracks().forEach(track => track.enabled = false);
+        localStream.getAudioTracks().forEach(track => {
+            track.enabled = micEnabled; 
+        });
     }
-    
-    micEnabled = false;
-    updateMicButtonUI();
 }
 </script>
 </body>
