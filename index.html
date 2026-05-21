@@ -482,22 +482,22 @@ let currentTurnIndex = 0;
 let playersData = [];
 let amISpectator = false;
 let lastRoundWinnerId = null; 
-
-let localStream = null;
-let peers = {};
 let micEnabled = true;
 
 const iceConfig = {
-    config: {
-        iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' },
-            { urls: 'stun:stun3.l.google.com:19302' },
-            { urls: 'stun:stun4.l.google.com:19302' }
-        ]
-    }
-};
+        config: {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun3.l.google.com:19302' },
+                { urls: 'stun:stun4.l.google.com:19302' }
+            ]
+        }
+    };
+
+let peers = {};
+let localStream = null;
 
 function getCardFileName(card) {
     let valStr = card.value;
@@ -1192,63 +1192,61 @@ function initVoiceAndExecute(callback) {
         });
 }
 
-// ១. ត្រូវប្រាកដថាប្រើ socket (អក្សរតូច)
-socket.on('voice_user_joined', ({ id }) => {
-    if (peers[id]) return;
+    socket.on('voice_user_joined', ({ id }) => {
+        if (peers[id]) return;
 
-    console.log("📞 ចាប់ផ្ដើមតភ្ជាប់សំឡេងទៅកាន់សមាជិកថ្មី ID:", id);
-    const peer = new SimplePeer({
-        initiator: true, 
-        trickle: false, 
-        stream: localStream,
-        config: iceConfig.config 
-    });
-
-    peer.on('signal', signal => {
-        socket.emit('voice_signal', { to: id, signal: signal });
-    });
-
-    peer.on('stream', stream => {
-        console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", id);
-        createAudioElement(id, stream);
-    });
-
-    peer.on('error', err => console.error('Peer error:', err));
-    peer.on('close', () => removeAudioElement(id));
-
-    peers[id] = peer;
-});
-
-// ២. ត្រូវប្រាកដថាប្តូរ socket (អក្សរតូច) នៅកន្លែងទទួលសញ្ញាផងដែរ
-socket.on('voice_signal', ({ from, signal }) => {
-    if (!peers[from]) {
-        console.log("📥 ទទួលការសុំតភ្ជាប់សំឡេងពី ID:", from);
+        console.log("📞 ចាប់ផ្ដើមតភ្ជាប់សំឡេងទៅកាន់សមាជិកថ្មី ID:", id);
         const peer = new SimplePeer({
-            initiator: false, 
+            initiator: true, 
             trickle: false, 
             stream: localStream,
-            config: iceConfig.config
+            config: iceConfig.config 
         });
 
-        peer.on('signal', sig => {
-            socket.emit('voice_signal', { to: from, signal: sig });
+        peer.on('signal', signal => {
+            socket.emit('voice_signal', { to: id, signal: signal });
         });
 
         peer.on('stream', stream => {
-            console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", from);
-            createAudioElement(from, stream);
+            console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", id);
+            createAudioElement(id, stream);
         });
 
         peer.on('error', err => console.error('Peer error:', err));
-        peer.on('close', () => removeAudioElement(from));
+        peer.on('close', () => removeAudioElement(id));
 
-        peers[from] = peer;
-    }
+        peers[id] = peer;
+    });
 
-    if (signal) {
-        peers[from].signal(signal);
-    }
-});
+    socket.on('voice_signal', ({ from, signal }) => {
+        if (!peers[from]) {
+            console.log("📥 ទទួលការសុំតភ្ជាប់សំឡេងពី ID:", from);
+            const peer = new SimplePeer({
+                initiator: false, 
+                trickle: false, 
+                stream: localStream,
+                config: iceConfig.config
+            });
+
+            peer.on('signal', sig => {
+                socket.emit('voice_signal', { to: from, signal: sig });
+            });
+
+            peer.on('stream', stream => {
+                console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", from);
+                createAudioElement(from, stream);
+            });
+
+            peer.on('error', err => console.error('Peer error:', err));
+            peer.on('close', () => removeAudioElement(from));
+
+            peers[from] = peer;
+        }
+
+        if (signal) {
+            peers[from].signal(signal);
+        }
+    });
 
 socket.on('voice_user_left', ({ id }) => {
     if (peers[id]) {
@@ -1258,8 +1256,13 @@ socket.on('voice_user_left', ({ id }) => {
     removeAudioElement(id);
 });
 
-// បង្កើត AudioContext តែមួយ (Singleton)
 let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function resumeAudio() {
+    if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+}
 
 function createAudioElement(id, stream) {
     let audio = document.getElementById(`audio-${id}`);
@@ -1285,6 +1288,7 @@ function createAudioElement(id, stream) {
     // ប្រសិនបើអ្នកមិនត្រូវការកែសំឡេងទេ សូមកាត់កូដ Web Audio API ចេញ
     // ព្រោះការ connect ទៅ audioCtx.destination ជួនកាលបង្កបញ្ហាលើ Mobile
 }
+
 function removeAudioElement(id) {
     const audio = document.getElementById(`audio-${id}`);
     if (audio) audio.remove();
