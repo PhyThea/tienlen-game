@@ -497,8 +497,6 @@ const iceConfig = {
 };
 
 let peers = {};
-let localStream = null;
-
 function getCardFileName(card) {
     let valStr = card.value;
     if (valStr === 'A') valStr = 'ace';
@@ -1171,34 +1169,30 @@ socket.on('leftRoom', () => {
 // 🛠️ ផ្នែក LOGIC ជួសជុលបន្ថែមប្រព័ន្ធ ICE SERVERS ឱ្យនិយាយឮច្បាស់
 // =================================================================
 
+let localStream = null;
 function initVoiceAndExecute(callback) {
     if (localStream) {
-        callback();
+        if (callback) callback();
         return;
     }
 
-    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-        .then(stream => {
-            localStream = stream;
-            
-            // ពិនិត្យមើលស្ថានភាពចុងក្រោយពី localStorage
-            const savedMicState = localStorage.getItem('mic_enabled');
-            micEnabled = (savedMicState !== 'false'); // បើគ្មានកំណត់ទេ គឺទុកជា On
-            
-            // កំណត់ស្ថានភាពទៅកាន់ Track ភ្លាមៗ
-            localStream.getAudioTracks().forEach(track => {
-                track.enabled = micEnabled;
-            });
-            
-            updateMicButtonUI();
-            console.log("🎤 ម៉ៃក្រូហ្វូនត្រូវបានកំណត់តាមស្ថានភាពមុន៖", micEnabled ? "On" : "Muted");
-            callback();
-        })
-        .catch(err => {
-            console.warn("មិនអាចបើក Mic បានទេ:", err);
-            alert("សូមអនុញ្ញាត (Allow) ឱ្យហ្គេមប្រើប្រាស់ម៉ៃក្រូហ្វូន!");
-            callback(); 
-        });
+    navigator.mediaDevices.getUserMedia({ 
+        audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: false
+        }, 
+        video: false 
+    })
+    .then(stream => {
+        localStream = stream;
+        console.log("🎤 Microphone បានដំណើរការ!");
+        if (callback) callback();
+    })
+    .catch(err => {
+        console.error("❌ កំហុសក្នុងការបើក Mic:", err);
+        alert("សូមអនុញ្ញាតឱ្យប្រើប្រាស់ Microphone ដើម្បីអាចនិយាយគ្នាបាន។");
+    });
 }
 
 socket.on('voice_user_joined', ({ id }) => {
@@ -1295,11 +1289,18 @@ socket.on('voice_user_left', ({ id }) => {
 let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
 function resumeAudio() {
-    if (audioCtx && audioCtx.state === 'suspended') {
-        audioCtx.resume();
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume().then(() => {
+            console.log("🔊 AudioContext បានដំណើរការជោគជ័យ!");
+        }).catch(err => {
+            console.error("❌ មិនអាច Resume សំឡេងបានទេ:", err);
+        });
     }
 }
-
 function createAudioElement(id, stream) {
     let audio = document.getElementById(`audio-${id}`);
     
