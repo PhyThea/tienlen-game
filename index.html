@@ -485,18 +485,29 @@ let lastRoundWinnerId = null;
 let micEnabled = true;
 
 const iceConfig = {
-    config: {
-        iceServers: [
-            // STUN Servers (ល្អសម្រាប់ WiFi)
-            { urls: 'stun:stun.l.google.com:19302' },
-            // TURN Server (ចាំបាច់បំផុតសម្រាប់ 4G/5G)
-            {
-                urls: 'turn:your-turn-server-address:3478', 
-                username: 'your-username',
-                credential: 'your-password'
-            }
-        ]
-    }
+    iceServers: [
+        { urls: "stun:stun.relay.metered.ca:80" },
+        {
+            urls: "turn:global.relay.metered.ca:80",
+            username: "70c58d936fe4c62e38eff96c",
+            credential: "4tMqFurEIksvhg2h",
+        },
+        {
+            urls: "turn:global.relay.metered.ca:80?transport=tcp",
+            username: "70c58d936fe4c62e38eff96c",
+            credential: "4tMqFurEIksvhg2h",
+        },
+        {
+            urls: "turn:global.relay.metered.ca:443",
+            username: "70c58d936fe4c62e38eff96c",
+            credential: "4tMqFurEIksvhg2h",
+        },
+        {
+            urls: "turns:global.relay.metered.ca:443?transport=tcp",
+            username: "70c58d936fe4c62e38eff96c",
+            credential: "4tMqFurEIksvhg2h",
+        },
+    ]
 };
 
 let peers = {};
@@ -1204,12 +1215,11 @@ socket.on('voice_user_joined', ({ id }) => {
     console.log(`📞 តភ្ជាប់សំឡេងជាមួយ ${id} (ខ្ញុំជា Initiator: ${amIInitiator})`);
     
     const peer = new SimplePeer({
-        initiator: amIInitiator, // 👈 ប្រើលក្ខខណ្ឌនេះជំនួសឱ្យ true ផ្ទាល់
+        initiator: amIInitiator, 
         trickle: false, 
         stream: localStream,
-        config: iceConfig.config 
+        config: iceConfig // 👈 កែត្រង់នេះឱ្យទៅជា iceConfig ត្រឹមត្រូវ
     });
-
     peer.on('signal', signal => {
         socket.emit('voice_signal', { to: id, signal: signal });
     });
@@ -1225,35 +1235,35 @@ socket.on('voice_user_joined', ({ id }) => {
     peers[id] = peer;
 });
 
-    socket.on('voice_signal', ({ from, signal }) => {
-        if (!peers[from]) {
-            console.log("📥 ទទួលការសុំតភ្ជាប់សំឡេងពី ID:", from);
-            const peer = new SimplePeer({
-                initiator: false, 
-                trickle: false, 
-                stream: localStream,
-                config: iceConfig.config
-            });
+socket.on('voice_signal', ({ from, signal }) => {
+    if (!peers[from]) {
+        console.log("📥 ទទួលការសុំតភ្ជាប់សំឡេងពី ID:", from);
+        const peer = new SimplePeer({
+            initiator: false, 
+            trickle: false, 
+            stream: localStream,
+            config: iceConfig // 👈 កន្លែងនេះអ្នកកែត្រូវហើយ!
+        });
 
-            peer.on('signal', sig => {
-                socket.emit('voice_signal', { to: from, signal: sig });
-            });
+        peer.on('signal', sig => {
+            socket.emit('voice_signal', { to: from, signal: sig });
+        });
 
-            peer.on('stream', stream => {
-                console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", from);
-                createAudioElement(from, stream);
-            });
+        peer.on('stream', stream => {
+            console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", from);
+            createAudioElement(from, stream);
+        });
 
-            peer.on('error', err => console.error('Peer error:', err));
-            peer.on('close', () => removeAudioElement(from));
+        peer.on('error', err => console.error('Peer error:', err));
+        peer.on('close', () => removeAudioElement(from));
 
-            peers[from] = peer;
-        }
+        peers[from] = peer;
+    }
 
-        if (signal) {
-            peers[from].signal(signal);
-        }
-    });
+    if (signal) {
+        peers[from].signal(signal);
+    }
+});
 
 socket.on('voice_user_left', ({ id }) => {
     if (peers[id]) {
