@@ -485,13 +485,17 @@ let lastRoundWinnerId = null;
 let micEnabled = true;
 
 const iceConfig = {
-    iceTransportPolicy: 'all', // ព្យាយាមតភ្ជាប់ដោយផ្ទាល់
+    iceTransportPolicy: 'all', 
     iceServers: [
-        // ប្រើតែ STUN servers ដែលជាសេវាកម្មឥតគិតថ្លៃ និងមិនស៊ី Data ឆ្លងកាត់ Server
+        // ប្រើ STUN សម្រាប់តភ្ជាប់ផ្ទាល់ (មិនស៊ី Data)
         { urls: "stun:stun.l.google.com:19302" },
         { urls: "stun:stun1.l.google.com:19302" },
-        { urls: "stun:stun2.l.google.com:19302" },
-        { urls: "stun:stun3.l.google.com:19302" }
+        // បន្ថែម TURN សម្រាប់ករណីដែល STUN ភ្ជាប់មិនបាន
+        {
+            urls: "turn:global.relay.metered.ca:80",
+            username: "70c58d936fe4c62e38eff96c",
+            credential: "4tMqFurEIksvhg2h",
+        }
     ]
 };
 
