@@ -1207,23 +1207,23 @@ function initVoiceAndExecute(callback) {
 socket.on('voice_user_joined', ({ id }) => {
     if (peers[id]) return;
 
-    // ប្រើការប្រៀបធៀប ID ដើម្បីសម្រេចថាអ្នកណាជាអ្នកតេ (Initiator)
+    // ប្រើការប្រៀបធៀប String នៃ ID ដើម្បីធានាថាមានតែម្នាក់ប៉ុណ្ណោះដែលជា Initiator
     const amIInitiator = myId < id; 
 
     console.log(`📞 តភ្ជាប់សំឡេងជាមួយ ${id} (ខ្ញុំជា Initiator: ${amIInitiator})`);
     
     const peer = new SimplePeer({
-        initiator: amIInitiator, 
+        initiator: amIInitiator, // ប្រើលក្ខខណ្ឌនេះវិញ
         trickle: false, 
         stream: localStream,
-        config: iceConfig // 👈 កែត្រង់នេះឱ្យទៅជា iceConfig ត្រឹមត្រូវ
+        config: iceConfig 
     });
+
     peer.on('signal', signal => {
         socket.emit('voice_signal', { to: id, signal: signal });
     });
 
     peer.on('stream', stream => {
-        console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", id);
         createAudioElement(id, stream);
     });
 
