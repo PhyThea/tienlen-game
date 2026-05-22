@@ -1215,9 +1215,13 @@ socket.on('voice_user_joined', ({ id }) => {
     
     const peer = new SimplePeer({
         initiator: amIInitiator,
-        trickle: false, // អ្នកអាចសាកល្បងប្តូរទៅ true បើចង់ឱ្យតភ្ជាប់លឿនជាងមុន
+        trickle: true, // ផ្លាស់ប្តូរពី false មក true
         stream: localStream,
         config: iceConfig 
+    });
+
+    peer.on('connect', () => {
+        console.log("✅ WebRTC Connected Successfully!");
     });
 
     peer.on('signal', signal => {
@@ -1241,13 +1245,20 @@ socket.on('voice_user_joined', ({ id }) => {
 });
 
 socket.on('voice_signal', ({ from, signal }) => {
-    if (!peers[from]) {
-        console.log("📥 ទទួលការសុំតភ្ជាប់សំឡេងពី ID:", from);
+    if (peers[from]) {
+        peers[from].signal(signal);
+    } else {
+        console.log("📥 កំពុងទទួលសញ្ញាពី Peer ថ្មី:", from);
+        
         const peer = new SimplePeer({
-            initiator: false, 
-            trickle: false, 
+            initiator: false, // ✅ កែត្រង់នេះ៖ ត្រូវដាក់ false ព្រោះនេះជាការបង្កើត Peer ពេលទទួល Signal
+            trickle: true, 
             stream: localStream,
-            config: iceConfig // 👈 កន្លែងនេះអ្នកកែត្រូវហើយ!
+            config: iceConfig 
+        });
+
+        peer.on('connect', () => {
+            console.log("✅ WebRTC Connected Successfully (Receiver Side)!");
         });
 
         peer.on('signal', sig => {
@@ -1259,13 +1270,17 @@ socket.on('voice_signal', ({ from, signal }) => {
             createAudioElement(from, stream);
         });
 
-        peer.on('error', err => console.error('Peer error:', err));
+        peer.on('error', err => {
+            console.error('Peer error:', err);
+            if(peers[from]) {
+                peers[from].destroy();
+                delete peers[from];
+            }
+        });
+        
         peer.on('close', () => removeAudioElement(from));
 
         peers[from] = peer;
-    }
-
-    if (signal) {
         peers[from].signal(signal);
     }
 });
