@@ -1318,16 +1318,11 @@ socket.on('voice_user_left', ({ id }) => {
         peers[id].destroy();
         delete peers[id];
     }
-    removeAudioElement(id);
-});
-
-let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-function resumeAudio() {
-    if (audioCtx && audioCtx.state === 'suspended') {
-        audioCtx.resume();
+    // ពិនិត្យថាមានមុខងារនេះមែន ទើបហៅប្រើ
+    if (typeof removeAudioElement === 'function') {
+        removeAudioElement(id);
     }
-}
+});
 
 function createAudioElement(id, stream) {
     let audio = document.getElementById(`audio-${id}`);
@@ -1346,6 +1341,16 @@ function createAudioElement(id, stream) {
 
     document.body.appendChild(audio);
     return audio; // ត្រឡប់អថេរនេះសម្រាប់ប្រើប្រាស់បន្ត
+}
+
+function removeAudioElement(id) {
+    const audio = document.getElementById(`audio-${id}`);
+    if (audio) {
+        audio.pause();
+        audio.srcObject = null;
+        audio.remove();
+        console.log(`🔊 បានលុបធាតុសំឡេងសម្រាប់៖ ${id}`);
+    }
 }
 
 function toggleMic() {
