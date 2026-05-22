@@ -611,9 +611,9 @@ socket.on('roomJoined', ({ roomId, playerId, isSpectator, playedCards, currentTu
     isCreator = false;
     amISpectator = isSpectator;
     
+    // បង្ហាញ UI តាមស្ថានភាព
     if (amISpectator) {
         currentTurnIndex = serverTurn;
-        
         document.body.classList.remove('round-over'); 
         document.body.classList.add('in-game');
         
@@ -637,13 +637,15 @@ socket.on('roomJoined', ({ roomId, playerId, isSpectator, playedCards, currentTu
             tableDiv.innerHTML = '<div style="color: #a7f3d0; font-size:12px;">មិនទាន់មានបៀរចុះឡើយ</div>';
         }
 
-        // 🚀 កូដសំខាន់៖ ស្នើសុំតភ្ជាប់សំឡេងភ្លាមៗនៅពេលចូលជា Spectator
+        // 🚀 កូដសំខាន់៖ តភ្ជាប់សំឡេងភ្លាមៗនៅពេលចូលជា Spectator
         initVoiceAndExecute(() => {
-            console.log("🔊 ចូលមកជា Spectator, កំពុងប្រកាសវត្តមានដើម្បីតភ្ជាប់សំឡេង...");
+            console.log("🔊 កំពុងប្រកាសវត្តមានដើម្បីតភ្ជាប់សំឡេង...");
+            // ប្រកាសទៅអ្នកទាំងអស់ក្នុងបន្ទប់ថាខ្ញុំបានចូលមកដល់
             socket.emit('voice_user_joined', { roomId: currentRoom });
         });
 
     } else {
+        // បើចូលជាអ្នកលេងធម្មតា គ្រាន់តែបង្ហាញ Lobby
         showLobby(roomId);
     }
 });
@@ -1290,8 +1292,14 @@ let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
 function resumeAudio() {
     if (audioCtx && audioCtx.state === 'suspended') {
-        audioCtx.resume();
+        audioCtx.resume().then(() => {
+            console.log("🔊 AudioContext resumed successfully!");
+        });
     }
+    // បញ្ចូលការលេងសំឡេងឡើងវិញសម្រាប់ Audio elements ទាំងអស់
+    document.querySelectorAll('audio').forEach(a => {
+        if (a.paused) a.play().catch(e => console.log("Still blocked"));
+    });
 }
 
 function createAudioElement(id, stream) {
