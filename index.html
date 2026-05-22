@@ -1262,13 +1262,15 @@ socket.on('voice_user_joined', ({ id }) => {
 });
 
 socket.on('voice_signal', ({ from, signal }) => {
+    // ត្រូវកំណត់តម្លៃនេះឱ្យបានត្រឹមត្រូវ
+    const amIInitiator = false; // ក្នុងករណីទទួល Signal ពីអ្នកដទៃ យើងជា 'receiver' (false)
+
     if (!peers[from]) {
         console.log("📥 ទទួលការសុំតភ្ជាប់សំឡេងពី ID:", from);
         
         const peer = new SimplePeer({
-            initiator: amIInitiator, 
+            initiator: amIInitiator, // ប្រើតម្លៃដែលបានកំណត់ខាងលើ
             trickle: true, 
-            // ប្តូរពី stream: localStream មកជាការពិនិត្យ៖
             stream: localStream || undefined, 
             config: iceConfig 
         });
