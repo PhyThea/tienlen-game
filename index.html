@@ -1215,36 +1215,33 @@ function initVoiceAndExecute(callback) {
         });
 }
 
-socket.on('voice_signal', ({ from, signal }) => {
-    // បើនៅមិនទាន់មាន Peer នេះទេ ទើបយើងបង្កើតវា (ក្នុងករណីខ្លះយើងជា Receiver)
-    if (!peers[from]) {
-        console.log("📥 ទទួលការសុំតភ្ជាប់សំឡេងពី ID:", from);
-        
-        const peer = new SimplePeer({
-            initiator: false, // ព្រោះនេះជាការឆ្លើយតប
-            trickle: true, 
-            stream: localStream,
-            config: iceConfig 
-        });
+socket.on('voice_user_joined', ({ id }) => {
+    if (peers[id]) return;
 
-        peer.on('signal', sig => {
-            socket.emit('voice_signal', { to: from, signal: sig });
-        });
+    // ប្រើការប្រៀបធៀប ID ដើម្បីសម្រេចថាអ្នកណាជាអ្នកតេ (Initiator)
+    const amIInitiator = myId < id; 
 
-        peer.on('stream', stream => {
-            createAudioElement(from, stream);
-        });
+    console.log(`📞 តភ្ជាប់សំឡេងជាមួយ ${id} (ខ្ញុំជា Initiator: ${amIInitiator})`);
+    
+    const peer = new SimplePeer({
+        initiator: amIInitiator, 
+        trickle: true, 
+        stream: localStream,
+        config: iceConfig // 👈 កែត្រង់នេះឱ្យទៅជា iceConfig ត្រឹមត្រូវ
+    });
+    peer.on('signal', signal => {
+        socket.emit('voice_signal', { to: id, signal: signal });
+    });
 
-        peer.on('error', err => console.error('Peer error:', err));
-        peer.on('close', () => removeAudioElement(from));
+    peer.on('stream', stream => {
+        console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", id);
+        createAudioElement(id, stream);
+    });
 
-        peers[from] = peer;
-    }
+    peer.on('error', err => console.error('Peer error:', err));
+    peer.on('close', () => removeAudioElement(id));
 
-    // ត្រង់នេះសំខាន់៖ បើមាន Peer ហើយ ទើបយើងហៅ .signal(signal)
-    if (peers[from]) {
-        peers[from].signal(signal);
-    }
+    peers[id] = peer;
 });
 
 socket.on('voice_signal', ({ from, signal }) => {
