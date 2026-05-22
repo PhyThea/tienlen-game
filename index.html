@@ -612,7 +612,6 @@ socket.on('roomJoined', ({ roomId, playerId, isSpectator, playedCards, currentTu
     amISpectator = isSpectator;
     
     if (amISpectator) {
-        // 🛠️ បន្ថែម៖ បើហ្គេមកំពុងលេង ឱ្យអ្នកមើលចូលទៅកាន់ផ្ទាំង Game ភ្លាមៗ និងបង្ហាញបៀរលើតុ
         currentTurnIndex = serverTurn;
         
         document.body.classList.remove('round-over'); 
@@ -622,10 +621,9 @@ socket.on('roomJoined', ({ roomId, playerId, isSpectator, playedCards, currentTu
         document.getElementById('lobbyArea').style.display = 'none';
         document.getElementById('resultArea').style.display = 'none';
         document.getElementById('gameArea').style.display = 'block';
-        
         document.getElementById('actionControls').style.display = 'none';
         
-        // បង្ហាញបៀរដែលមាននៅលើតុស្រាប់
+        // បង្ហាញបៀរលើតុ
         const tableDiv = document.getElementById('table');
         tableDiv.innerHTML = ''; 
         if (playedCards && playedCards.length > 0) {
@@ -638,8 +636,14 @@ socket.on('roomJoined', ({ roomId, playerId, isSpectator, playedCards, currentTu
         } else {
             tableDiv.innerHTML = '<div style="color: #a7f3d0; font-size:12px;">មិនទាន់មានបៀរចុះឡើយ</div>';
         }
+
+        // 🚀 កូដសំខាន់៖ ស្នើសុំតភ្ជាប់សំឡេងភ្លាមៗនៅពេលចូលជា Spectator
+        initVoiceAndExecute(() => {
+            console.log("🔊 ចូលមកជា Spectator, កំពុងប្រកាសវត្តមានដើម្បីតភ្ជាប់សំឡេង...");
+            socket.emit('voice_user_joined', { roomId: currentRoom });
+        });
+
     } else {
-        // បើហ្គេមមិនទាន់លេង ឱ្យទៅរង់ចាំនៅផ្ទាំង Lobby សិន
         showLobby(roomId);
     }
 });
