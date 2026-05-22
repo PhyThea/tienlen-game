@@ -1353,6 +1353,24 @@ function removeAudioElement(id) {
     }
 }
 
+function resumeAudio() {
+    // ពិនិត្យមើលថាតើ AudioContext មានវត្តមានក្នុង Browser ដែរឬទេ
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (AudioContext) {
+        // បង្កើត instance នៃ AudioContext ប្រសិនបើវាមិនទាន់មាន
+        if (!window.audioCtx) {
+            window.audioCtx = new AudioContext();
+        }
+        
+        // ប្រសិនបើវាស្ថិតក្នុងស្ថានភាព 'suspended' (ផ្អាក) ត្រូវបញ្ជាឱ្យវាដំណើរការវិញ
+        if (window.audioCtx.state === 'suspended') {
+            window.audioCtx.resume().then(() => {
+                console.log("✅ AudioContext បានដំណើរការឡើងវិញ!");
+            });
+        }
+    }
+}
+
 function toggleMic() {
     if (!localStream) {
         initVoiceAndExecute(() => { 
