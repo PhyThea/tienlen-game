@@ -485,21 +485,16 @@ let lastRoundWinnerId = null;
 let micEnabled = true;
 
 const iceConfig = {
+    iceTransportPolicy: 'all', // អនុញ្ញាតឱ្យសាកល្បងតភ្ជាប់គ្រប់រូបភាព
     iceServers: [
-        { urls: "stun:stun.relay.metered.ca:80" },
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
         {
             urls: "turn:global.relay.metered.ca:80",
             username: "70c58d936fe4c62e38eff96c",
             credential: "4tMqFurEIksvhg2h"
-        },
-        {
-            urls: "turns:global.relay.metered.ca:443",
-            username: "70c58d936fe4c62e38eff96c",
-            credential: "4tMqFurEIksvhg2h"
         }
-    ],
-    // បង្ខំឱ្យទិន្នន័យរត់កាត់ Server ជានិច្ច ធានាថាគ្រប់គ្នាបានលឺសំឡេងគ្នា ១០០%
-    iceTransportPolicy: 'relay' 
+    ]
 };
 
 let peers = {};
@@ -1187,9 +1182,11 @@ function initVoiceAndExecute(callback) {
         .then(stream => {
             localStream = stream;
             
+            // ពិនិត្យមើលស្ថានភាពចុងក្រោយពី localStorage
             const savedMicState = localStorage.getItem('mic_enabled');
-            micEnabled = (savedMicState !== 'false');
+            micEnabled = (savedMicState !== 'false'); // បើគ្មានកំណត់ទេ គឺទុកជា On
             
+            // កំណត់ស្ថានភាពទៅកាន់ Track ភ្លាមៗ
             localStream.getAudioTracks().forEach(track => {
                 track.enabled = micEnabled;
             });
@@ -1199,13 +1196,8 @@ function initVoiceAndExecute(callback) {
             callback();
         })
         .catch(err => {
-            // ត្រង់នេះយើងមិនគួរប្រើ alert() ដែលរំខានអ្នកលេងទេ
-            console.warn("មិនអាចបើក Mic បានទេ (កំពុងចូលក្នុងរបៀបស្ដាប់):", err);
-            
-            // កំណត់ localStream ឱ្យស្មើនឹង null ធានាថាហ្គេមដឹងថាអត់មាន Mic
-            localStream = null; 
-            
-            // ហៅ callback ដើម្បីឱ្យអ្នកលេងអាចចូលហ្គេមបានធម្មតា ទោះអត់មាន Mic
+            console.warn("មិនអាចបើក Mic បានទេ:", err);
+            alert("សូមអនុញ្ញាត (Allow) ឱ្យហ្គេមប្រើប្រាស់ម៉ៃក្រូហ្វូន!");
             callback(); 
         });
 }
