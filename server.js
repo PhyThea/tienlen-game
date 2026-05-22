@@ -276,9 +276,6 @@ io.on('connection', (socket) => {
         broadcastRoomList();
     });
 
-    // 5. [រក្សាកូដលេងបៀររបស់អ្នកផ្សេងទៀតនៅទីនេះ...]
-});
-
     socket.on('joinRoom', ({ roomId, password, playerName }) => {
         const room = rooms[roomId];
         if (!room) return socket.emit('errorMsg', 'រកមិនឃើញបន្ទប់នេះទេ!');
