@@ -484,10 +484,18 @@ let amISpectator = false;
 let lastRoundWinnerId = null; 
 let micEnabled = true;
 
-const configuration = {
+const iceConfig = {
+    iceTransportPolicy: 'all', 
     iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
+        // ប្រើ STUN សម្រាប់តភ្ជាប់ផ្ទាល់ (មិនស៊ី Data)
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+        // បន្ថែម TURN សម្រាប់ករណីដែល STUN ភ្ជាប់មិនបាន
+        {
+            urls: "turn:global.relay.metered.ca:80",
+            username: "70c58d936fe4c62e38eff96c",
+            credential: "4tMqFurEIksvhg2h",
+        }
     ]
 };
 
@@ -592,9 +600,10 @@ socket.on('roomJoined', ({ roomId, playerId, isSpectator, playedCards, currentTu
     isCreator = false;
     amISpectator = isSpectator;
     
-    // បង្ហាញ UI តាមស្ថានភាព
     if (amISpectator) {
+        // 🛠️ បន្ថែម៖ បើហ្គេមកំពុងលេង ឱ្យអ្នកមើលចូលទៅកាន់ផ្ទាំង Game ភ្លាមៗ និងបង្ហាញបៀរលើតុ
         currentTurnIndex = serverTurn;
+        
         document.body.classList.remove('round-over'); 
         document.body.classList.add('in-game');
         
@@ -602,9 +611,10 @@ socket.on('roomJoined', ({ roomId, playerId, isSpectator, playedCards, currentTu
         document.getElementById('lobbyArea').style.display = 'none';
         document.getElementById('resultArea').style.display = 'none';
         document.getElementById('gameArea').style.display = 'block';
+        
         document.getElementById('actionControls').style.display = 'none';
         
-        // បង្ហាញបៀរលើតុ
+        // បង្ហាញបៀរដែលមាននៅលើតុស្រាប់
         const tableDiv = document.getElementById('table');
         tableDiv.innerHTML = ''; 
         if (playedCards && playedCards.length > 0) {
@@ -617,16 +627,8 @@ socket.on('roomJoined', ({ roomId, playerId, isSpectator, playedCards, currentTu
         } else {
             tableDiv.innerHTML = '<div style="color: #a7f3d0; font-size:12px;">មិនទាន់មានបៀរចុះឡើយ</div>';
         }
-
-        // 🚀 កូដសំខាន់៖ តភ្ជាប់សំឡេងភ្លាមៗនៅពេលចូលជា Spectator
-        initVoiceAndExecute(() => {
-            console.log("🔊 កំពុងប្រកាសវត្តមានដើម្បីតភ្ជាប់សំឡេង...");
-            // ប្រកាសទៅអ្នកទាំងអស់ក្នុងបន្ទប់ថាខ្ញុំបានចូលមកដល់
-            socket.emit('voice_user_joined', { roomId: currentRoom });
-        });
-
     } else {
-        // បើចូលជាអ្នកលេងធម្មតា គ្រាន់តែបង្ហាញ Lobby
+        // បើហ្គេមមិនទាន់លេង ឱ្យទៅរង់ចាំនៅផ្ទាំង Lobby សិន
         showLobby(roomId);
     }
 });
@@ -1202,84 +1204,62 @@ function initVoiceAndExecute(callback) {
         });
 }
 
+socket.on('voice_user_joined', ({ id }) => {
+    if (peers[id]) return;
 
-socket.on('voice_user_joined', (data) => {
-    const newUserId = data.id;
+    // ប្រើការប្រៀបធៀប String នៃ ID ដើម្បីធានាថាមានតែម្នាក់ប៉ុណ្ណោះដែលជា Initiator
+    const amIInitiator = myId < id; 
+
+    console.log(`📞 តភ្ជាប់សំឡេងជាមួយ ${id} (ខ្ញុំជា Initiator: ${amIInitiator})`);
     
-    // ១. បង្កើត Peer Connection ថ្មីសម្រាប់អ្នកប្រើប្រាស់ថ្មីនេះ
-    const peer = new RTCPeerConnection(configuration); 
-    peers[newUserId] = peer;
-
-    // ២. ដាក់ Local Stream (Mic របស់យើង) ទៅក្នុង Peer នេះ
-    localStream.getTracks().forEach(track => {
-        peer.addTrack(track, localStream);
+    const peer = new SimplePeer({
+        initiator: amIInitiator, // ប្រើលក្ខខណ្ឌនេះវិញ
+        trickle: true, 
+        stream: localStream,
+        config: iceConfig 
     });
 
-    // ៣. ដាក់ Event Listener ដើម្បីទទួលសំឡេងពីអ្នកថ្មី
-    peer.ontrack = (event) => {
-        addAudioElement(event.streams[0], newUserId); // Function បង្កើត <audio> tag
-    };
+    peer.on('signal', signal => {
+        socket.emit('voice_signal', { to: id, signal: signal });
+    });
 
-    // ៤. ចាប់ផ្តើមបង្កើត Offer (SDP) ផ្ញើទៅអ្នកថ្មី
-    peer.createOffer()
-        .then(offer => peer.setLocalDescription(offer))
-        .then(() => {
-            // ផ្ញើ Signal ទៅ Server ដើម្បីបញ្ជូនបន្តទៅអ្នកថ្មី
-            socket.emit('voice_signal', {
-                to: newUserId,
-                signal: peer.localDescription
-            });
-        })
-        .catch(err => console.error("Error creating offer:", err));
+    peer.on('stream', stream => {
+        createAudioElement(id, stream);
+    });
+
+    peer.on('error', err => console.error('Peer error:', err));
+    peer.on('close', () => removeAudioElement(id));
+
+    peers[id] = peer;
 });
 
-socket.on('voice_signal', async (data) => {
-    const fromId = data.from;
-    const signal = data.signal;
+socket.on('voice_signal', ({ from, signal }) => {
+    if (!peers[from]) {
+        console.log("📥 ទទួលការសុំតភ្ជាប់សំឡេងពី ID:", from);
+        const peer = new SimplePeer({
+            initiator: false, 
+            trickle: true, 
+            stream: localStream,
+            config: iceConfig // 👈 កន្លែងនេះអ្នកកែត្រូវហើយ!
+        });
 
-    let peer = peers[fromId];
+        peer.on('signal', sig => {
+            socket.emit('voice_signal', { to: from, signal: sig });
+        });
 
-    if (!peer) {
-        // ប្រើ configuration ដែលយើងបានប្រកាសទុក
-        peer = new RTCPeerConnection(configuration);
-        peers[fromId] = peer;
+        peer.on('stream', stream => {
+            console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", from);
+            createAudioElement(from, stream);
+        });
 
-        // ចំណុចសំខាន់៖ បញ្ជូន ICE Candidate ទៅម្ខាងទៀត
-        peer.onicecandidate = (event) => {
-            if (event.candidate) {
-                socket.emit('voice_signal', {
-                    to: fromId,
-                    signal: { candidate: event.candidate }
-                });
-            }
-        };
+        peer.on('error', err => console.error('Peer error:', err));
+        peer.on('close', () => removeAudioElement(from));
 
-        // ទទួលសំឡេងពី Peer
-        peer.ontrack = (event) => {
-            addAudioElement(event.streams[0], fromId);
-        };
-
-        // បញ្ជូនសំឡេងខ្លួនឯងទៅ Peer
-        if (localStream) {
-            localStream.getTracks().forEach(track => peer.addTrack(track, localStream));
-        }
+        peers[from] = peer;
     }
 
-    // ដំណើរការ Signal
-    try {
-        if (signal.type === 'offer') {
-            await peer.setRemoteDescription(new RTCSessionDescription(signal));
-            const answer = await peer.createAnswer();
-            await peer.setLocalDescription(answer);
-            socket.emit('voice_signal', { to: fromId, signal: peer.localDescription });
-        } else if (signal.type === 'answer') {
-            await peer.setRemoteDescription(new RTCSessionDescription(signal));
-        } else if (signal.candidate) {
-            // បន្ថែម ICE candidate នៅពេលទទួលបាន
-            await peer.addIceCandidate(new RTCIceCandidate(signal.candidate));
-        }
-    } catch (err) {
-        console.error("កំហុសក្នុងការតភ្ជាប់សំឡេង:", err);
+    if (signal) {
+        peers[from].signal(signal);
     }
 });
 
@@ -1295,14 +1275,8 @@ let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
 function resumeAudio() {
     if (audioCtx && audioCtx.state === 'suspended') {
-        audioCtx.resume().then(() => {
-            console.log("🔊 AudioContext resumed successfully!");
-        });
+        audioCtx.resume();
     }
-    // បញ្ចូលការលេងសំឡេងឡើងវិញសម្រាប់ Audio elements ទាំងអស់
-    document.querySelectorAll('audio').forEach(a => {
-        if (a.paused) a.play().catch(e => console.log("Still blocked"));
-    });
 }
 
 function createAudioElement(id, stream) {
