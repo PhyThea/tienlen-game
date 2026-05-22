@@ -1194,15 +1194,16 @@ function initVoiceAndExecute(callback) {
             updateMicButtonUI();
             callback();
         })
+        // កែសម្រួលក្នុង .catch នៃ initVoiceAndExecute
         .catch(err => {
-            // ក្នុងករណីគ្មានមីក្រូហ្វូន Browser នឹងចូលមកកាន់កន្លែងនេះ
-            console.warn("មិនអាចបើកមីក្រូហ្វូនបានទេ (អាចគ្មានឧបករណ៍):", err);
+            console.warn("មិនអាចបើកមីក្រូហ្វូនបានទេ:", err);
+            localStream = null;
             
-            // កំណត់ localStream ឱ្យជា null ដើម្បីកុំឱ្យ SimplePeer ព្យាយាមប្រើវា
-            localStream = null; 
-            
-            // គ្រាន់តែជូនដំណឹងតាម Console ជំនួសការប្រើ alert ដែលរំខានអ្នកប្រើ
-            console.log("ហ្គេមបន្តដំណើរការក្នុងរបៀប៖ ស្ដាប់បានតែសំឡេងអ្នកដទៃ (Receive Only)");
+            // បង្ហាញជូនដំណឹងដល់អ្នកលេងលើអេក្រង់
+            const notification = document.createElement('div');
+            notification.innerText = "🔇 អ្នកមិនមានមីក្រូហ្វូនទេ (អាចស្តាប់បានតែសំឡេងអ្នកដទៃ)";
+            notification.style = "position:fixed; bottom:20px; right:20px; background:red; color:white; padding:10px; border-radius:5px;";
+            document.body.appendChild(notification);
             
             callback(); 
         });
