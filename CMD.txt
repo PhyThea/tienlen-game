@@ -1,0 +1,4 @@
+cd Desktop\tienlen-game  Old
+cd Documents\tienlen-game
+npm install
+npm start
