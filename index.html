@@ -486,11 +486,27 @@ let micEnabled = true;
 
 const iceConfig = {
     iceServers: [
-        { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:stun1.l.google.com:19302" },
-        { urls: "stun:stun2.l.google.com:19302" },
-        { urls: "stun:stun3.l.google.com:19302" },
-        { urls: "stun:stun4.l.google.com:19302" }
+        { urls: "stun:stun.relay.metered.ca:80" },
+        {
+            urls: "turn:global.relay.metered.ca:80",
+            username: "70c58d936fe4c62e38eff96c",
+            credential: "4tMqFurEIksvhg2h",
+        },
+        {
+            urls: "turn:global.relay.metered.ca:80?transport=tcp",
+            username: "70c58d936fe4c62e38eff96c",
+            credential: "4tMqFurEIksvhg2h",
+        },
+        {
+            urls: "turn:global.relay.metered.ca:443",
+            username: "70c58d936fe4c62e38eff96c",
+            credential: "4tMqFurEIksvhg2h",
+        },
+        {
+            urls: "turns:global.relay.metered.ca:443?transport=tcp",
+            username: "70c58d936fe4c62e38eff96c",
+            credential: "4tMqFurEIksvhg2h",
+        },
     ]
 };
 
@@ -1280,19 +1296,23 @@ function createAudioElement(id, stream) {
     if (!audio) {
         audio = document.createElement('audio');
         audio.id = `audio-${id}`;
-        audio.setAttribute('playsinline', 'true'); // សំខាន់សម្រាប់ iOS
+        audio.setAttribute('playsinline', 'true');
         audio.autoplay = true;
         audio.style.display = 'none';
         document.body.appendChild(audio);
     }
     
-    // កំណត់ Source ដោយផ្ទាល់
+    // បង្ហាញ stream ដោយផ្ទាល់ទៅកាន់ audio element (វិធីនេះស្រួលជាង និងមានស្ថេរភាពជាង)
     audio.srcObject = stream;
 
-    // ធានាថាវាចាក់សម្លេង
+    // ព្យាយាម Play ភ្លាមៗ (ត្រូវប្រាកដថាបានហៅ resumeAudio() ក្នុងប៊ូតុងរួចហើយ)
     audio.play().catch(e => {
-        console.warn("មិនអាចចាក់សម្លេងស្វ័យប្រវត្តិបានទេ សូមចុចលើអេក្រង់:", e);
+        console.warn("Autoplay ទប់ស្កាត់, កំពុងរង់ចាំសកម្មភាពអ្នកប្រើ:", e);
     });
+
+    // ចំណុចសំខាន់៖ មិនចាំបាច់ប្រើ createMediaStreamSource ប្រសិនបើអ្នកមិនកែសម្រួលសំឡេង (ដូចជាដាក់ Effect)
+    // ប្រសិនបើអ្នកមិនត្រូវការកែសំឡេងទេ សូមកាត់កូដ Web Audio API ចេញ
+    // ព្រោះការ connect ទៅ audioCtx.destination ជួនកាលបង្កបញ្ហាលើ Mobile
 }
 
 function removeAudioElement(id) {
