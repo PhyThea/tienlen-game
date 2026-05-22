@@ -485,15 +485,28 @@ let lastRoundWinnerId = null;
 let micEnabled = true;
 
 const iceConfig = {
-    iceTransportPolicy: 'all',
     iceServers: [
-        // ប្រើ Public STUN ទាំងនេះ (មិនចាំបាច់ទិញ)
-        { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:stun1.l.google.com:19302" },
-        { urls: "stun:stun2.l.google.com:19302" },
-        { urls: "stun:stun3.l.google.com:19302" },
-        { urls: "stun:stun4.l.google.com:19302" },
-        { urls: "stun:openrelay.metered.ca:80" }
+        { urls: "stun:stun.relay.metered.ca:80" },
+        {
+            urls: "turn:global.relay.metered.ca:80",
+            username: "70c58d936fe4c62e38eff96c",
+            credential: "4tMqFurEIksvhg2h",
+        },
+        {
+            urls: "turn:global.relay.metered.ca:80?transport=tcp",
+            username: "70c58d936fe4c62e38eff96c",
+            credential: "4tMqFurEIksvhg2h",
+        },
+        {
+            urls: "turn:global.relay.metered.ca:443",
+            username: "70c58d936fe4c62e38eff96c",
+            credential: "4tMqFurEIksvhg2h",
+        },
+        {
+            urls: "turns:global.relay.metered.ca:443?transport=tcp",
+            username: "70c58d936fe4c62e38eff96c",
+            credential: "4tMqFurEIksvhg2h",
+        },
     ]
 };
 
@@ -1203,62 +1216,42 @@ function initVoiceAndExecute(callback) {
 }
 
 socket.on('voice_user_joined', ({ id }) => {
-    // 🛠️ សំខាន់៖ សម្អាត Peer ចាស់ចោលភ្លាមៗ បើមានការតភ្ជាប់មុននោះនៅសល់
-    if (peers[id]) {
-        console.log(`🧹 កំពុងសម្អាតការតភ្ជាប់ចាស់ជាមួយ: ${id}`);
-        peers[id].destroy(); 
-        delete peers[id];
-    }
+    if (peers[id]) return;
 
+    // ប្រើការប្រៀបធៀប ID ដើម្បីសម្រេចថាអ្នកណាជាអ្នកតេ (Initiator)
     const amIInitiator = myId < id; 
-    console.log(`📞 តភ្ជាប់សំឡេងថ្មីជាមួយ ${id} (ខ្ញុំជា Initiator: ${amIInitiator})`);
+
+    console.log(`📞 តភ្ជាប់សំឡេងជាមួយ ${id} (ខ្ញុំជា Initiator: ${amIInitiator})`);
     
     const peer = new SimplePeer({
-        initiator: amIInitiator,
-        trickle: true, // ផ្លាស់ប្តូរពី false មក true
+        initiator: amIInitiator, 
+        trickle: true, 
         stream: localStream,
-        config: iceConfig 
+        config: iceConfig // 👈 កែត្រង់នេះឱ្យទៅជា iceConfig ត្រឹមត្រូវ
     });
-
-    peer.on('connect', () => {
-        console.log("✅ WebRTC Connected Successfully!");
-    });
-
     peer.on('signal', signal => {
         socket.emit('voice_signal', { to: id, signal: signal });
     });
 
     peer.on('stream', stream => {
-        console.log("🔊 ទទួលបាន Stream សំឡេងពី:", id);
+        console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", id);
         createAudioElement(id, stream);
     });
 
-    peer.on('error', err => {
-        console.error('❌ Peer error:', err);
-        // បើមាន Error គួរតែលុប Peer ចោលដើម្បីឱ្យវាអាចតភ្ជាប់ឡើងវិញបាន
-        if(peers[id]) delete peers[id];
-    });
-    
+    peer.on('error', err => console.error('Peer error:', err));
     peer.on('close', () => removeAudioElement(id));
 
     peers[id] = peer;
 });
 
 socket.on('voice_signal', ({ from, signal }) => {
-    if (peers[from]) {
-        peers[from].signal(signal);
-    } else {
-        console.log("📥 កំពុងទទួលសញ្ញាពី Peer ថ្មី:", from);
-        
+    if (!peers[from]) {
+        console.log("📥 ទទួលការសុំតភ្ជាប់សំឡេងពី ID:", from);
         const peer = new SimplePeer({
-            initiator: false, // ✅ កែត្រង់នេះ៖ ត្រូវដាក់ false ព្រោះនេះជាការបង្កើត Peer ពេលទទួល Signal
+            initiator: false, 
             trickle: true, 
             stream: localStream,
-            config: iceConfig 
-        });
-
-        peer.on('connect', () => {
-            console.log("✅ WebRTC Connected Successfully (Receiver Side)!");
+            config: iceConfig // 👈 កន្លែងនេះអ្នកកែត្រូវហើយ!
         });
 
         peer.on('signal', sig => {
@@ -1270,17 +1263,13 @@ socket.on('voice_signal', ({ from, signal }) => {
             createAudioElement(from, stream);
         });
 
-        peer.on('error', err => {
-            console.error('Peer error:', err);
-            if(peers[from]) {
-                peers[from].destroy();
-                delete peers[from];
-            }
-        });
-        
+        peer.on('error', err => console.error('Peer error:', err));
         peer.on('close', () => removeAudioElement(from));
 
         peers[from] = peer;
+    }
+
+    if (signal) {
         peers[from].signal(signal);
     }
 });
