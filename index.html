@@ -1187,11 +1187,9 @@ function initVoiceAndExecute(callback) {
         .then(stream => {
             localStream = stream;
             
-            // ពិនិត្យមើលស្ថានភាពចុងក្រោយពី localStorage
             const savedMicState = localStorage.getItem('mic_enabled');
-            micEnabled = (savedMicState !== 'false'); // បើគ្មានកំណត់ទេ គឺទុកជា On
+            micEnabled = (savedMicState !== 'false');
             
-            // កំណត់ស្ថានភាពទៅកាន់ Track ភ្លាមៗ
             localStream.getAudioTracks().forEach(track => {
                 track.enabled = micEnabled;
             });
@@ -1201,8 +1199,13 @@ function initVoiceAndExecute(callback) {
             callback();
         })
         .catch(err => {
-            console.warn("មិនអាចបើក Mic បានទេ:", err);
-            alert("សូមអនុញ្ញាត (Allow) ឱ្យហ្គេមប្រើប្រាស់ម៉ៃក្រូហ្វូន!");
+            // ត្រង់នេះយើងមិនគួរប្រើ alert() ដែលរំខានអ្នកលេងទេ
+            console.warn("មិនអាចបើក Mic បានទេ (កំពុងចូលក្នុងរបៀបស្ដាប់):", err);
+            
+            // កំណត់ localStream ឱ្យស្មើនឹង null ធានាថាហ្គេមដឹងថាអត់មាន Mic
+            localStream = null; 
+            
+            // ហៅ callback ដើម្បីឱ្យអ្នកលេងអាចចូលហ្គេមបានធម្មតា ទោះអត់មាន Mic
             callback(); 
         });
 }
