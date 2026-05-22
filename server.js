@@ -221,15 +221,16 @@ function broadcastRoomList() {
 io.on('connection', (socket) => {
     broadcastRoomList();
 
-    // 1. បង្កើតបន្ទប់
     socket.on('createRoom', ({ roomId, password, playerName }) => {
-        if (rooms[roomId]) return socket.emit('errorMsg', 'បន្ទប់នេះមានរួចហើយ!');
+        if (rooms[roomId]) {
+            return socket.emit('errorMsg', 'បន្ទប់នេះមានរួចហើយ!');
+        }
         
         rooms[roomId] = {
-            roomId,
+            roomId: roomId,
             players: [{ id: socket.id, name: playerName || 'Player 1', hand: [], passed: false, isSpectator: false, rank: null }],
             creatorId: socket.id,
-            status: 'waiting',
+            status: 'waiting', 
             password: password || "",
             currentTurnIndex: 0,
             playedCards: [],
@@ -239,41 +240,23 @@ io.on('connection', (socket) => {
         };
         
         socket.join(roomId);
+        
+        // ➕ បន្ថែមបន្ទាត់នេះចូល ដើម្បីឱ្យអ្នកបង្កើតបន្ទប់ចាប់ផ្ដើមដំណើរការ Voice ដែរ
+        socket.emit('voice_user_joined', { id: socket.id }); 
+
         socket.emit('roomCreated', { roomId, playerId: socket.id });
         io.to(roomId).emit('updatePlayers', rooms[roomId].players);
         broadcastRoomList();
     });
 
-    // 2. 🟢 Voice Signaling: បញ្ជូនសញ្ញា SDP/ICE ទៅកាន់ Target ជាក់លាក់
+    // ប្ដូរទៅជាការបោះបន្តរាល់ទិន្នន័យសញ្ញាទាំងអស់ដែលហូរចូលមក (Support Trickle ICE)
     socket.on('voice_signal', (data) => {
-        io.to(data.to).emit('voice_signal', {
-            from: socket.id,
-            signal: data.signal
-        });
-    });
-
-    // 3. 🟢 Voice Discovery: ជូនដំណឹងដល់អ្នកក្នុងបន្ទប់ថាមានអ្នកថ្មីចូលមកដល់
-    socket.on('voice_user_joined', (data) => {
-        socket.to(data.roomId).emit('voice_user_joined', {
-            id: socket.id
-        });
-    });
-
-    // 4. 🟢 Cleanup: ជូនដំណឹងពេលមានអ្នកចាកចេញ ដើម្បីបិទការតភ្ជាប់ចាស់ (Ghost Connections)
-    socket.on('disconnect', () => {
-        for (const roomId in rooms) {
-            const room = rooms[roomId];
-            const playerIndex = room.players.findIndex(p => p.id === socket.id);
-            if (playerIndex !== -1) {
-                // ប្រាប់អ្នកដែលនៅសល់ក្នុងបន្ទប់ឱ្យលុប Peer របស់អ្នកនេះចេញ
-                socket.to(roomId).emit('voice_user_left', { id: socket.id });
-                
-                // លុបអ្នកលេងចេញពីបន្ទប់
-                room.players.splice(playerIndex, 1);
-                io.to(roomId).emit('updatePlayers', room.players);
-            }
+        if (data && data.to) {
+            io.to(data.to).emit('voice_signal', {
+                from: socket.id,
+                signal: data.signal
+            });
         }
-        broadcastRoomList();
     });
 
     socket.on('joinRoom', ({ roomId, password, playerName }) => {
