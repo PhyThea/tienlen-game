@@ -1327,8 +1327,11 @@ socket.on('voice_user_left', ({ id }) => {
 let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
 function resumeAudio() {
-    if (audioCtx && audioCtx.state === 'suspended') {
-        audioCtx.resume();
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioContext.state === 'suspended') {
+        audioContext.resume().then(() => {
+            console.log("🔊 AudioContext បានដំណើរការឡើងវិញ!");
+        });
     }
 }
 
@@ -1338,16 +1341,20 @@ function createAudioElement(id, stream) {
 
     audio = document.createElement('audio');
     audio.id = `audio-${id}`;
-    audio.setAttribute('playsinline', 'true');
     audio.srcObject = stream;
-    
-    // បង្ខំឱ្យ Play និង Log ប្រសិនបើមានបញ្ហា
-    audio.play().then(() => {
-        console.log("🔊 សំឡេងកំពុងដំណើរការបានជោគជ័យ៖", id);
-    }).catch(e => {
-        console.error("❌ សំឡេងត្រូវបាន Block ដោយ Browser:", e);
+    audio.autoplay = true;
+    audio.playsInline = true; // សំខាន់ណាស់សម្រាប់ទូរស័ព្ទ
+
+    // ការព្យាយាមលេងសំឡេង
+    audio.play().catch(error => {
+        console.warn("🔊 Autoplay ถูกប្លុក, កំពុងរង់ចាំការចុចពី User:", error);
+        
+        // ដំណោះស្រាយ៖ បន្ថែម Event Listener លើប៊ូតុងណាមួយ ឬលើ Body
+        document.addEventListener('click', () => {
+            audio.play().then(() => console.log("🔊 សំឡេងបានលេងជោគជ័យក្រោយការចុច")).catch(e => {});
+        }, { once: true });
     });
-    
+
     document.body.appendChild(audio);
 }
 
