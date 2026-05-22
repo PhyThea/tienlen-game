@@ -485,19 +485,15 @@ let lastRoundWinnerId = null;
 let micEnabled = true;
 
 const iceConfig = {
-    iceTransportPolicy: 'all', 
     iceServers: [
-        // ប្រើ STUN សម្រាប់តភ្ជាប់ផ្ទាល់ (មិនស៊ី Data)
         { urls: "stun:stun.l.google.com:19302" },
         { urls: "stun:stun1.l.google.com:19302" },
-        // បន្ថែម TURN សម្រាប់ករណីដែល STUN ភ្ជាប់មិនបាន
-        {
-            urls: "turn:global.relay.metered.ca:80",
-            username: "70c58d936fe4c62e38eff96c",
-            credential: "4tMqFurEIksvhg2h",
-        }
+        { urls: "stun:stun2.l.google.com:19302" },
+        { urls: "stun:stun3.l.google.com:19302" },
+        { urls: "stun:stun4.l.google.com:19302" }
     ]
 };
+
 let peers = {};
 let localStream = null;
 
@@ -1284,23 +1280,19 @@ function createAudioElement(id, stream) {
     if (!audio) {
         audio = document.createElement('audio');
         audio.id = `audio-${id}`;
-        audio.setAttribute('playsinline', 'true');
+        audio.setAttribute('playsinline', 'true'); // សំខាន់សម្រាប់ iOS
         audio.autoplay = true;
         audio.style.display = 'none';
         document.body.appendChild(audio);
     }
     
-    // បង្ហាញ stream ដោយផ្ទាល់ទៅកាន់ audio element (វិធីនេះស្រួលជាង និងមានស្ថេរភាពជាង)
+    // កំណត់ Source ដោយផ្ទាល់
     audio.srcObject = stream;
 
-    // ព្យាយាម Play ភ្លាមៗ (ត្រូវប្រាកដថាបានហៅ resumeAudio() ក្នុងប៊ូតុងរួចហើយ)
+    // ធានាថាវាចាក់សម្លេង
     audio.play().catch(e => {
-        console.warn("Autoplay ទប់ស្កាត់, កំពុងរង់ចាំសកម្មភាពអ្នកប្រើ:", e);
+        console.warn("មិនអាចចាក់សម្លេងស្វ័យប្រវត្តិបានទេ សូមចុចលើអេក្រង់:", e);
     });
-
-    // ចំណុចសំខាន់៖ មិនចាំបាច់ប្រើ createMediaStreamSource ប្រសិនបើអ្នកមិនកែសម្រួលសំឡេង (ដូចជាដាក់ Effect)
-    // ប្រសិនបើអ្នកមិនត្រូវការកែសំឡេងទេ សូមកាត់កូដ Web Audio API ចេញ
-    // ព្រោះការ connect ទៅ audioCtx.destination ជួនកាលបង្កបញ្ហាលើ Mobile
 }
 
 function removeAudioElement(id) {
