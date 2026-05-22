@@ -490,24 +490,16 @@ const iceConfig = {
         {
             urls: "turn:global.relay.metered.ca:80",
             username: "70c58d936fe4c62e38eff96c",
-            credential: "4tMqFurEIksvhg2h",
+            credential: "4tMqFurEIksvhg2h"
         },
         {
-            urls: "turn:global.relay.metered.ca:80?transport=tcp",
+            urls: "turns:global.relay.metered.ca:443",
             username: "70c58d936fe4c62e38eff96c",
-            credential: "4tMqFurEIksvhg2h",
-        },
-        {
-            urls: "turn:global.relay.metered.ca:443",
-            username: "70c58d936fe4c62e38eff96c",
-            credential: "4tMqFurEIksvhg2h",
-        },
-        {
-            urls: "turns:global.relay.metered.ca:443?transport=tcp",
-            username: "70c58d936fe4c62e38eff96c",
-            credential: "4tMqFurEIksvhg2h",
-        },
-    ]
+            credential: "4tMqFurEIksvhg2h"
+        }
+    ],
+    // បង្ខំឱ្យទិន្នន័យរត់កាត់ Server ជានិច្ច ធានាថាគ្រប់គ្នាបានលឺសំឡេងគ្នា ១០០%
+    iceTransportPolicy: 'relay' 
 };
 
 let peers = {};
@@ -1227,8 +1219,30 @@ socket.on('voice_user_joined', ({ id }) => {
         initiator: amIInitiator, 
         trickle: true, 
         stream: localStream,
-        config: iceConfig // 👈 កែត្រង់នេះឱ្យទៅជា iceConfig ត្រឹមត្រូវ
+        config: iceConfig 
     });
+
+    // --- ផ្នែកបន្ថែម៖ កូដតាមដាន និងសម្អាតការតភ្ជាប់ ---
+    peer.on('iceConnectionStateChange', () => {
+        const state = peer.iceConnectionState;
+        console.log(`📡 Peer ${id} state: ${state}`);
+        
+        if (state === 'failed' || state === 'disconnected' || state === 'closed') {
+            console.warn(`❌ ការតភ្ជាប់ជាមួយ ${id} មានបញ្ហា (${state})។ កំពុងសម្អាត...`);
+            peer.destroy();
+            delete peers[id];
+            removeAudioElement(id);
+        }
+    });
+
+    peer.on('error', err => {
+        console.error(`⚠️ Peer ${id} Error:`, err);
+        peer.destroy();
+        delete peers[id];
+        removeAudioElement(id);
+    });
+    // ---------------------------------------------
+
     peer.on('signal', signal => {
         socket.emit('voice_signal', { to: id, signal: signal });
     });
@@ -1238,21 +1252,40 @@ socket.on('voice_user_joined', ({ id }) => {
         createAudioElement(id, stream);
     });
 
-    peer.on('error', err => console.error('Peer error:', err));
-    peer.on('close', () => removeAudioElement(id));
-
     peers[id] = peer;
 });
 
 socket.on('voice_signal', ({ from, signal }) => {
     if (!peers[from]) {
         console.log("📥 ទទួលការសុំតភ្ជាប់សំឡេងពី ID:", from);
+        
         const peer = new SimplePeer({
             initiator: false, 
             trickle: true, 
             stream: localStream,
-            config: iceConfig // 👈 កន្លែងនេះអ្នកកែត្រូវហើយ!
+            config: iceConfig 
         });
+
+        // --- បន្ថែម Event គ្រប់គ្រងស្ថានភាពការតភ្ជាប់ ---
+        peer.on('iceConnectionStateChange', () => {
+            const state = peer.iceConnectionState;
+            console.log(`📡 Peer ${from} state: ${state}`);
+            
+            if (state === 'failed' || state === 'disconnected' || state === 'closed') {
+                console.warn(`❌ ការតភ្ជាប់ជាមួយ ${from} មានបញ្ហា (${state})។ កំពុងសម្អាត...`);
+                peer.destroy();
+                delete peers[from];
+                removeAudioElement(from);
+            }
+        });
+
+        peer.on('error', err => {
+            console.error(`⚠️ Peer ${from} Error:`, err);
+            peer.destroy();
+            delete peers[from];
+            removeAudioElement(from);
+        });
+        // ---------------------------------------------
 
         peer.on('signal', sig => {
             socket.emit('voice_signal', { to: from, signal: sig });
@@ -1263,7 +1296,6 @@ socket.on('voice_signal', ({ from, signal }) => {
             createAudioElement(from, stream);
         });
 
-        peer.on('error', err => console.error('Peer error:', err));
         peer.on('close', () => removeAudioElement(from));
 
         peers[from] = peer;
@@ -1292,27 +1324,17 @@ function resumeAudio() {
 
 function createAudioElement(id, stream) {
     let audio = document.getElementById(`audio-${id}`);
-    
-    if (!audio) {
-        audio = document.createElement('audio');
-        audio.id = `audio-${id}`;
-        audio.setAttribute('playsinline', 'true');
-        audio.autoplay = true;
-        audio.style.display = 'none';
-        document.body.appendChild(audio);
-    }
-    
-    // បង្ហាញ stream ដោយផ្ទាល់ទៅកាន់ audio element (វិធីនេះស្រួលជាង និងមានស្ថេរភាពជាង)
+    if (audio) audio.remove(); // លុបចាស់ចេញមុន
+
+    audio = document.createElement('audio');
+    audio.id = `audio-${id}`;
+    audio.setAttribute('playsinline', 'true');
+    audio.autoplay = true;
     audio.srcObject = stream;
+    document.body.appendChild(audio);
 
-    // ព្យាយាម Play ភ្លាមៗ (ត្រូវប្រាកដថាបានហៅ resumeAudio() ក្នុងប៊ូតុងរួចហើយ)
-    audio.play().catch(e => {
-        console.warn("Autoplay ទប់ស្កាត់, កំពុងរង់ចាំសកម្មភាពអ្នកប្រើ:", e);
-    });
-
-    // ចំណុចសំខាន់៖ មិនចាំបាច់ប្រើ createMediaStreamSource ប្រសិនបើអ្នកមិនកែសម្រួលសំឡេង (ដូចជាដាក់ Effect)
-    // ប្រសិនបើអ្នកមិនត្រូវការកែសំឡេងទេ សូមកាត់កូដ Web Audio API ចេញ
-    // ព្រោះការ connect ទៅ audioCtx.destination ជួនកាលបង្កបញ្ហាលើ Mobile
+    // បញ្ជាឱ្យ Play ភ្លាមៗ
+    audio.play().catch(e => console.log("Auto-play blocked, need user interaction"));
 }
 
 function removeAudioElement(id) {
