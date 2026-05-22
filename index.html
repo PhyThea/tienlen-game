@@ -487,9 +487,15 @@ let micEnabled = true;
 const iceConfig = {
     iceServers: [
         { urls: "stun:stun1.l.google.com:19302" },
-        { urls: "stun:stun2.l.google.com:19302" }
+        { urls: "stun:stun2.l.google.com:19302" },
+        {
+            urls: "turn:global.relay.metered.ca:80",
+            username: "70c58d936fe4c62e38eff96c",
+            credential: "4tMqFurEIksvhg2h"
+        }
     ],
-    iceTransportPolicy: 'all' // សំខាន់៖ ប្តូរមក all សម្រាប់ការតេស្ត
+    // ប្តូរពី 'relay' មក 'all' ដើម្បីសន្សំសំចៃ Data (P2P ជាអាទិភាព)
+    iceTransportPolicy: 'all' 
 };
 
 let peers = {};
@@ -1200,8 +1206,7 @@ function initVoiceAndExecute(callback) {
 socket.on('voice_user_joined', ({ id }) => {
     if (peers[id]) return;
 
-    // ត្រឹមត្រូវ៖ ប្រើ Logic ដូចគ្នាទាំងសងខាង
-    // អ្នកដែលមាន ID តូចជាង គឺជា Initiator
+    // ប្រើការប្រៀបធៀប ID ដើម្បីសម្រេចថាអ្នកណាជាអ្នកតេ (Initiator)
     const amIInitiator = myId < id; 
 
     console.log(`📞 តភ្ជាប់សំឡេងជាមួយ ${id} (ខ្ញុំជា Initiator: ${amIInitiator})`);
@@ -1239,16 +1244,25 @@ socket.on('voice_user_joined', ({ id }) => {
     });
 
     peer.on('stream', stream => {
-        console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", id); // ប្រើ id ជំនួស from
-        const audio = createAudioElement(id, stream); // ប្រើ id ជំនួស from
-        
-        audio.muted = false;
-        audio.volume = 1.0; 
+        console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", id);
+        createAudioElement(id, stream);
     });
+
     peers[id] = peer;
 });
 
 socket.on('voice_signal', ({ from, signal }) => {
+    // 🛠️ កូដថ្មី៖ ពិនិត្យនិងសម្អាតការតភ្ជាប់ដែលមានបញ្ហា (Re-connection Logic)
+    if (peers[from]) {
+        // ប្រសិនបើការតភ្ជាប់ចាស់មានបញ្ហា ឱ្យវាព្យាយាម Re-signal
+        if (peers[from].iceConnectionState === 'failed' || peers[from].iceConnectionState === 'disconnected') {
+            console.log("🔄 កំពុងព្យាយាមតភ្ជាប់សំឡេងឡើងវិញ...");
+            peers[from].destroy();
+            delete peers[from];
+            // បន្ទាប់មកវាចូលទៅបង្កើត Peer ថ្មីនៅខាងក្រោម...
+        }
+    }
+
     if (!peers[from]) {
         console.log("📥 ទទួលការសុំតភ្ជាប់សំឡេងពី ID:", from);
         
@@ -1259,7 +1273,6 @@ socket.on('voice_signal', ({ from, signal }) => {
             config: iceConfig 
         });
 
-        // --- បន្ថែម Event គ្រប់គ្រងស្ថានភាពការតភ្ជាប់ ---
         peer.on('iceConnectionStateChange', () => {
             const state = peer.iceConnectionState;
             console.log(`📡 Peer ${from} state: ${state}`);
@@ -1278,7 +1291,6 @@ socket.on('voice_signal', ({ from, signal }) => {
             delete peers[from];
             removeAudioElement(from);
         });
-        // ---------------------------------------------
 
         peer.on('signal', sig => {
             socket.emit('voice_signal', { to: from, signal: sig });
@@ -1286,12 +1298,9 @@ socket.on('voice_signal', ({ from, signal }) => {
 
         peer.on('stream', stream => {
             console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", from);
-            const audio = createAudioElement(from, stream);
-            
-            // បង្ខំឱ្យ Unmute ប្រសិនបើ Browser ព្យាយាម Mute 
-            audio.muted = false;
-            audio.volume = 1.0; 
+            createAudioElement(from, stream);
         });
+
         peer.on('close', () => removeAudioElement(from));
 
         peers[from] = peer;
@@ -1324,17 +1333,22 @@ function createAudioElement(id, stream) {
 
     audio = document.createElement('audio');
     audio.id = `audio-${id}`;
+    audio.setAttribute('playsinline', 'true');
     audio.srcObject = stream;
-    audio.autoplay = true;
-    audio.controls = false; // បិទកុំឱ្យវាបង្ហាញ UI
     
-    // នេះជាកូដបង្ខំឱ្យលេង
-    audio.play().catch(err => {
-        console.error("Auto-play blocked, waiting for user interaction:", err);
+    // បង្ខំឱ្យ Play និង Log ប្រសិនបើមានបញ្ហា
+    audio.play().then(() => {
+        console.log("🔊 សំឡេងកំពុងដំណើរការបានជោគជ័យ៖", id);
+    }).catch(e => {
+        console.error("❌ សំឡេងត្រូវបាន Block ដោយ Browser:", e);
     });
-
+    
     document.body.appendChild(audio);
-    return audio; // ត្រឡប់អថេរនេះសម្រាប់ប្រើប្រាស់បន្ត
+}
+
+function removeAudioElement(id) {
+    const audio = document.getElementById(`audio-${id}`);
+    if (audio) audio.remove();
 }
 
 function toggleMic() {
