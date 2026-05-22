@@ -484,29 +484,10 @@ let amISpectator = false;
 let lastRoundWinnerId = null; 
 let micEnabled = true;
 
-const iceConfig = {
+const configuration = {
     iceServers: [
-        { urls: "stun:stun.relay.metered.ca:80" },
-        {
-            urls: "turn:global.relay.metered.ca:80",
-            username: "70c58d936fe4c62e38eff96c",
-            credential: "4tMqFurEIksvhg2h",
-        },
-        {
-            urls: "turn:global.relay.metered.ca:80?transport=tcp",
-            username: "70c58d936fe4c62e38eff96c",
-            credential: "4tMqFurEIksvhg2h",
-        },
-        {
-            urls: "turn:global.relay.metered.ca:443",
-            username: "70c58d936fe4c62e38eff96c",
-            credential: "4tMqFurEIksvhg2h",
-        },
-        {
-            urls: "turns:global.relay.metered.ca:443?transport=tcp",
-            username: "70c58d936fe4c62e38eff96c",
-            credential: "4tMqFurEIksvhg2h",
-        },
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
     ]
 };
 
@@ -1252,43 +1233,53 @@ socket.on('voice_user_joined', (data) => {
         .catch(err => console.error("Error creating offer:", err));
 });
 
-socket.on('voice_signal', (data) => {
+socket.on('voice_signal', async (data) => {
     const fromId = data.from;
     const signal = data.signal;
 
     let peer = peers[fromId];
 
-    // ប្រសិនបើមិនទាន់មាន Peer សម្រាប់អ្នកនេះទេ (ករណីអ្នកថ្មីទទួលបាន Offer)
     if (!peer) {
+        // ប្រើ configuration ដែលយើងបានប្រកាសទុក
         peer = new RTCPeerConnection(configuration);
         peers[fromId] = peer;
 
-        // ដាក់ Local Stream
-        localStream.getTracks().forEach(track => {
-            peer.addTrack(track, localStream);
-        });
+        // ចំណុចសំខាន់៖ បញ្ជូន ICE Candidate ទៅម្ខាងទៀត
+        peer.onicecandidate = (event) => {
+            if (event.candidate) {
+                socket.emit('voice_signal', {
+                    to: fromId,
+                    signal: { candidate: event.candidate }
+                });
+            }
+        };
 
-        // ទទួលសំឡេង
+        // ទទួលសំឡេងពី Peer
         peer.ontrack = (event) => {
             addAudioElement(event.streams[0], fromId);
         };
+
+        // បញ្ជូនសំឡេងខ្លួនឯងទៅ Peer
+        if (localStream) {
+            localStream.getTracks().forEach(track => peer.addTrack(track, localStream));
+        }
     }
 
-    // ដំណើរការ Signal (Offer ឬ Answer)
-    if (signal.type === 'offer') {
-        peer.setRemoteDescription(new RTCSessionDescription(signal))
-            .then(() => peer.createAnswer())
-            .then(answer => peer.setLocalDescription(answer))
-            .then(() => {
-                socket.emit('voice_signal', {
-                    to: fromId,
-                    signal: peer.localDescription
-                });
-            });
-    } else if (signal.type === 'answer') {
-        peer.setRemoteDescription(new RTCSessionDescription(signal));
-    } else if (signal.candidate) {
-        peer.addIceCandidate(new RTCIceCandidate(signal.candidate));
+    // ដំណើរការ Signal
+    try {
+        if (signal.type === 'offer') {
+            await peer.setRemoteDescription(new RTCSessionDescription(signal));
+            const answer = await peer.createAnswer();
+            await peer.setLocalDescription(answer);
+            socket.emit('voice_signal', { to: fromId, signal: peer.localDescription });
+        } else if (signal.type === 'answer') {
+            await peer.setRemoteDescription(new RTCSessionDescription(signal));
+        } else if (signal.candidate) {
+            // បន្ថែម ICE candidate នៅពេលទទួលបាន
+            await peer.addIceCandidate(new RTCIceCandidate(signal.candidate));
+        }
+    } catch (err) {
+        console.error("កំហុសក្នុងការតភ្ជាប់សំឡេង:", err);
     }
 });
 
