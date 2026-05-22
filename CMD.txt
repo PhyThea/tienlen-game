@@ -1,4 +1,4 @@
-cd Desktop\tienlen-game  Old
+cd Desktop\tienlen-game New
 cd Documents\tienlen-game
 npm install
 npm start
