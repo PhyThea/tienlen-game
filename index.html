@@ -1286,7 +1286,7 @@ socket.on('voice_signal', ({ from, signal }) => {
         const peer = new SimplePeer({
             initiator: false, 
             trickle: true, 
-            stream: localStream || undefined, 
+            stream: localStream,
             config: iceConfig 
         });
 
