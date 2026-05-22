@@ -1208,7 +1208,8 @@ function initVoiceAndExecute(callback) {
 socket.on('voice_user_joined', ({ id }) => {
     if (peers[id]) return;
 
-    // ប្រើការប្រៀបធៀប ID ដើម្បីសម្រេចថាអ្នកណាជាអ្នកតេ (Initiator)
+    // ត្រឹមត្រូវ៖ ប្រើ Logic ដូចគ្នាទាំងសងខាង
+    // អ្នកដែលមាន ID តូចជាង គឺជា Initiator
     const amIInitiator = myId < id; 
 
     console.log(`📞 តភ្ជាប់សំឡេងជាមួយ ${id} (ខ្ញុំជា Initiator: ${amIInitiator})`);
