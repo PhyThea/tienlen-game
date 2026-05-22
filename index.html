@@ -489,14 +489,11 @@ const iceConfig = {
         {
             urls: [
                 "stun:stun1.l.google.com:19302",
-                "stun:stun2.l.google.com:19302",
-                "stun:stun3.l.google.com:19302",
-                "stun:stun4.l.google.com:19302"
+                "stun:stun2.l.google.com:19302"
             ]
         }
     ],
-    // ប្រើ 'relay' ដើម្បីបង្ខំឱ្យទិន្នន័យឆ្លងកាត់ TURN server តែប៉ុណ្ណោះ
-    iceTransportPolicy: 'relay' 
+    iceTransportPolicy: 'all' // ប្តូរពី 'relay' មក 'all' សម្រាប់ការតេស្ត
 };
 
 
@@ -1323,22 +1320,23 @@ function resumeAudio() {
 
 function createAudioElement(id, stream) {
     let audio = document.getElementById(`audio-${id}`);
-    if (audio) audio.remove(); // លុបចាស់ចេញមុន
+    if (audio) audio.remove();
 
     audio = document.createElement('audio');
     audio.id = `audio-${id}`;
-    audio.setAttribute('playsinline', 'true');
+    audio.setAttribute('playsinline', 'true'); // សំខាន់សម្រាប់ iOS
     audio.autoplay = true;
     audio.srcObject = stream;
+    
+    // បន្ថែមការត្រួតពិនិត្យ និងការណែនាំ
+    audio.play().then(() => {
+        console.log("🔊 សំឡេងកំពុងលេងបានជោគជ័យ");
+    }).catch(e => {
+        console.error("❌ សំឡេងត្រូវបាន Block ដោយ Browser។ សូមប្រាកដថាអ្នកបានចុចប៊ូតុងអ្វីមួយនៅក្នុងហ្គេម!");
+        // បង្ហាញកន្លែងណាមួយក្នុង UI ប្រាប់អ្នកប្រើឱ្យចុច "បើកសំឡេង"
+    });
+
     document.body.appendChild(audio);
-
-    // បញ្ជាឱ្យ Play ភ្លាមៗ
-    audio.play().catch(e => console.log("Auto-play blocked, need user interaction"));
-}
-
-function removeAudioElement(id) {
-    const audio = document.getElementById(`audio-${id}`);
-    if (audio) audio.remove();
 }
 
 function toggleMic() {
