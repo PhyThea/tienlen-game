@@ -1183,22 +1183,27 @@ function initVoiceAndExecute(callback) {
         .then(stream => {
             localStream = stream;
             
-            // ពិនិត្យមើលស្ថានភាពចុងក្រោយពី localStorage
             const savedMicState = localStorage.getItem('mic_enabled');
-            micEnabled = (savedMicState !== 'false'); // បើគ្មានកំណត់ទេ គឺទុកជា On
+            micEnabled = (savedMicState !== 'false');
             
-            // កំណត់ស្ថានភាពទៅកាន់ Track ភ្លាមៗ
             localStream.getAudioTracks().forEach(track => {
                 track.enabled = micEnabled;
             });
             
             updateMicButtonUI();
-            console.log("🎤 ម៉ៃក្រូហ្វូនត្រូវបានកំណត់តាមស្ថានភាពមុន៖", micEnabled ? "On" : "Muted");
+            console.log("🎤 ម៉ៃក្រូហ្វូនជោគជ័យ៖", micEnabled ? "On" : "Muted");
             callback();
         })
         .catch(err => {
-            console.warn("មិនអាចបើក Mic បានទេ:", err);
-            alert("សូមអនុញ្ញាត (Allow) ឱ្យហ្គេមប្រើប្រាស់ម៉ៃក្រូហ្វូន!");
+            console.warn("⚠️ មិនអាចបើក Mic បានទេ (ឬគ្មានឧបករណ៍):", err);
+            
+            // បង្កើត Stream ទទេ ដើម្បីឱ្យ WebRTC មិន Error នៅពេលអត់ Mic
+            localStream = new MediaStream(); 
+            micEnabled = false;
+            updateMicButtonUI();
+            
+            console.log("ℹ️ កំពុងដំណើរការក្នុងរបៀប 'ស្តាប់តែប៉ុណ្ណោះ' (Listen Only Mode)");
+            // ជំនួសឱ្យការ Alert ដែលរំខានអ្នកលេង យើងគ្រាន់តែ Log ប្រាប់
             callback(); 
         });
 }
