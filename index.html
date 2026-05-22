@@ -1215,22 +1215,15 @@ function initVoiceAndExecute(callback) {
 }
 
 function createAudioElement(id, stream) {
-    // ពិនិត្យមើលថាតើមាន Audio element សម្រាប់ ID នេះហើយឬនៅ
-    if (document.getElementById(`audio-${id}`)) return;
-
     const audio = document.createElement('audio');
-    audio.id = `audio-${id}`; // កំណត់ ID ឱ្យស្រួលលុបពេលក្រោយ
+    audio.id = `audio-${id}`;
     audio.srcObject = stream;
-    audio.autoplay = true; 
-    audio.playsInline = true; // សំខាន់សម្រាប់ iPhone/Android
-
-    // បន្ថែមការដោះស្រាយបញ្ហា Auto-play
-    audio.play().catch(err => {
-        console.warn("⚠️ Browser ប្លុកសំឡេង, កំពុងរង់ចាំការចុចពីអ្នកប្រើ:", err);
-        // បង្ហាញប៊ូតុងមួយឱ្យអ្នកប្រើចុចដើម្បីបើកសំឡេង
-        showUnmuteButton(audio);
-    });
-
+    audio.autoplay = true; // ត្រូវតែមាន
+    audio.controls = true; // បន្ថែមនេះដើម្បីសាកល្បង បើវាបង្ហាញប៊ូតុង Play នោះបញ្ហាគឺវាឈប់ (Paused)
+    
+    // បង្ខំឱ្យវាលេង
+    audio.play().catch(e => console.log("Audio play blocked:", e));
+    
     document.body.appendChild(audio);
 }
 
