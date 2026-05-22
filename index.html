@@ -1221,62 +1221,74 @@ function initVoiceAndExecute(callback) {
         });
 }
 
-socket.on('voice_user_joined', ({ id }) => {
-    if (peers[id]) return;
 
-    // ប្រើការប្រៀបធៀប ID ដើម្បីសម្រេចថាអ្នកណាជាអ្នកតេ (Initiator)
-    const amIInitiator = myId < id; 
-
-    console.log(`📞 តភ្ជាប់សំឡេងជាមួយ ${id} (ខ្ញុំជា Initiator: ${amIInitiator})`);
+socket.on('voice_user_joined', (data) => {
+    const newUserId = data.id;
     
-    const peer = new SimplePeer({
-        initiator: amIInitiator, 
-        trickle: true, 
-        stream: localStream,
-        config: iceConfig // 👈 កែត្រង់នេះឱ្យទៅជា iceConfig ត្រឹមត្រូវ
-    });
-    peer.on('signal', signal => {
-        socket.emit('voice_signal', { to: id, signal: signal });
-    });
+    // ១. បង្កើត Peer Connection ថ្មីសម្រាប់អ្នកប្រើប្រាស់ថ្មីនេះ
+    const peer = new RTCPeerConnection(configuration); 
+    peers[newUserId] = peer;
 
-    peer.on('stream', stream => {
-        console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", id);
-        createAudioElement(id, stream);
+    // ២. ដាក់ Local Stream (Mic របស់យើង) ទៅក្នុង Peer នេះ
+    localStream.getTracks().forEach(track => {
+        peer.addTrack(track, localStream);
     });
 
-    peer.on('error', err => console.error('Peer error:', err));
-    peer.on('close', () => removeAudioElement(id));
+    // ៣. ដាក់ Event Listener ដើម្បីទទួលសំឡេងពីអ្នកថ្មី
+    peer.ontrack = (event) => {
+        addAudioElement(event.streams[0], newUserId); // Function បង្កើត <audio> tag
+    };
 
-    peers[id] = peer;
+    // ៤. ចាប់ផ្តើមបង្កើត Offer (SDP) ផ្ញើទៅអ្នកថ្មី
+    peer.createOffer()
+        .then(offer => peer.setLocalDescription(offer))
+        .then(() => {
+            // ផ្ញើ Signal ទៅ Server ដើម្បីបញ្ជូនបន្តទៅអ្នកថ្មី
+            socket.emit('voice_signal', {
+                to: newUserId,
+                signal: peer.localDescription
+            });
+        })
+        .catch(err => console.error("Error creating offer:", err));
 });
 
-socket.on('voice_signal', ({ from, signal }) => {
-    if (!peers[from]) {
-        console.log("📥 ទទួលការសុំតភ្ជាប់សំឡេងពី ID:", from);
-        const peer = new SimplePeer({
-            initiator: false, 
-            trickle: true, 
-            stream: localStream,
-            config: iceConfig // 👈 កន្លែងនេះអ្នកកែត្រូវហើយ!
+socket.on('voice_signal', (data) => {
+    const fromId = data.from;
+    const signal = data.signal;
+
+    let peer = peers[fromId];
+
+    // ប្រសិនបើមិនទាន់មាន Peer សម្រាប់អ្នកនេះទេ (ករណីអ្នកថ្មីទទួលបាន Offer)
+    if (!peer) {
+        peer = new RTCPeerConnection(configuration);
+        peers[fromId] = peer;
+
+        // ដាក់ Local Stream
+        localStream.getTracks().forEach(track => {
+            peer.addTrack(track, localStream);
         });
 
-        peer.on('signal', sig => {
-            socket.emit('voice_signal', { to: from, signal: sig });
-        });
-
-        peer.on('stream', stream => {
-            console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", from);
-            createAudioElement(from, stream);
-        });
-
-        peer.on('error', err => console.error('Peer error:', err));
-        peer.on('close', () => removeAudioElement(from));
-
-        peers[from] = peer;
+        // ទទួលសំឡេង
+        peer.ontrack = (event) => {
+            addAudioElement(event.streams[0], fromId);
+        };
     }
 
-    if (signal) {
-        peers[from].signal(signal);
+    // ដំណើរការ Signal (Offer ឬ Answer)
+    if (signal.type === 'offer') {
+        peer.setRemoteDescription(new RTCSessionDescription(signal))
+            .then(() => peer.createAnswer())
+            .then(answer => peer.setLocalDescription(answer))
+            .then(() => {
+                socket.emit('voice_signal', {
+                    to: fromId,
+                    signal: peer.localDescription
+                });
+            });
+    } else if (signal.type === 'answer') {
+        peer.setRemoteDescription(new RTCSessionDescription(signal));
+    } else if (signal.candidate) {
+        peer.addIceCandidate(new RTCIceCandidate(signal.candidate));
     }
 });
 
