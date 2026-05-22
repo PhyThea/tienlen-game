@@ -485,31 +485,19 @@ let lastRoundWinnerId = null;
 let micEnabled = true;
 
 const iceConfig = {
+    iceTransportPolicy: 'all', 
     iceServers: [
-        { urls: "stun:stun.relay.metered.ca:80" },
+        // ប្រើ STUN សម្រាប់តភ្ជាប់ផ្ទាល់ (មិនស៊ី Data)
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+        // បន្ថែម TURN សម្រាប់ករណីដែល STUN ភ្ជាប់មិនបាន
         {
             urls: "turn:global.relay.metered.ca:80",
             username: "70c58d936fe4c62e38eff96c",
             credential: "4tMqFurEIksvhg2h",
-        },
-        {
-            urls: "turn:global.relay.metered.ca:80?transport=tcp",
-            username: "70c58d936fe4c62e38eff96c",
-            credential: "4tMqFurEIksvhg2h",
-        },
-        {
-            urls: "turn:global.relay.metered.ca:443",
-            username: "70c58d936fe4c62e38eff96c",
-            credential: "4tMqFurEIksvhg2h",
-        },
-        {
-            urls: "turns:global.relay.metered.ca:443?transport=tcp",
-            username: "70c58d936fe4c62e38eff96c",
-            credential: "4tMqFurEIksvhg2h",
-        },
+        }
     ]
 };
-
 let peers = {};
 let localStream = null;
 
