@@ -482,30 +482,20 @@ let currentTurnIndex = 0;
 let playersData = [];
 let amISpectator = false;
 let lastRoundWinnerId = null; 
+let micEnabled = true;
 
 const iceConfig = {
+    iceTransportPolicy: 'all', 
     iceServers: [
-        { urls: "stun:stun.relay.metered.ca:80" },
+        // ប្រើ STUN សម្រាប់តភ្ជាប់ផ្ទាល់ (មិនស៊ី Data)
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+        // បន្ថែម TURN សម្រាប់ករណីដែល STUN ភ្ជាប់មិនបាន
         {
             urls: "turn:global.relay.metered.ca:80",
             username: "70c58d936fe4c62e38eff96c",
             credential: "4tMqFurEIksvhg2h",
-        },
-        {
-            urls: "turn:global.relay.metered.ca:80?transport=tcp",
-            username: "70c58d936fe4c62e38eff96c",
-            credential: "4tMqFurEIksvhg2h",
-        },
-        {
-            urls: "turn:global.relay.metered.ca:443",
-            username: "70c58d936fe4c62e38eff96c",
-            credential: "4tMqFurEIksvhg2h",
-        },
-        {
-            urls: "turns:global.relay.metered.ca:443?transport=tcp",
-            username: "70c58d936fe4c62e38eff96c",
-            credential: "4tMqFurEIksvhg2h",
-        },
+        }
     ]
 };
 
@@ -1214,48 +1204,43 @@ function initVoiceAndExecute(callback) {
         });
 }
 
-function createAudioElement(id, stream) {
-    const audio = document.createElement('audio');
-    audio.id = `audio-${id}`;
-    audio.srcObject = stream;
-    audio.autoplay = true; // ត្រូវតែមាន
-    audio.controls = true; // បន្ថែមនេះដើម្បីសាកល្បង បើវាបង្ហាញប៊ូតុង Play នោះបញ្ហាគឺវាឈប់ (Paused)
-    
-    // បង្ខំឱ្យវាលេង
-    audio.play().catch(e => console.log("Audio play blocked:", e));
-    
-    document.body.appendChild(audio);
-}
+socket.on('voice_user_joined', ({ id }) => {
+    if (peers[id]) return;
 
-// មុខងារសម្រាប់បង្ហាញប៊ូតុងដោះសោរសំឡេង
-function showUnmuteButton(audioElement) {
-    if (document.getElementById('unmuteOverlay')) return;
+    // ប្រើការប្រៀបធៀប String នៃ ID ដើម្បីធានាថាមានតែម្នាក់ប៉ុណ្ណោះដែលជា Initiator
+    const amIInitiator = myId < id; 
 
-    const div = document.createElement('div');
-    div.id = 'unmuteOverlay';
-    div.style = "position:fixed; top:20%; left:50%; transform:translateX(-50%); z-index:9999; background:red; padding:15px; color:white; border-radius:10px; cursor:pointer;";
-    div.innerText = "🔇 ចុចទីនេះដើម្បីបើកសំឡេងមិត្តភក្តិ";
+    console.log(`📞 តភ្ជាប់សំឡេងជាមួយ ${id} (ខ្ញុំជា Initiator: ${amIInitiator})`);
     
-    div.onclick = () => {
-        audioElement.play();
-        div.remove();
-    };
-    document.body.appendChild(div);
-}
+    const peer = new SimplePeer({
+        initiator: amIInitiator, // ប្រើលក្ខខណ្ឌនេះវិញ
+        trickle: false, 
+        stream: localStream,
+        config: iceConfig 
+    });
+
+    peer.on('signal', signal => {
+        socket.emit('voice_signal', { to: id, signal: signal });
+    });
+
+    peer.on('stream', stream => {
+        createAudioElement(id, stream);
+    });
+
+    peer.on('error', err => console.error('Peer error:', err));
+    peer.on('close', () => removeAudioElement(id));
+
+    peers[id] = peer;
+});
 
 socket.on('voice_signal', ({ from, signal }) => {
     if (!peers[from]) {
-        // ពិនិត្យមើលថាតើ localStream មានតម្លៃឬអត់
-        if (!localStream) {
-            console.error("❌ កំហុស៖ localStream មិនទាន់មាន (មិនទាន់បានអនុញ្ញាត Mic)");
-            return; 
-        }
-
+        console.log("📥 ទទួលការសុំតភ្ជាប់សំឡេងពី ID:", from);
         const peer = new SimplePeer({
             initiator: false, 
-            trickle: true, 
-            stream: localStream, // ប្រើ localStream ដែលមានស្រាប់
-            config: iceConfig 
+            trickle: false, 
+            stream: localStream,
+            config: iceConfig // 👈 កន្លែងនេះអ្នកកែត្រូវហើយ!
         });
 
         peer.on('signal', sig => {
@@ -1295,23 +1280,28 @@ function resumeAudio() {
 }
 
 function createAudioElement(id, stream) {
-    const audio = document.createElement('audio');
-    audio.id = `audio-${id}`;
+    let audio = document.getElementById(`audio-${id}`);
+    
+    if (!audio) {
+        audio = document.createElement('audio');
+        audio.id = `audio-${id}`;
+        audio.setAttribute('playsinline', 'true');
+        audio.autoplay = true;
+        audio.style.display = 'none';
+        document.body.appendChild(audio);
+    }
+    
+    // បង្ហាញ stream ដោយផ្ទាល់ទៅកាន់ audio element (វិធីនេះស្រួលជាង និងមានស្ថេរភាពជាង)
     audio.srcObject = stream;
-    audio.autoplay = true;
-    audio.playsInline = true; // សំខាន់ណាស់សម្រាប់ Mobile
-    
-    // បង្ខំឱ្យវាលេងភ្លាមៗ
+
+    // ព្យាយាម Play ភ្លាមៗ (ត្រូវប្រាកដថាបានហៅ resumeAudio() ក្នុងប៊ូតុងរួចហើយ)
     audio.play().catch(e => {
-        console.log("Audio play blocked, listening for user click...");
-        // បង្កើតប៊ូតុងមួយឱ្យ User ចុច ដើម្បី Unmute សំឡេងមិត្តភក្តិ
-        const btn = document.createElement('button');
-        btn.innerText = "🔊 បើកសំឡេងមិត្តភក្តិ";
-        btn.onclick = () => { audio.play(); btn.remove(); };
-        document.body.appendChild(btn);
+        console.warn("Autoplay ទប់ស្កាត់, កំពុងរង់ចាំសកម្មភាពអ្នកប្រើ:", e);
     });
-    
-    document.body.appendChild(audio);
+
+    // ចំណុចសំខាន់៖ មិនចាំបាច់ប្រើ createMediaStreamSource ប្រសិនបើអ្នកមិនកែសម្រួលសំឡេង (ដូចជាដាក់ Effect)
+    // ប្រសិនបើអ្នកមិនត្រូវការកែសំឡេងទេ សូមកាត់កូដ Web Audio API ចេញ
+    // ព្រោះការ connect ទៅ audioCtx.destination ជួនកាលបង្កបញ្ហាលើ Mobile
 }
 
 function removeAudioElement(id) {
@@ -1319,28 +1309,22 @@ function removeAudioElement(id) {
     if (audio) audio.remove();
 }
 
-
-let micEnabled = true; 
 function toggleMic() {
     if (!localStream) {
         initVoiceAndExecute(() => { 
-            // ពេលចាប់ផ្តើមដំបូង យកតម្លៃពី variable micEnabled ដែលយើងកំណត់ជា true
-            localStream.getAudioTracks().forEach(track => {
-                track.enabled = micEnabled;
-            });
+            // បើទើបតែបើក Mic លើកដំបូង ឱ្យវាចាប់យកតម្លៃពី localStorage ឬដាក់ Default ជា true
+            micEnabled = localStorage.getItem('mic_enabled') !== 'false';
             updateMicButtonUI();
         });
         return;
     }
     
-    // ប្តូរតម្លៃក្នុង Memory
     micEnabled = !micEnabled;
+    localStorage.setItem('mic_enabled', micEnabled); // រក្សាទុកស្ថានភាព
     
-    // អនុវត្តលើ Track ភ្លាមៗ
     localStream.getAudioTracks().forEach(track => {
         track.enabled = micEnabled;
     });
-    
     updateMicButtonUI();
 }
 
@@ -1371,8 +1355,7 @@ function closeAllVoiceConnections() {
     // គ្រាន់តែរក្សាទុកស្ថានភាព track ទៅតាម micEnabled ដែលមានស្រាប់
     if (localStream) {
         localStream.getAudioTracks().forEach(track => {
-            track.enabled = micEnabled;
-            console.log("Mic status changed to:", track.enabled);
+            track.enabled = micEnabled; 
         });
     }
 }
