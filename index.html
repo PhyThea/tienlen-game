@@ -487,15 +487,15 @@ let micEnabled = true;
 const iceConfig = {
     iceServers: [
         { 
-            urls: "stun:stun.l.google.com:19302" // សំរាប់ជួយរក IP របស់អ្នក
+            urls: "stun:stun.l.google.com:19302" // សំរាប់រក IP របស់អ្នក
         },
         {
-            urls: "turn:global.relay.metered.ca:80", // សំរាប់ជួយភ្ជាប់សំឡេង
+            urls: "turn:global.relay.metered.ca:80", // TURN UDP (ប្រើល្បឿនលឿន)
             username: "70c58d936fe4c62e38eff96c",
             credential: "4tMqFurEIksvhg2h",
         },
         {
-            urls: "turn:global.relay.metered.ca:443?transport=tcp", // សំរាប់ជំនួយពេល Internet រារាំង
+            urls: "turn:global.relay.metered.ca:443?transport=tcp", // TURN TCP (ចាំបាច់បើ Internet រារាំង)
             username: "70c58d936fe4c62e38eff96c",
             credential: "4tMqFurEIksvhg2h",
         }
