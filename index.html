@@ -486,10 +486,15 @@ let micEnabled = true;
 
 const iceConfig = {
     iceServers: [
-        { urls: "stun:stun1.l.google.com:19302" },
-        { urls: "stun:stun2.l.google.com:19302" }
+        { urls: "stun:stun.l.google.com:19302" },
+        { 
+            urls: "turn:global.relay.metered.ca:3478", // ត្រូវប្រាកដថាប្រើ Port 3478
+            username: "70c58d936fe4c62e38eff96c",
+            credential: "4tMqFurEIksvhg2h"
+        }
     ],
-    iceTransportPolicy: 'all' // សំខាន់៖ ប្តូរមក all សម្រាប់ការតេស្ត
+    // នេះជាកត្តាសំខាន់៖ បង្ខំឱ្យប្រើ Relay ប្រសិនបើការតភ្ជាប់ធម្មតាមានបញ្ហា
+    iceTransportPolicy: 'all' 
 };
 
 let peers = {};
@@ -1225,30 +1230,38 @@ socket.on('voice_user_joined', ({ id }) => {
 
 // ១. មុខងារបង្កើត Peer (កែសម្រួលដើម្បីការពារការបង្កើតជាន់គ្នា)
 function createPeer(targetId, amIInitiator) {
-    if (peers[targetId]) return; // ការពារកុំឱ្យបង្កើត Peer ថ្មីបើមានស្រាប់
+    if (peers[targetId]) return;
 
-    const peer = new SimplePeer({
-        initiator: amIInitiator,
-        trickle: true,
-        stream: localStream,
-        config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
-    });
+// កូដនេះប្រើសម្រាប់បង្កើតការតភ្ជាប់សំឡេងដែលរឹងមាំ
+const peer = new SimplePeer({
+    initiator: amIInitiator,
+    trickle: false, 
+    stream: localStream,
+    config: {
+        iceServers: [
+            { urls: "stun:stun.l.google.com:19302" },
+            { 
+                urls: "turn:global.relay.metered.ca:3478",
+                username: "70c58d936fe4c62e38eff96c",
+                credential: "4tMqFurEIksvhg2h"
+            }
+        ],
+        iceTransportPolicy: 'relay' // បង្ខំឱ្យវារត់ឆ្លងកាត់ TURN server 100%
+    }
+});
 
     peer.on('signal', signal => {
         socket.emit('voice_signal', { to: targetId, signal: signal });
     });
 
-    peer.on('stream', stream => {
-        createAudioElement(targetId, stream);
+    peer.on('stream', (stream) => {
+        let audio = document.createElement('audio');
+        audio.srcObject = stream;
+        audio.autoplay = true;
+        audio.play().catch(e => {
+            console.error("Browser ប្លុកសំឡេង, សូមចុចលើអេក្រង់ដើម្បីអនុញ្ញាត៖", e);
+        });
     });
-
-    peer.on('error', err => {
-        console.error("Peer Error:", err);
-        cleanupPeer(targetId);
-    });
-
-    peers[targetId] = peer;
-}
 
 socket.on('voice_signal', ({ from, signal }) => {
     // ពិនិត្យមើលថាតើមាន Peer connection នោះរួចហើយឬនៅ
