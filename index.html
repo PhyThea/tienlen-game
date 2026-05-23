@@ -647,27 +647,54 @@ function setupPeerConnection(targetUserId) {
     const p = new SimplePeer({
         initiator: isInitiator,
         trickle: false,
-        config: iceConfig,
-        stream: localStream // 👈 សំខាន់ណាស់
+        config: iceConfig, // ត្រូវប្រាកដថា iceConfig មានផ្ទុក TURN server របស់អ្នក
+        stream: localStream // 👈 សំខាន់ណាស់សម្រាប់ផ្ញើសំឡេងទៅកាន់គេ
     });
 
     peers[targetUserId] = p;
 
+    // ១. ផ្ញើ Signal ទៅកាន់ Server ដើម្បីបញ្ជូនទៅអ្នកលេងម្នាក់ទៀត
     p.on('signal', data => {
         socket.emit('signal', { to: targetUserId, signal: data });
     });
 
+    // ២. ទទួល Stream (សំឡេង) ពីអ្នកលេងម្នាក់ទៀត
     p.on('stream', stream => {
-        // បង្កើត Audio element សម្រាប់អ្នកលេងម្នាក់ៗ
+        console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", targetUserId);
         let audio = document.getElementById('audio-' + targetUserId);
         if (!audio) {
             audio = document.createElement('audio');
             audio.id = 'audio-' + targetUserId;
             audio.autoplay = true;
+            audio.controls = false;
             document.body.appendChild(audio);
         }
         audio.srcObject = stream;
         audio.play().catch(e => console.log("Auto-play blocked, user interaction needed."));
+    });
+
+    // ៣. គ្រប់គ្រងពេលដាច់ការតភ្ជាប់ (សំខាន់ដើម្បីកុំឱ្យមានការកកស្ទះ)
+    p.on('iceConnectionStateChange', () => {
+        const state = p.iceConnectionState;
+        if (['failed', 'disconnected', 'closed'].includes(state)) {
+            console.warn(`❌ Peer ${targetUserId} disconnected: ${state}`);
+            p.destroy();
+            delete peers[targetUserId];
+            
+            // លុប audio element ចោលនៅពេលគេដាច់ការតភ្ជាប់
+            const audio = document.getElementById('audio-' + targetUserId);
+            if (audio) audio.remove();
+        }
+    });
+
+    // ៤. គ្រប់គ្រងកំហុស (Error Handling)
+    p.on('error', err => {
+        console.error(`⚠️ Peer ${targetUserId} Error:`, err);
+        p.destroy();
+        delete peers[targetUserId];
+        
+        const audio = document.getElementById('audio-' + targetUserId);
+        if (audio) audio.remove();
     });
     
     return p;
