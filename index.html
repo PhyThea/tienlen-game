@@ -1168,7 +1168,6 @@ socket.on('leftRoom', () => {
 // =================================================================
 
 function initVoiceAndExecute(callback) {
-    // បើសិនមាន stream រួចហើយ មិនបាច់សុំម្តងទៀត
     if (localStream) {
         callback();
         return;
@@ -1177,7 +1176,7 @@ function initVoiceAndExecute(callback) {
     // ពិនិត្យមើលថាតើ Browser គាំទ្រការប្រើប្រាស់ MediaDevices ដែរឬទេ
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         console.warn("Browser មិនគាំទ្រការប្រើប្រាស់មីក្រូហ្វូនទេ");
-        callback(); 
+        callback(); // បន្តដំណើរការហ្គេមដោយគ្មានសំឡេង
         return;
     }
 
@@ -1196,103 +1195,98 @@ function initVoiceAndExecute(callback) {
             callback();
         })
         .catch(err => {
-            console.warn("មិនអាចបើកមីក្រូហ្វូនបានទេ (ករណីមិនមាន Mic ឬបដិសេធ):", err);
-            localStream = null; // កំណត់ជា null ឱ្យច្បាស់
+            // ក្នុងករណីគ្មានមីក្រូហ្វូន Browser នឹងចូលមកកាន់កន្លែងនេះ
+            console.warn("មិនអាចបើកមីក្រូហ្វូនបានទេ (អាចគ្មានឧបករណ៍):", err);
             
-            // បង្ហាញការជូនដំណឹងដល់អ្នកលេង (UI Notification)
-            const notification = document.createElement('div');
-            notification.id = "mic-warning";
-            notification.style = "position:fixed; bottom:20px; right:20px; background:#ef4444; color:white; padding:15px; border-radius:8px; z-index:9999; font-size:14px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);";
-            notification.innerHTML = "🔇 <b>គ្មានមីក្រូហ្វូន៖</b> អ្នកអាចស្តាប់សំឡេងអ្នកដទៃបាន ប៉ុន្តែមិនអាចនិយាយបានទេ។";
-            document.body.appendChild(notification);
+            // កំណត់ localStream ឱ្យជា null ដើម្បីកុំឱ្យ SimplePeer ព្យាយាមប្រើវា
+            localStream = null; 
             
-            // បំបាត់ការជូនដំណឹងវិញក្នុងរយៈពេល 5 វិនាទី
-            setTimeout(() => notification.remove(), 5000);
+            // គ្រាន់តែជូនដំណឹងតាម Console ជំនួសការប្រើ alert ដែលរំខានអ្នកប្រើ
+            console.log("ហ្គេមបន្តដំណើរការក្នុងរបៀប៖ ស្ដាប់បានតែសំឡេងអ្នកដទៃ (Receive Only)");
             
-            callback(); // បន្តដំណើរការហ្គេមធម្មតា
+            callback(); 
         });
 }
 
-/**
- * មុខងារបង្កើត SimplePeer ដោយសុវត្ថិភាព
- * ត្រូវប្រើមុខងារនេះជំនួសការ new SimplePeer ដោយផ្ទាល់
- */
-function createSafePeer(initiatorStatus, streamData) {
-    return new SimplePeer({
-        initiator: initiatorStatus,
+// ១. ទទួលបញ្ជីអ្នកលេងដែលមានស្រាប់៖ ខ្ញុំត្រូវធ្វើជា Initiator (អ្នកដើរទៅរកគេ)
+socket.on('all_existing_users', ({ users }) => {
+    console.log("👥 អ្នកលេងក្នុងបន្ទប់៖", users);
+    users.forEach(targetId => {
+        // បើ targetId មិនមែនជា ID ខ្លួនឯង និងមិនទាន់មាន Peer connection
+        if (targetId !== socket.id && !peers[targetId]) {
+            createPeer(targetId, true); // true = ខ្ញុំជា Initiator
+        }
+    });
+});
+
+// ២. ទទួលសញ្ញាថាមានអ្នកលេងថ្មីចូលមក៖ ខ្ញុំជា Receiver (អ្នករង់ចាំគេតភ្ជាប់មក)
+socket.on('voice_user_joined', ({ id }) => {
+    console.log("👤 អ្នកថ្មីចូលមក៖", id);
+    if (id !== socket.id && !peers[id]) {
+        createPeer(id, false); // false = ខ្ញុំមិនមែនជា Initiator
+    }
+});
+
+// ៣. មុខងារបង្កើត Peer Connection
+function createPeer(targetId, amIInitiator) {
+    console.log(`📞 តភ្ជាប់ជាមួយ ${targetId} | ខ្ញុំជា Initiator: ${amIInitiator}`);
+
+    const peer = new SimplePeer({
+        initiator: amIInitiator,
         trickle: true,
-        // បើមាន localStream ផ្ញើវាទៅ បើអត់ទេ គឺ undefined (WebRTC នឹងដឹងថាគ្មាន stream)
-        stream: streamData || undefined, 
-        config: {
+        stream: localStream,
+        config: { 
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' }
-            ]
-        }
-    });
-}
-
-socket.on('voice_user_joined', ({ id }) => {
-    if (peers[id]) return;
-
-    console.log(`📞 តភ្ជាប់សំឡេងជាមួយ ${id} (ខ្ញុំជា Initiator: ${myId < id})`);
-
-    const peer = new SimplePeer({
-        initiator: myId < id,
-        trickle: true,
-        stream: localStream || undefined, // ប្រសិនបើ localStream ជា null វានឹងបញ្ជូន undefined
-        config: iceConfig
-    });
-    
-    peer.on('iceConnectionStateChange', () => {
-        const state = peer.iceConnectionState;
-        if (state === 'failed' || state === 'disconnected' || state === 'closed') {
-            peer.destroy();
-            delete peers[id];
-            removeAudioElement(id);
+            ] 
         }
     });
 
-    peer.on('error', err => {
-        console.error(`⚠️ Peer ${id} Error:`, err);
-        peer.destroy();
-        delete peers[id];
-        removeAudioElement(id);
-    });
-   
     peer.on('signal', signal => {
-        socket.emit('voice_signal', { to: id, signal: signal });
+        socket.emit('voice_signal', { to: targetId, signal: signal });
     });
 
     peer.on('stream', stream => {
-        console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", id);
-        const audio = document.createElement('audio');
-        audio.id = `audio-${id}`;
-        audio.srcObject = stream;
-        audio.autoplay = true;
-        audio.playsInline = true;
-        audio.play().catch(() => showAudioEnableButton());
-        document.body.appendChild(audio);
+        console.log("🔊 ទទួលបានសញ្ញាសំឡេងពី៖", targetId);
+        createAudioElement(targetId, stream);
     });
 
-    peers[id] = peer;
-});
+    peer.on('error', err => {
+        console.error(`⚠️ Peer Error (${targetId}):`, err);
+        peer.destroy();
+        delete peers[targetId];
+    });
 
-// 2. នៅពេលទទួលបានសញ្ញាតភ្ជាប់ (Receiver)
+    peer.on('close', () => {
+        console.log(`🔌 ការតភ្ជាប់ត្រូវបានផ្ដាច់ (${targetId})`);
+        peer.destroy();
+        delete peers[targetId];
+    });
+
+    peers[targetId] = peer;
+}
+
+// ៤. ស្ដាប់សញ្ញា Signaling ពី Peer ដទៃទៀត
 socket.on('voice_signal', ({ from, signal }) => {
-    if (!peers[from]) {
+    if (peers[from]) {
+        peers[from].signal(signal);
         console.log("📥 ទទួលការសុំតភ្ជាប់សំឡេងពី ID:", from);
         
-    const peer = new SimplePeer({
-        initiator: myId < id,
-        trickle: true,
-        stream: localStream || undefined, // ប្រសិនបើ localStream ជា null វានឹងបញ្ជូន undefined
-        config: iceConfig
-    });
+        const peer = new SimplePeer({
+            initiator: false, 
+            trickle: true, 
+            stream: localStream,
+            config: iceConfig 
+        });
 
+        // --- បន្ថែម Event គ្រប់គ្រងស្ថានភាពការតភ្ជាប់ ---
         peer.on('iceConnectionStateChange', () => {
             const state = peer.iceConnectionState;
+            console.log(`📡 Peer ${from} state: ${state}`);
+            
             if (state === 'failed' || state === 'disconnected' || state === 'closed') {
+                console.warn(`❌ ការតភ្ជាប់ជាមួយ ${from} មានបញ្ហា (${state})។ កំពុងសម្អាត...`);
                 peer.destroy();
                 delete peers[from];
                 removeAudioElement(from);
@@ -1305,6 +1299,7 @@ socket.on('voice_signal', ({ from, signal }) => {
             delete peers[from];
             removeAudioElement(from);
         });
+        // ---------------------------------------------
 
         peer.on('signal', sig => {
             socket.emit('voice_signal', { to: from, signal: sig });
@@ -1312,14 +1307,13 @@ socket.on('voice_signal', ({ from, signal }) => {
 
         peer.on('stream', stream => {
             console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", from);
-            const audio = document.createElement('audio');
-            audio.id = `audio-${from}`;
-            audio.srcObject = stream;
-            audio.autoplay = true;
-            audio.playsInline = true;
-            audio.play().catch(() => showAudioEnableButton());
-            document.body.appendChild(audio);
+            const audio = createAudioElement(from, stream);
+            
+            // បង្ខំឱ្យ Unmute ប្រសិនបើ Browser ព្យាយាម Mute 
+            audio.muted = false;
+            audio.volume = 1.0; 
         });
+        peer.on('close', () => removeAudioElement(from));
 
         peers[from] = peer;
     }
@@ -1348,18 +1342,15 @@ function createAudioElement(id, stream) {
     audio.id = `audio-${id}`;
     audio.srcObject = stream;
     audio.autoplay = true;
-    audio.playsInline = true; // សំខាន់ណាស់សម្រាប់ iPhone/iPad (iOS)
-    audio.controls = false;
-
-    // ជំនួសឱ្យការ .play() ភ្លាមៗ យើងប្រើ listener ដើម្បីឱ្យប្រាកដថាវាអាចលេងបាន
-    audio.oncanplay = () => {
-        audio.play().catch(err => {
-            console.warn(`Autoplay បរាជ័យសម្រាប់ ${id}, ត្រូវការ User Interaction`, err);
-        });
-    };
+    audio.controls = false; // បិទកុំឱ្យវាបង្ហាញ UI
+    
+    // នេះជាកូដបង្ខំឱ្យលេង
+    audio.play().catch(err => {
+        console.error("Auto-play blocked, waiting for user interaction:", err);
+    });
 
     document.body.appendChild(audio);
-    return audio;
+    return audio; // ត្រឡប់អថេរនេះសម្រាប់ប្រើប្រាស់បន្ត
 }
 
 function removeAudioElement(id) {
@@ -1419,22 +1410,6 @@ function updateMicButtonUI() {
         btn.innerText = "🔇 Mic: Muted";
         btn.classList.add('muted');
     }
-}
-
-function showAudioEnableButton() {
-    if (document.getElementById('audio-btn')) return;
-    
-    const btn = document.createElement('button');
-    btn.id = 'audio-btn';
-    btn.innerText = "🔊 ចុចទីនេះដើម្បីបើកសំឡេង";
-    btn.style = "position:fixed; top:20px; left:20px; z-index:9999; padding:15px; background:green; color:white; border-radius:10px; cursor:pointer;";
-    
-    btn.onclick = () => {
-        const audios = document.querySelectorAll('audio');
-        audios.forEach(a => a.play().catch(e => console.log("មិនអាចលេងសំឡេងបាន:", e)));
-        btn.remove();
-    };
-    document.body.appendChild(btn);
 }
 
 function closeAllVoiceConnections() {
