@@ -1308,28 +1308,24 @@ function createPeer(targetId, isInitiator) {
 
 socket.on('voice_user_joined', ({ id }) => {
     if (peers[id]) return;
-    
-    // ត្រូវប្រាកដថា socket.id មិនមែនជា undefined
-    const myId = socket.id; 
-    
-    // នេះជាកន្លែងកែ៖ បើ myId ធំជាង id នោះយើងត្រូវតែជា Initiator: true
-    const amIInitiator = myId < id; 
-    
-    console.log(`📞 តភ្ជាប់សំឡេងជាមួយ ${id} (ខ្ញុំជា Initiator: ${amIInitiator})`);
+
+    // នេះជាក្បួនដែលធានាថា: នរណាម្នាក់នឹងលោត true ម្នាក់ទៀតលោត false
+    const amIInitiator = socket.id < id; 
+
+    console.log(`📞 តភ្ជាប់ជាមួយ ${id} | ខ្ញុំ: ${socket.id} | Initiator: ${amIInitiator}`);
     
     peers[id] = createPeer(id, amIInitiator);
 });
 
 socket.on('voice_signal', ({ from, signal }) => {
-    // ប្រសិនបើមិនទាន់មាន Peer ទេ បង្កើតវាឡើងក្នុងនាមជា Receiver
+    // បើមិនទាន់មាន Peer ទេ បង្កើតវាភ្លាមក្នុងនាមជា Receiver (false)
     if (!peers[from]) {
-        console.log("📥 ទទួលការសុំតភ្ជាប់សំឡេងពី ID:", from);
-        // ដោយសារគេជាអ្នកផ្ញើមកមុន (គេគឺជា Initiator) យើងត្រូវតែជា receiver
+        console.log("📥 ទទួលការស្នើសុំតភ្ជាប់ពី:", from);
         peers[from] = createPeer(from, false);
     }
     
-    // បញ្ចូលសញ្ញា (Signal)
-    if (signal) {
+    // បញ្ចូលសញ្ញាចូលទៅកាន់ Peer នោះ
+    if (peers[from]) {
         peers[from].signal(signal);
     }
 });
