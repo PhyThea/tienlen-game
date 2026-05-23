@@ -637,13 +637,13 @@ socket.on('roomCreated', ({ roomId, playerId }) => {
     showLobby(roomId);
 });
 
-// ត្រូវប្រាកដថា Peer នីមួយៗទទួលបាន Stream ត្រឹមត្រូវ
+// កូដដែលនឹងដំណើរការ ដោយគ្មានកំហុស ReferenceError ឬ SyntaxError
 function setupPeerConnection(targetUserId) {
     if (peers[targetUserId]) return;
 
     const isInitiator = socket.id < targetUserId; 
     
-    // បញ្ចូល localStream ទៅក្នុង Constructor
+    // បង្កើតអថេរ p តែមួយគត់
     const p = new SimplePeer({
         initiator: isInitiator,
         trickle: false,
@@ -651,53 +651,48 @@ function setupPeerConnection(targetUserId) {
         stream: localStream
     });
 
-    peers[targetUserId] = p; // រក្សាទុកក្នុង Object peers
+    peers[targetUserId] = p; // រក្សាទុកក្នុង object peers
 
-    // ១. ប្រើ p.on ជំនួសឱ្យ peer.on
-    p.on('signal', data => {
-        socket.emit('signal', { to: targetUserId, signal: data });
+// កូដនេះត្រូវដាក់ចូលទៅក្នុង Function setupPeerConnection(targetUserId)
+// ធានាថាបានលុបកូដ 'peer.on' ចាស់ៗនៅខាងក្រៅចោលអស់ហើយ
+
+p.on('signal', data => {
+    socket.emit('signal', { to: targetUserId, signal: data });
+});
+
+p.on('stream', stream => {
+    console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", targetUserId);
+    let audio = document.getElementById('audio-' + targetUserId);
+    if (!audio) {
+        audio = document.createElement('audio');
+        audio.id = 'audio-' + targetUserId;
+        audio.autoplay = true;
+        audio.controls = false;
+        document.body.appendChild(audio);
+    }
+    audio.srcObject = stream;
+    audio.play().catch(err => {
+        console.warn("Browser បិទ Auto-play សំឡេង។");
     });
+});
 
-    // ២. ប្រើ p.on ជំនួសឱ្យ peer.on
-    p.on('stream', stream => {
-        console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", targetUserId);
-        let audio = document.getElementById('audio-' + targetUserId);
-        if (!audio) {
-            audio = document.createElement('audio');
-            audio.id = 'audio-' + targetUserId;
-            audio.autoplay = true;
-            audio.controls = false;
-            document.body.appendChild(audio);
-        }
-        audio.srcObject = stream;
-        audio.play().catch(e => console.log("Auto-play blocked, user interaction needed."));
-    });
-
-    // ៣. ប្រើ p.on ជំនួសឱ្យ peer.on
-    p.on('iceConnectionStateChange', () => {
-        const state = p.iceConnectionState; // ប្រើ p.iceConnectionState
-        if (['failed', 'disconnected', 'closed'].includes(state)) {
-            console.warn(`❌ Peer ${targetUserId} disconnected: ${state}`);
-            p.destroy(); // ប្រើ p.destroy()
-            delete peers[targetUserId];
-            
-            const audio = document.getElementById('audio-' + targetUserId);
-            if (audio) audio.remove();
-        }
-    });
-
-    // ៤. ប្រើ p.on ជំនួសឱ្យ peer.on
-    p.on('error', err => {
-        console.error(`⚠️ Peer ${targetUserId} Error:`, err);
-        p.destroy(); // ប្រើ p.destroy()
+p.on('iceConnectionStateChange', () => {
+    const state = p.iceConnectionState;
+    if (['failed', 'disconnected', 'closed'].includes(state)) {
+        p.destroy();
         delete peers[targetUserId];
-        
         const audio = document.getElementById('audio-' + targetUserId);
         if (audio) audio.remove();
-    });
-    
-    return p;
-}
+    }
+});
+
+p.on('error', err => {
+    console.error(`⚠️ Peer ${targetUserId} Error:`, err);
+    p.destroy();
+    delete peers[targetUserId];
+    const audio = document.getElementById('audio-' + targetUserId);
+    if (audio) audio.remove();
+});
 
 socket.on('roomJoined', ({ roomId, playerId, isSpectator, playedCards, currentTurnIndex: serverTurn }) => {
     myId = playerId;
@@ -1327,12 +1322,11 @@ function addStreamToPeers(stream) {
     }
 }
 
-// នៅក្នុង function ដែលបង្កើត Peer របស់អ្នក
-peer.on('signal', signal => {
+p.on('signal', signal => {
     socket.emit('voice_signal', { to: targetId, signal: signal });
 });
 
-peer.on('stream', stream => {
+p.on('stream', stream => {
     console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", targetId);
     let audio = document.getElementById('audio-' + targetId);
     if (!audio) {
