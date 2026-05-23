@@ -1208,39 +1208,30 @@ function initVoiceAndExecute(callback) {
         });
 }
 
-// ១. ទទួលបញ្ជីអ្នកលេងដែលមានស្រាប់៖ ខ្ញុំត្រូវធ្វើជា Initiator (អ្នកដើរទៅរកគេ)
+// កូដនេះដាក់នៅផ្នែកខាងក្រោមនៃ index.html (Global Scope)
 socket.on('all_existing_users', ({ users }) => {
-    console.log("👥 អ្នកលេងក្នុងបន្ទប់៖", users);
     users.forEach(targetId => {
-        // បើ targetId មិនមែនជា ID ខ្លួនឯង និងមិនទាន់មាន Peer connection
         if (targetId !== socket.id && !peers[targetId]) {
-            createPeer(targetId, true); // true = ខ្ញុំជា Initiator
+            createPeer(targetId, true); 
         }
     });
 });
 
-// ២. ទទួលសញ្ញាថាមានអ្នកលេងថ្មីចូលមក៖ ខ្ញុំជា Receiver (អ្នករង់ចាំគេតភ្ជាប់មក)
 socket.on('voice_user_joined', ({ id }) => {
-    console.log("👤 អ្នកថ្មីចូលមក៖", id);
     if (id !== socket.id && !peers[id]) {
-        createPeer(id, false); // false = ខ្ញុំមិនមែនជា Initiator
+        createPeer(id, false); 
     }
 });
 
-// ៣. មុខងារបង្កើត Peer Connection
+// ១. មុខងារបង្កើត Peer (កែសម្រួលដើម្បីការពារការបង្កើតជាន់គ្នា)
 function createPeer(targetId, amIInitiator) {
-    console.log(`📞 តភ្ជាប់ជាមួយ ${targetId} | ខ្ញុំជា Initiator: ${amIInitiator}`);
+    if (peers[targetId]) return; // ការពារកុំឱ្យបង្កើត Peer ថ្មីបើមានស្រាប់
 
     const peer = new SimplePeer({
         initiator: amIInitiator,
         trickle: true,
         stream: localStream,
-        config: { 
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
-            ] 
-        }
+        config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
     });
 
     peer.on('signal', signal => {
@@ -1248,80 +1239,51 @@ function createPeer(targetId, amIInitiator) {
     });
 
     peer.on('stream', stream => {
-        console.log("🔊 ទទួលបានសញ្ញាសំឡេងពី៖", targetId);
         createAudioElement(targetId, stream);
     });
 
     peer.on('error', err => {
-        console.error(`⚠️ Peer Error (${targetId}):`, err);
-        peer.destroy();
-        delete peers[targetId];
-    });
-
-    peer.on('close', () => {
-        console.log(`🔌 ការតភ្ជាប់ត្រូវបានផ្ដាច់ (${targetId})`);
-        peer.destroy();
-        delete peers[targetId];
+        console.error("Peer Error:", err);
+        cleanupPeer(targetId);
     });
 
     peers[targetId] = peer;
 }
 
-// ៤. ស្ដាប់សញ្ញា Signaling ពី Peer ដទៃទៀត
 socket.on('voice_signal', ({ from, signal }) => {
+    // ពិនិត្យមើលថាតើមាន Peer connection នោះរួចហើយឬនៅ
     if (peers[from]) {
-        peers[from].signal(signal);
-        console.log("📥 ទទួលការសុំតភ្ជាប់សំឡេងពី ID:", from);
+        try {
+            peers[from].signal(signal);
+        } catch (err) {
+            console.error("កំហុសពេលផ្ញើ Signal ទៅ Peer ដែលមានស្រាប់:", err);
+        }
+    } else {
+        // បើមិនទាន់មាន គឺវាជាការតភ្ជាប់ថ្មី
+        console.log("📥 កំពុងទទួលការតភ្ជាប់ពី:", from);
+        createPeer(from, false); // ខ្ញុំជាអ្នកទទួល (Receiver)
         
-        const peer = new SimplePeer({
-            initiator: false, 
-            trickle: true, 
-            stream: localStream,
-            config: iceConfig 
-        });
-
-        // --- បន្ថែម Event គ្រប់គ្រងស្ថានភាពការតភ្ជាប់ ---
-        peer.on('iceConnectionStateChange', () => {
-            const state = peer.iceConnectionState;
-            console.log(`📡 Peer ${from} state: ${state}`);
-            
-            if (state === 'failed' || state === 'disconnected' || state === 'closed') {
-                console.warn(`❌ ការតភ្ជាប់ជាមួយ ${from} មានបញ្ហា (${state})។ កំពុងសម្អាត...`);
-                peer.destroy();
-                delete peers[from];
-                removeAudioElement(from);
+        // ប្រើ setTimeout ដើម្បីឱ្យ Peer បានបង្កើតរួចរាល់សិន សឹមផ្ញើ Signal ចូល
+        setTimeout(() => {
+            if (peers[from]) {
+                try {
+                    peers[from].signal(signal);
+                } catch (e) {
+                    console.error("កំហុសពេលផ្ញើ Signal ទៅ Peer ថ្មី:", e);
+                }
             }
-        });
-
-        peer.on('error', err => {
-            console.error(`⚠️ Peer ${from} Error:`, err);
-            peer.destroy();
-            delete peers[from];
-            removeAudioElement(from);
-        });
-        // ---------------------------------------------
-
-        peer.on('signal', sig => {
-            socket.emit('voice_signal', { to: from, signal: sig });
-        });
-
-        peer.on('stream', stream => {
-            console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", from);
-            const audio = createAudioElement(from, stream);
-            
-            // បង្ខំឱ្យ Unmute ប្រសិនបើ Browser ព្យាយាម Mute 
-            audio.muted = false;
-            audio.volume = 1.0; 
-        });
-        peer.on('close', () => removeAudioElement(from));
-
-        peers[from] = peer;
-    }
-
-    if (signal) {
-        peers[from].signal(signal);
+        }, 300); // រង់ចាំ 300ms ដើម្បីឱ្យ Connection ស្ថិតក្នុងស្ថានភាពសកម្ម
     }
 });
+
+// ៣. មុខងារសម្អាត Peer (ប្រើពេលដាច់ការតភ្ជាប់)
+function cleanupPeer(id) {
+    if (peers[id]) {
+        try { peers[id].destroy(); } catch (e) {}
+        delete peers[id];
+        removeAudioElement(id);
+    }
+}
 
 socket.on('voice_user_left', ({ id }) => {
     if (peers[id]) {
