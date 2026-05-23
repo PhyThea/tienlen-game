@@ -1183,10 +1183,9 @@ function initVoiceAndExecute(callback) {
         return;
     }
 
-    // ពិនិត្យមើលថាតើ Browser គាំទ្រការប្រើប្រាស់ MediaDevices ដែរឬទេ
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         console.warn("Browser មិនគាំទ្រការប្រើប្រាស់មីក្រូហ្វូនទេ");
-        callback(); // បន្តដំណើរការហ្គេមដោយគ្មានសំឡេង
+        callback();
         return;
     }
 
@@ -1201,30 +1200,36 @@ function initVoiceAndExecute(callback) {
                 track.enabled = micEnabled;
             });
             
+            // --- ចំណុចសំខាន់៖ បញ្ជូន stream ទៅកាន់ Peers ដែលបានតភ្ជាប់រួចហើយ ---
+            addStreamToPeers(localStream);
+            
             updateMicButtonUI();
             callback();
         })
         .catch(err => {
-            // ក្នុងករណីគ្មានមីក្រូហ្វូន Browser នឹងចូលមកកាន់កន្លែងនេះ
-            console.warn("មិនអាចបើកមីក្រូហ្វូនបានទេ (អាចគ្មានឧបករណ៍):", err);
-            
-            // កំណត់ localStream ឱ្យជា null ដើម្បីកុំឱ្យ SimplePeer ព្យាយាមប្រើវា
+            console.warn("មិនអាចបើកមីក្រូហ្វូនបានទេ:", err);
             localStream = null; 
-            
-            // គ្រាន់តែជូនដំណឹងតាម Console ជំនួសការប្រើ alert ដែលរំខានអ្នកប្រើ
-            console.log("ហ្គេមបន្តដំណើរការក្នុងរបៀប៖ ស្ដាប់បានតែសំឡេងអ្នកដទៃ (Receive Only)");
-            
             callback(); 
         });
+}
+
+function addStreamToPeers(stream) {
+    for (let id in peers) {
+        if (peers[id]) {
+            // ប្រើ addStream ដើម្បីផ្ញើសំឡេងទៅកាន់ Peer ដែលកំពុងរង់ចាំ
+            peers[id].addStream(stream);
+            console.log("បានបញ្ជូន Stream ទៅកាន់ Peer:", id);
+        }
+    }
 }
 
 // មុខងារសម្រាប់បង្កើត Peer ដោយស្វ័យប្រវត្តិ
 function createPeer(targetId, isInitiator) {
     const peer = new SimplePeer({
-        initiator: isInitiator,
-        trickle: true,
-        stream: localStream,
-        config: iceConfig
+        initiator: (isInitiator),
+        trickle: false,
+        config: iceConfig,
+        stream: localStream // 👈 ត្រូវមានបន្ទាត់នេះ! បើខ្វះវានឹងមានបញ្ហា Receive Only
     });
 
     peer.on('signal', signal => {
