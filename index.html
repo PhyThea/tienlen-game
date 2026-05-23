@@ -486,7 +486,9 @@ let micEnabled = true;
 
 const iceConfig = {
     iceServers: [
-        { urls: "stun:stun.l.google.com:19302" },
+        { 
+            urls: "stun:stun.l.google.com:19302" 
+        },
         {
             urls: "turn:global.relay.metered.ca:80",
             username: "70c58d936fe4c62e38eff96c",
@@ -597,16 +599,15 @@ socket.on('roomCreated', ({ roomId, playerId }) => {
 
 // Function សម្រាប់បង្កើតការតភ្ជាប់ Peer
 function setupPeerConnection(targetUserId) {
-    if (peers[targetUserId]) return peers[targetUserId];
+    // ពិនិត្យមើលថាតើ Peer នេះមានឬនៅ បើមានហើយកុំបង្កើតថ្មី
+    if (peers[targetUserId]) return;
 
-    // ប្រើ socket.id របស់អ្នក និងគេ មកប្រៀបធៀបដើម្បីសម្រេចចិត្តថាអ្នកណាជាអ្នកផ្ដើម (Initiator)
-    // នេះជាក្បួនដែលធានាថា Peer ទាំងពីរនឹងតភ្ជាប់គ្នាបាន 100%
+    // ការកំណត់ Initiator ដោយប្រើ ID (វិធីនេះធានាថា Peer ទាំងពីរមិនឈ្លោះគ្នាទេ)
     const isInitiator = socket.id < targetUserId; 
 
     const p = new SimplePeer({
         initiator: isInitiator,
         trickle: false,
-        config: iceConfig, // ប្រើ config ដែលមាន TURN server របស់អ្នក
         stream: localStream
     });
 
@@ -617,20 +618,15 @@ function setupPeerConnection(targetUserId) {
     });
 
     p.on('stream', stream => {
-        console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", targetUserId);
         let audio = document.createElement('audio');
-        audio.id = `audio-${targetUserId}`;
         audio.srcObject = stream;
-        audio.autoplay = true;
-        audio.play().catch(e => console.log("Auto-play blocked"));
-        document.body.appendChild(audio);
+        audio.play();
     });
 
-    // 🛠️ នេះគឺជាចំណុចសំខាន់សម្រាប់ជួសជុលបញ្ហាលឺខ្លះអត់លឺខ្លះ
-    p.on('iceConnectionStateChange', () => {
-        if (['failed', 'disconnected', 'closed'].includes(p.iceConnectionState)) {
-            console.warn(`❌ Peer ${targetUserId} disconnected`);
-            p.destroy();
+    p.on('error', err => {
+        console.error('Connection error with ' + targetUserId, err);
+        if (peers[targetUserId]) {
+            peers[targetUserId].destroy();
             delete peers[targetUserId];
         }
     });
@@ -1264,25 +1260,29 @@ function addStreamToPeers(stream) {
     }
 }
 
+// មុខងារសម្រាប់បង្កើត Peer ដោយស្វ័យប្រវត្តិ
 function createPeer(targetId, isInitiator) {
     const peer = new SimplePeer({
-        initiator: isInitiator,
+        initiator: (isInitiator),
         trickle: false,
         config: iceConfig,
-        stream: localStream
+        stream: localStream // 👈 ត្រូវមានបន្ទាត់នេះ! បើខ្វះវានឹងមានបញ្ហា Receive Only
     });
 
     peer.on('signal', signal => {
         socket.emit('voice_signal', { to: targetId, signal: signal });
     });
 
+    // កែសម្រួលផ្នែក peer.on('stream') របស់អ្នកឱ្យទៅជា៖
     peer.on('stream', stream => {
         console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", targetId);
-        let audio = document.createElement('audio');
-        audio.id = `audio-${targetId}`; // ដាក់ ID ឱ្យវាដើម្បីងាយស្រួលលុបចោល
+        const audio = document.createElement('audio');
         audio.srcObject = stream;
         audio.autoplay = true; 
-        audio.play().catch(err => console.warn("Auto-play blocked, user interaction required."));
+        audio.controls = false;
+        audio.play().catch(err => {
+            console.warn("Browser បិទ Auto-play សំឡេង។ សូមចុចលើអេក្រង់ដើម្បីឱ្យឮសំឡេង។");
+        });
         document.body.appendChild(audio);
     });
 
@@ -1307,31 +1307,26 @@ function createPeer(targetId, isInitiator) {
 }
 
 socket.on('voice_user_joined', ({ id }) => {
+    // បើមាន Peer ហ្នឹងហើយ កុំធ្វើអីទៀត
     if (peers[id]) return;
 
-    // នេះគឺជាការសម្រេចចិត្តថាអ្នកណាជាអ្នកផ្ដើម (Offer)
-    // មិនថាអ្នកណាចូលមុន ឬក្រោយទេ កូដនេះនឹងធ្វើឱ្យម្នាក់ true ម្នាក់ false ជានិច្ច
+    // នេះជាក្បួន Logic ដែលមិនអាចខុសបាន៖
+    // នរណាក៏ដោយដែល ID តូចជាងគេ ត្រូវតែជា Initiator (true)
+    // នរណាក៏ដោយដែល ID ធំជាងគេ ត្រូវតែជា Receiver (false)
     const amIInitiator = socket.id < id; 
+
+    console.log("=== Debug Connection ===");
+    console.log("My ID:", socket.id);
+    console.log("Target ID:", id);
+    console.log("Result (I am Initiator):", amIInitiator);
     
-    console.log(`តភ្ជាប់៖ ខ្ញុំ(${socket.id}) < គេ(${id}) -> Initiator: ${amIInitiator}`);
+    // បើលទ្ធផលនៅតែ false ទាំងពីរ មានន័យថា socket.id ទាំងពីរគឺដូចគ្នា
+    // ដែលនេះជាបញ្ហានៅលើ Server មិនមែនកូដក្នុង index.html ទេ
     
     peers[id] = createPeer(id, amIInitiator);
 });
 
-// កែសម្រួលកន្លែងបង្កើត Peer
-function createPeer(targetId, isInitiator) {
-    const peer = new SimplePeer({
-        initiator: isInitiator,
-        trickle: false,
-        config: iceConfig, // ប្រើ config របស់អ្នក
-        stream: localStream
-    });
-
-    peer.on('signal', signal => {
-        // ត្រូវប្រាកដថាផ្ញើ signal ទៅកាន់ targetId 
-        socket.emit('voice_signal', { to: targetId, signal: signal });
-    });
-    
+// 2. នៅពេលទទួលបានសញ្ញា (Signal) ពីគេ
 socket.on('voice_signal', ({ from, signal }) => {
     // បើមិនទាន់មាន Peer ទេ ត្រូវបង្កើតវាភ្លាមក្នុងនាមជា Receiver (false)
     if (!peers[from]) {
@@ -1354,15 +1349,6 @@ socket.on('voice_user_left', ({ id }) => {
         removeAudioElement(id);
     }
 });
-
-function removeAudioElement(targetId) {
-    const audioEl = document.getElementById(`audio-${targetId}`);
-    if (audioEl) {
-        audioEl.pause();
-        audioEl.srcObject = null;
-        audioEl.remove();
-    }
-}
 
 function createAudioElement(id, stream) {
     let audio = document.getElementById(`audio-${id}`);
