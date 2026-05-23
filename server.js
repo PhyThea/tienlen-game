@@ -249,14 +249,13 @@ io.on('connection', (socket) => {
         broadcastRoomList();
     });
 
-    // ប្ដូរទៅជាការបោះបន្តរាល់ទិន្នន័យសញ្ញាទាំងអស់ដែលហូរចូលមក (Support Trickle ICE)
+    // ក្នុង server.js
     socket.on('voice_signal', (data) => {
-        if (data && data.to) {
-            io.to(data.to).emit('voice_signal', {
-                from: socket.id,
-                signal: data.signal
-            });
-        }
+        // data.to គឺជា socket.id របស់ Peer ដែលយើងចង់ផ្ញើទៅ
+        io.to(data.to).emit('voice_signal', {
+            from: socket.id, // នេះជាចំណុចសំខាន់បំផុត ដើម្បីឱ្យគេដឹងថា signal មកពីណា
+            signal: data.signal
+        });
     });
 
     socket.on('joinRoom', ({ roomId, password, playerName }) => {
