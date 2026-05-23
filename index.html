@@ -487,15 +487,15 @@ let micEnabled = true;
 const iceConfig = {
     iceServers: [
         { 
-            urls: "stun:stun.l.google.com:19302" // សំរាប់រក IP របស់អ្នក
+            urls: "stun:stun.l.google.com:19302" 
         },
         {
-            urls: "turn:global.relay.metered.ca:80", // TURN UDP (ប្រើល្បឿនលឿន)
+            urls: "turn:global.relay.metered.ca:80",
             username: "70c58d936fe4c62e38eff96c",
             credential: "4tMqFurEIksvhg2h",
         },
         {
-            urls: "turn:global.relay.metered.ca:443?transport=tcp", // TURN TCP (ចាំបាច់បើ Internet រារាំង)
+            urls: "turn:global.relay.metered.ca:443?transport=tcp",
             username: "70c58d936fe4c62e38eff96c",
             credential: "4tMqFurEIksvhg2h",
         }
@@ -1218,106 +1218,71 @@ function initVoiceAndExecute(callback) {
         });
 }
 
-socket.on('voice_user_joined', ({ id }) => {
-    if (peers[id]) return;
-
-    // ត្រឹមត្រូវ៖ ប្រើ Logic ដូចគ្នាទាំងសងខាង
-    // អ្នកដែលមាន ID តូចជាង គឺជា Initiator
-    const amIInitiator = myId < id; 
-
-    console.log(`📞 តភ្ជាប់សំឡេងជាមួយ ${id} (ខ្ញុំជា Initiator: ${amIInitiator})`);
-    
+// មុខងារសម្រាប់បង្កើត Peer ដោយស្វ័យប្រវត្តិ
+function createPeer(targetId, isInitiator) {
     const peer = new SimplePeer({
-        initiator: amIInitiator, 
-        trickle: true, 
+        initiator: isInitiator,
+        trickle: true,
         stream: localStream,
-        config: iceConfig 
+        config: iceConfig
     });
 
-    // --- ផ្នែកបន្ថែម៖ កូដតាមដាន និងសម្អាតការតភ្ជាប់ ---
+    peer.on('signal', signal => {
+        socket.emit('voice_signal', { to: targetId, signal: signal });
+    });
+
+    // កែសម្រួលផ្នែក peer.on('stream') របស់អ្នកឱ្យទៅជា៖
+    peer.on('stream', stream => {
+        console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", targetId);
+        const audio = document.createElement('audio');
+        audio.srcObject = stream;
+        audio.autoplay = true; 
+        audio.controls = false;
+        audio.play().catch(err => {
+            console.warn("Browser បិទ Auto-play សំឡេង។ សូមចុចលើអេក្រង់ដើម្បីឱ្យឮសំឡេង។");
+        });
+        document.body.appendChild(audio);
+    });
+
     peer.on('iceConnectionStateChange', () => {
         const state = peer.iceConnectionState;
-        console.log(`📡 Peer ${id} state: ${state}`);
-        
-        if (state === 'failed' || state === 'disconnected' || state === 'closed') {
-            console.warn(`❌ ការតភ្ជាប់ជាមួយ ${id} មានបញ្ហា (${state})។ កំពុងសម្អាត...`);
+        if (['failed', 'disconnected', 'closed'].includes(state)) {
+            console.warn(`❌ Peer ${targetId} disconnected (${state})`);
             peer.destroy();
-            delete peers[id];
-            removeAudioElement(id);
+            delete peers[targetId];
+            removeAudioElement(targetId);
         }
     });
 
     peer.on('error', err => {
-        console.error(`⚠️ Peer ${id} Error:`, err);
+        console.error(`⚠️ Peer ${targetId} Error:`, err);
         peer.destroy();
-        delete peers[id];
-        removeAudioElement(id);
-    });
-    // ---------------------------------------------
-
-    peer.on('signal', signal => {
-        socket.emit('voice_signal', { to: id, signal: signal });
+        delete peers[targetId];
+        removeAudioElement(targetId);
     });
 
-    peer.on('stream', stream => {
-        console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", id); // ប្រើ id ជំនួស from
-        const audio = createAudioElement(id, stream); // ប្រើ id ជំនួស from
-        
-        audio.muted = false;
-        audio.volume = 1.0; 
-    });
-    peers[id] = peer;
+    return peer;
+}
+
+// 1. នៅពេលមានអ្នកថ្មីចូលមកក្នុងបន្ទប់
+socket.on('voice_user_joined', ({ id }) => {
+    if (peers[id]) return;
+    
+    // កំណត់ Initiator ដោយផ្អែកលើ ID (តូចជាងមុន)
+    const amIInitiator = myId < id; 
+    console.log(`📞 តភ្ជាប់សំឡេងជាមួយ ${id} (ខ្ញុំជា Initiator: ${amIInitiator})`);
+    
+    peers[id] = createPeer(id, amIInitiator);
 });
 
+// 2. នៅពេលទទួលបានសញ្ញា (Signal)
 socket.on('voice_signal', ({ from, signal }) => {
     if (!peers[from]) {
         console.log("📥 ទទួលការសុំតភ្ជាប់សំឡេងពី ID:", from);
-        
-        const peer = new SimplePeer({
-            initiator: false, 
-            trickle: true, 
-            stream: localStream,
-            config: iceConfig 
-        });
-
-        // --- បន្ថែម Event គ្រប់គ្រងស្ថានភាពការតភ្ជាប់ ---
-        peer.on('iceConnectionStateChange', () => {
-            const state = peer.iceConnectionState;
-            console.log(`📡 Peer ${from} state: ${state}`);
-            
-            if (state === 'failed' || state === 'disconnected' || state === 'closed') {
-                console.warn(`❌ ការតភ្ជាប់ជាមួយ ${from} មានបញ្ហា (${state})។ កំពុងសម្អាត...`);
-                peer.destroy();
-                delete peers[from];
-                removeAudioElement(from);
-            }
-        });
-
-        peer.on('error', err => {
-            console.error(`⚠️ Peer ${from} Error:`, err);
-            peer.destroy();
-            delete peers[from];
-            removeAudioElement(from);
-        });
-        // ---------------------------------------------
-
-        peer.on('signal', sig => {
-            socket.emit('voice_signal', { to: from, signal: sig });
-        });
-
-        peer.on('stream', stream => {
-            console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", from);
-            const audio = createAudioElement(from, stream);
-            
-            // បង្ខំឱ្យ Unmute ប្រសិនបើ Browser ព្យាយាម Mute 
-            audio.muted = false;
-            audio.volume = 1.0; 
-        });
-        peer.on('close', () => removeAudioElement(from));
-
-        peers[from] = peer;
+        // បើមិនទាន់មាន Peer នេះទេ គឺត្រូវតែជា receiver (initiator: false)
+        peers[from] = createPeer(from, false);
     }
-
+    
     if (signal) {
         peers[from].signal(signal);
     }
