@@ -1301,28 +1301,30 @@ function addStreamToPeers(stream) {
     }
 }
 
-    peer.on('signal', signal => {
-        socket.emit('voice_signal', { to: targetId, signal: signal });
-    });
+// នៅក្នុង function ដែលបង្កើត Peer របស់អ្នក
+peer.on('signal', signal => {
+    socket.emit('voice_signal', { to: targetId, signal: signal });
+});
 
 peer.on('stream', stream => {
     console.log("🔊 ទទួលបានខ្សែសំឡេងពី៖", targetId);
     let audio = document.getElementById('audio-' + targetId);
     if (!audio) {
         audio = document.createElement('audio');
-        audio.id = 'audio-' + targetId; // ប្រើ ID ដើម្បីងាយស្រួលគ្រប់គ្រង
-        audio.autoplay = true; 
+        audio.id = 'audio-' + targetId;
+        audio.autoplay = true;
+        audio.controls = false;
         document.body.appendChild(audio);
     }
     audio.srcObject = stream;
     audio.play().catch(err => {
-        console.warn("Browser បិទ Auto-play សំឡេង។ សូមចុចលើអេក្រង់ដើម្បីឱ្យឮសំឡេង។");
+        console.warn("Browser បិទ Auto-play សំឡេង។");
     });
 });
 
 peer.on('iceConnectionStateChange', () => {
-    if (['failed', 'disconnected', 'closed'].includes(peer.iceConnectionState)) {
-        console.warn(`❌ Peer ${targetId} disconnected`);
+    const state = peer.iceConnectionState;
+    if (['failed', 'disconnected', 'closed'].includes(state)) {
         peer.destroy();
         delete peers[targetId];
         const audio = document.getElementById('audio-' + targetId);
@@ -1330,25 +1332,13 @@ peer.on('iceConnectionStateChange', () => {
     }
 });
 
-// 3. គ្រប់គ្រងកំហុស (Error Handling)
 peer.on('error', err => {
-    console.error(`⚠️ Peer ${targetId} កើតកំហុស:`, err);
+    console.error(`⚠️ Peer ${targetId} Error:`, err);
     peer.destroy();
     delete peers[targetId];
-    removeAudioElement(targetId);
-});
-
-    return peer;
-function removeAudioElement(targetId) {
     const audio = document.getElementById('audio-' + targetId);
-    if (audio) {
-        audio.pause();
-        audio.srcObject = null;
-        audio.remove();
-        console.log(`បានលុប audio element របស់៖ ${targetId}`);
-    }
-}
-
+    if (audio) audio.remove();
+});
 
 socket.on('voice_user_joined', ({ id }) => {
     if (peers[id]) return;
