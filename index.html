@@ -486,10 +486,20 @@ let micEnabled = true;
 
 const iceConfig = {
     iceServers: [
-        { urls: "stun:stun1.l.google.com:19302" },
-        { urls: "stun:stun2.l.google.com:19302" }
-    ],
-    iceTransportPolicy: 'all' // សំខាន់៖ ប្តូរមក all សម្រាប់ការតេស្ត
+        { 
+            urls: "stun:stun.l.google.com:19302" // សំរាប់ជួយរក IP របស់អ្នក
+        },
+        {
+            urls: "turn:global.relay.metered.ca:80", // សំរាប់ជួយភ្ជាប់សំឡេង
+            username: "70c58d936fe4c62e38eff96c",
+            credential: "4tMqFurEIksvhg2h",
+        },
+        {
+            urls: "turn:global.relay.metered.ca:443?transport=tcp", // សំរាប់ជំនួយពេល Internet រារាំង
+            username: "70c58d936fe4c62e38eff96c",
+            credential: "4tMqFurEIksvhg2h",
+        }
+    ]
 };
 
 let peers = {};
