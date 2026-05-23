@@ -249,7 +249,6 @@ io.on('connection', (socket) => {
         broadcastRoomList();
     });
 
-    // ប្ដូរទៅជាការបោះបន្តរាល់ទិន្នន័យសញ្ញាទាំងអស់ដែលហូរចូលមក (Support Trickle ICE)
     socket.on('voice_signal', (data) => {
         if (data && data.to) {
             io.to(data.to).emit('voice_signal', {
