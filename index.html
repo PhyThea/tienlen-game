@@ -597,6 +597,43 @@ socket.on('roomCreated', ({ roomId, playerId }) => {
     showLobby(roomId);
 });
 
+// Function សម្រាប់បង្កើតការតភ្ជាប់ Peer
+function setupPeerConnection(targetUserId) {
+    // ពិនិត្យមើលថាតើ Peer នេះមានឬនៅ បើមានហើយកុំបង្កើតថ្មី
+    if (peers[targetUserId]) return;
+
+    // ការកំណត់ Initiator ដោយប្រើ ID (វិធីនេះធានាថា Peer ទាំងពីរមិនឈ្លោះគ្នាទេ)
+    const isInitiator = socket.id < targetUserId; 
+
+    const p = new SimplePeer({
+        initiator: isInitiator,
+        trickle: false,
+        stream: localStream
+    });
+
+    peers[targetUserId] = p;
+
+    p.on('signal', data => {
+        socket.emit('signal', { to: targetUserId, signal: data });
+    });
+
+    p.on('stream', stream => {
+        let audio = document.createElement('audio');
+        audio.srcObject = stream;
+        audio.play();
+    });
+
+    p.on('error', err => {
+        console.error('Connection error with ' + targetUserId, err);
+        if (peers[targetUserId]) {
+            peers[targetUserId].destroy();
+            delete peers[targetUserId];
+        }
+    });
+
+    return p;
+}
+
 socket.on('roomJoined', ({ roomId, playerId, isSpectator, playedCards, currentTurnIndex: serverTurn }) => {
     myId = playerId;
     currentRoom = roomId;
@@ -1269,25 +1306,31 @@ function createPeer(targetId, isInitiator) {
     return peer;
 }
 
-// 1. នៅពេលមានអ្នកថ្មីចូលមកក្នុងបន្ទប់
 socket.on('voice_user_joined', ({ id }) => {
+    // ពិនិត្យមើលថាតើ Peer នេះមានឬនៅ បើមានហើយកុំបង្កើតថ្មី
     if (peers[id]) return;
     
-    // កំណត់ Initiator ដោយផ្អែកលើ ID (តូចជាងមុន)
+    // ប្រើ socket.id របស់អ្នក (ដែលអ្នកបានកំណត់ទុកក្នុង myId ឬ socket.id)
+    // ត្រូវប្រាកដថា myId គឺជា id របស់អ្នកផ្ទាល់
+    const myId = socket.id; 
+    
+    // ក្បួននេះធានាថា៖ បើ A ចូលមុន B នោះ A និង B នឹងដឹងដូចគ្នាថាអ្នកណាជា initiator
     const amIInitiator = myId < id; 
+    
     console.log(`📞 តភ្ជាប់សំឡេងជាមួយ ${id} (ខ្ញុំជា Initiator: ${amIInitiator})`);
     
     peers[id] = createPeer(id, amIInitiator);
 });
 
-// 2. នៅពេលទទួលបានសញ្ញា (Signal)
 socket.on('voice_signal', ({ from, signal }) => {
+    // ប្រសិនបើមិនទាន់មាន Peer ទេ បង្កើតវាឡើងក្នុងនាមជា Receiver
     if (!peers[from]) {
         console.log("📥 ទទួលការសុំតភ្ជាប់សំឡេងពី ID:", from);
-        // បើមិនទាន់មាន Peer នេះទេ គឺត្រូវតែជា receiver (initiator: false)
+        // ដោយសារគេជាអ្នកផ្ញើមកមុន (គេគឺជា Initiator) យើងត្រូវតែជា receiver
         peers[from] = createPeer(from, false);
     }
     
+    // បញ្ចូលសញ្ញា (Signal)
     if (signal) {
         peers[from].signal(signal);
     }
