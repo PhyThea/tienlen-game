@@ -494,6 +494,7 @@ const iceConfig = {
 
 let peers = {};
 let localStream = null;
+const signalQueue = {}; 
 
 function getCardFileName(card) {
     let valStr = card.value;
@@ -1234,15 +1235,14 @@ socket.on('voice_user_joined', ({ id }) => {
 });
 
 function createPeer(targetId, amIInitiator) {
-    if (peers[targetId]) return; // ការពារកុំឱ្យបង្កើត Peer ជាន់គ្នា
+    if (peers[targetId]) return; 
 
     const peer = new SimplePeer({
         initiator: amIInitiator,
         trickle: true,
         stream: localStream,
-        config: iceConfig, // ប្រើការកំណត់ TURN/STUN របស់អ្នក
+        config: iceConfig,
         sdpTransform: (sdp) => {
-            // កាត់បន្ថយគុណភាពសំឡេងមកត្រឹម 32kbps ដើម្បីសន្សំ Data និងកាត់បន្ថយ Lag
             return sdp.replace(/a=fmtp:111 minptime=10;useinbandfec=1/g, 
             'a=fmtp:111 minptime=10;useinbandfec=1;maxaveragebitrate=32000');
         }
@@ -1250,6 +1250,15 @@ function createPeer(targetId, amIInitiator) {
 
     peer.on('signal', signal => {
         socket.emit('voice_signal', { to: targetId, signal: signal });
+    });
+
+    peer.on('connect', () => {
+        console.log(`✅ Connected to ${targetId}`);
+        // បញ្ជូនសញ្ញាទាំងអស់ដែលរង់ចាំក្នុង Queue
+        if (signalQueue[targetId]) {
+            signalQueue[targetId].forEach(sig => peer.signal(sig));
+            delete signalQueue[targetId]; // លុប Queue ចោលបន្ទាប់ពីប្រើអស់
+        }
     });
 
     peer.on('stream', stream => {
@@ -1268,28 +1277,22 @@ function createPeer(targetId, amIInitiator) {
 }
 
 socket.on('voice_signal', ({ from, signal }) => {
-    // ពិនិត្យមើលថាតើមាន Peer connection នោះរួចហើយឬនៅ
-    if (peers[from]) {
-        try {
-            peers[from].signal(signal);
-        } catch (err) {
-            console.error("កំហុសពេលផ្ញើ Signal ទៅ Peer ដែលមានស្រាប់:", err);
-        }
-    } else {
-        // បើមិនទាន់មាន គឺវាជាការតភ្ជាប់ថ្មី
-        console.log("📥 កំពុងទទួលការតភ្ជាប់ពី:", from);
-        createPeer(from, false); // ខ្ញុំជាអ្នកទទួល (Receiver)
-        
-        // ប្រើ setTimeout ដើម្បីឱ្យ Peer បានបង្កើតរួចរាល់សិន សឹមផ្ញើ Signal ចូល
-        setTimeout(() => {
-            if (peers[from]) {
-                try {
-                    peers[from].signal(signal);
-                } catch (e) {
-                    console.error("កំហុសពេលផ្ញើ Signal ទៅ Peer ថ្មី:", e);
-                }
-            }
-        }, 300); // រង់ចាំ 300ms ដើម្បីឱ្យ Connection ស្ថិតក្នុងស្ថានភាពសកម្ម
+    const peer = peers[from];
+
+    // បើ Peer មានហើយ និង Ready ផ្ញើ Signal ទៅភ្លាម
+    if (peer && peer.connected) {
+        try { peer.signal(signal); } catch (e) { console.error(e); }
+    } 
+    // បើ Peer កំពុងតែបង្កើត (មាន object តែមិនទាន់ Connected) ទុកក្នុង Queue
+    else if (peer) {
+        if (!signalQueue[from]) signalQueue[from] = [];
+        signalQueue[from].push(signal);
+    } 
+    // បើ Peer អត់ទាន់មានទេ បង្កើតវា ហើយទុក Signal ក្នុង Queue រង់ចាំ
+    else {
+        createPeer(from, false);
+        if (!signalQueue[from]) signalQueue[from] = [];
+        signalQueue[from].push(signal);
     }
 });
 
@@ -1334,6 +1337,18 @@ function createAudioElement(id, stream) {
 
     document.body.appendChild(audio);
     return audio; // ត្រឡប់អថេរនេះសម្រាប់ប្រើប្រាស់បន្ត
+}
+
+function handleSignal(userId, signal) {
+    const peer = peers[userId];
+    // បើ peer អត់ទាន់មាន ឬអត់ទាន់ connected ទុកវាចូលក្នុងជួររង់ចាំ (Queue)
+    if (!peer || !peer.connected) {
+        if (!signalQueue[userId]) signalQueue[userId] = [];
+        signalQueue[userId].push(signal);
+    } else {
+        // បើ connected ហើយ ទើបបញ្ជូនសញ្ញា
+        peer.signal(signal);
+    }
 }
 
 function removeAudioElement(id) {
