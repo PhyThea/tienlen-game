@@ -1307,21 +1307,16 @@ function createPeer(targetId, isInitiator) {
 }
 
 socket.on('voice_user_joined', ({ id }) => {
-    // បើមាន Peer ហ្នឹងហើយ កុំធ្វើអីទៀត
     if (peers[id]) return;
 
-    // នេះជាក្បួន Logic ដែលមិនអាចខុសបាន៖
-    // នរណាក៏ដោយដែល ID តូចជាងគេ ត្រូវតែជា Initiator (true)
-    // នរណាក៏ដោយដែល ID ធំជាងគេ ត្រូវតែជា Receiver (false)
-    const amIInitiator = socket.id < id; 
+    // ប្រើ localeCompare ដើម្បីប្រៀបធៀប string ID ឱ្យបានត្រឹមត្រូវ
+    // បើ socket.id តូចជាង id នោះយើងជា initiator
+    const amIInitiator = socket.id.localeCompare(id) < 0; 
 
     console.log("=== Debug Connection ===");
     console.log("My ID:", socket.id);
     console.log("Target ID:", id);
     console.log("Result (I am Initiator):", amIInitiator);
-    
-    // បើលទ្ធផលនៅតែ false ទាំងពីរ មានន័យថា socket.id ទាំងពីរគឺដូចគ្នា
-    // ដែលនេះជាបញ្ហានៅលើ Server មិនមែនកូដក្នុង index.html ទេ
     
     peers[id] = createPeer(id, amIInitiator);
 });
