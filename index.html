@@ -414,7 +414,7 @@ button:disabled {
             <input type="text" id="roomInput" placeholder="លេខបន្ទប់ (Room ID)...">
             <input type="password" id="roomPass" placeholder="លេខកូដសម្ងាត់បន្ទប់ (បើគ្មាន ទុកទទេ)...">
             <div style="display: flex; gap: 10px;">
-                <button class="btn-blue" onclick="createRoom()">➕ បង្កើតបន្ទប់ថ្មី</button>
+                <button id="createRoomBtn">Create Room</button>
                 <button class="btn-green" onclick="joinRoom()">🚪 ចូលរួមបន្ទប់</button>
             </div>
         </div>
@@ -564,15 +564,23 @@ function getPlayerName() {
 }
 
 function createRoom() {
-    const playerName = getPlayerName();
-    if (!playerName) return;
+    const playerName = document.getElementById('playerName').value;
     const roomId = document.getElementById('roomInput').value.trim();
     const password = document.getElementById('roomPass').value;
+    
+    if (!playerName) return alert("សូមបញ្ចូលឈ្មោះ!");
     if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!");
+    
     initVoiceAndExecute(() => {
         socket.emit('createRoom', { roomId, password, playerName });
     });
 }
+
+// ប្រើ DOMContentLoaded ម្ដងគត់សម្រាប់ព្រឹត្តិការណ៍ទាំងអស់
+document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('createRoomBtn');
+    if (btn) btn.addEventListener('click', createRoom);
+});
 
 function joinRoom() {
     const playerName = getPlayerName();
@@ -1232,23 +1240,22 @@ socket.on('voice_user_joined', ({ id }) => {
 function createPeer(targetId, amIInitiator) {
     if (peers[targetId]) return;
 
-// កូដនេះប្រើសម្រាប់បង្កើតការតភ្ជាប់សំឡេងដែលរឹងមាំ
-const peer = new SimplePeer({
-    initiator: amIInitiator,
-    trickle: false, 
-    stream: localStream,
-    config: {
-        iceServers: [
-            { urls: "stun:stun.l.google.com:19302" },
-            { 
-                urls: "turn:global.relay.metered.ca:3478",
-                username: "70c58d936fe4c62e38eff96c",
-                credential: "4tMqFurEIksvhg2h"
-            }
-        ],
-        iceTransportPolicy: 'relay' // បង្ខំឱ្យវារត់ឆ្លងកាត់ TURN server 100%
-    }
-});
+    const peer = new SimplePeer({
+        initiator: amIInitiator,
+        trickle: false, 
+        stream: localStream,
+        config: {
+            iceServers: [
+                { urls: "stun:stun.l.google.com:19302" },
+                { 
+                    urls: "turn:global.relay.metered.ca:3478",
+                    username: "70c58d936fe4c62e38eff96c",
+                    credential: "4tMqFurEIksvhg2h"
+                }
+            ],
+            iceTransportPolicy: 'relay' // បង្ខំឱ្យប្រើ TURN Server ជានិច្ច
+        }
+    });
 
     peer.on('signal', signal => {
         socket.emit('voice_signal', { to: targetId, signal: signal });
@@ -1394,12 +1401,8 @@ function closeAllVoiceConnections() {
         }
     }
     peers = {};
-    
     const audios = document.querySelectorAll('audio');
     audios.forEach(a => a.remove());
-
-    // ជួសជុល៖ កុំកំណត់ micEnabled = false ទៀត នៅទីនេះ
-    // គ្រាន់តែរក្សាទុកស្ថានភាព track ទៅតាម micEnabled ដែលមានស្រាប់
     if (localStream) {
         localStream.getAudioTracks().forEach(track => {
             track.enabled = micEnabled; 
