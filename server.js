@@ -267,8 +267,12 @@ io.on('connection', (socket) => {
 
         const isSpectator = room.status === 'playing';
 
-        // ➕ បញ្ជូនសញ្ញាប្រាប់អ្នកនៅក្នុង Room ថាមានសមាជិកថ្មីចូលរួម Voice Chat
+        // ១. ប្រាប់អ្នកនៅក្នុង Room រួចហើយ ថាមានសមាជិកថ្មីចូលមក
         socket.to(roomId).emit('voice_user_joined', { id: socket.id });
+
+        // ២. ប្រាប់អ្នកថ្មី ឱ្យដឹងពីសមាជិកទាំងអស់ដែលមានស្រាប់ ដើម្បីឱ្យគាត់តភ្ជាប់ទៅពួកគេ
+        const existingPlayers = room.players.map(p => p.id);
+        socket.emit('all_existing_users', { users: existingPlayers });
 
         room.players.push({ 
             id: socket.id, 
@@ -281,7 +285,6 @@ io.on('connection', (socket) => {
 
         socket.join(roomId);
         
-        // 🛠️ កែសម្រួល៖ ផ្ញើទាំង playedCards និង currentTurnIndex ទៅឱ្យអ្នកលេងដែលទើបចូលរួម
         socket.emit('roomJoined', { 
             roomId, 
             playerId: socket.id, 
