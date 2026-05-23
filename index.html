@@ -1208,13 +1208,23 @@ function initVoiceAndExecute(callback) {
         });
 }
 
-// កូដនេះដាក់នៅផ្នែកខាងក្រោមនៃ index.html (Global Scope)
 socket.on('all_existing_users', ({ users }) => {
     users.forEach(targetId => {
         if (targetId !== socket.id && !peers[targetId]) {
-            createPeer(targetId, true); 
+            // អ្នកដែលចូលមកក្រោយ គឺជាអ្នកចាប់ផ្តើមតភ្ជាប់ (Initiator = true)
+            createPeer(targetId, true);
         }
     });
+});
+
+// សម្រាប់អ្នកលេងថ្មីដែលទើបតែ Join
+socket.on('voice_signal', ({ from, signal }) => {
+    if (peers[from]) {
+        peers[from].signal(signal);
+    } else {
+        const peer = createPeer(from, false);
+        if (peer) peer.signal(signal);
+    }
 });
 
 socket.on('voice_user_joined', ({ id }) => {
@@ -1223,15 +1233,19 @@ socket.on('voice_user_joined', ({ id }) => {
     }
 });
 
-// ១. មុខងារបង្កើត Peer (កែសម្រួលដើម្បីការពារការបង្កើតជាន់គ្នា)
 function createPeer(targetId, amIInitiator) {
-    if (peers[targetId]) return; // ការពារកុំឱ្យបង្កើត Peer ថ្មីបើមានស្រាប់
+    if (peers[targetId]) return; // ការពារកុំឱ្យបង្កើត Peer ជាន់គ្នា
 
     const peer = new SimplePeer({
         initiator: amIInitiator,
         trickle: true,
         stream: localStream,
-        config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+        config: iceConfig, // ប្រើការកំណត់ TURN/STUN របស់អ្នក
+        sdpTransform: (sdp) => {
+            // កាត់បន្ថយគុណភាពសំឡេងមកត្រឹម 32kbps ដើម្បីសន្សំ Data និងកាត់បន្ថយ Lag
+            return sdp.replace(/a=fmtp:111 minptime=10;useinbandfec=1/g, 
+            'a=fmtp:111 minptime=10;useinbandfec=1;maxaveragebitrate=32000');
+        }
     });
 
     peer.on('signal', signal => {
@@ -1243,11 +1257,14 @@ function createPeer(targetId, amIInitiator) {
     });
 
     peer.on('error', err => {
-        console.error("Peer Error:", err);
+        console.error(`⚠️ Peer ${targetId} Error:`, err);
         cleanupPeer(targetId);
     });
 
+    peer.on('close', () => cleanupPeer(targetId));
+
     peers[targetId] = peer;
+    return peer;
 }
 
 socket.on('voice_signal', ({ from, signal }) => {
@@ -1276,12 +1293,16 @@ socket.on('voice_signal', ({ from, signal }) => {
     }
 });
 
-// ៣. មុខងារសម្អាត Peer (ប្រើពេលដាច់ការតភ្ជាប់)
 function cleanupPeer(id) {
     if (peers[id]) {
-        try { peers[id].destroy(); } catch (e) {}
+        try {
+            peers[id].destroy(); 
+        } catch (e) {
+            console.log("Error destroying peer:", e);
+        }
         delete peers[id];
-        removeAudioElement(id);
+        removeAudioElement(id); // លុប Tag សំឡេងចេញពីអេក្រង់
+        console.log(`🔊 បានលុបធាតុសំឡេងសម្រាប់៖ ${id}`);
     }
 }
 
