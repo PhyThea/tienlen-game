@@ -259,7 +259,9 @@ io.on('connection', (socket) => {
 
     socket.on('joinRoom', ({ roomId, password, playerName }) => {
         const room = rooms[roomId];
-        if (!room) return socket.emit('errorMsg', 'រកមិនឃើញបន្ទប់នេះទេ!');
+        // បិទចោល៖ បើរករលត់ ឬរកមិនឃើញបន្ទប់ គឺឱ្យវារំលងទៅស្ងាត់ៗ មិនបាច់ផ្ញើសារព្រមានទៅ Client ទេ
+        if (!room) return; 
+        
         if (room.password && room.password !== password) return socket.emit('errorMsg', 'លេខកូដសម្ងាត់មិនត្រឹមត្រូវ!');
         if (room.players.length >= 4) return socket.emit('errorMsg', 'បន្ទប់ពេញហើយ!');
 
