@@ -1013,12 +1013,62 @@ socket.on('errorMsg', (msg) => {
     renderMyCards();
 });
 
-socket.on('gameWon', ({ winner, winnerId, allHands }) => {
+// 🛠️ មុខងារបន្ថែម៖ ទទួលសញ្ញាឈ្នះស៊ុយភ្លាមៗពី Server ពេលចែកបៀររួច
+socket.on('instantWinOccurred', ({ winnerName, reason, allHands }) => {
+    document.body.classList.remove('in-game');
+    document.getElementById('gameArea').style.display = 'none';
+    document.getElementById('resultArea').style.display = 'block';
+    
+    document.getElementById('winnerName').innerHTML = `${winnerName} <span style="color: #f59e0b; font-size: 14px;">[👑 ឈ្នះស៊ុយដាច់៖ ${reason}]</span>`;
+
+    const resultList = document.getElementById('resultList');
+    resultList.innerHTML = '';
+
+    allHands.forEach((p) => {
+        const playerDiv = document.createElement('div');
+        playerDiv.className = 'result-player';
+        
+        if (p.rank === 1) {
+            playerDiv.style.border = '1.5px solid #eab308';
+            playerDiv.style.background = '#1e293b';
+        }
+
+        let rankBadgeHTML = p.rank === 1 ? `<span style="color: #eab308; font-weight: bold;">👑 លេខ ១ (ឈ្នះស៊ុយ)</span>` : `<span style="color: #ef4444;">❌ អ្នកចាញ់ស៊ុយ</span>`;
+        let cardsHTML = '';
+
+        if (p.remaining && p.remaining.length > 0) {
+            p.remaining.forEach(card => {
+                cardsHTML += `<img src="${getCardFileName(card)}" style="width: 34px; height: auto; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); margin-right: 3px; margin-bottom: 3px;">`;
+            });
+        } else {
+            cardsHTML = `<span style="color: #22c55e; font-style: italic;">🎉 គ្មានសន្លឹកបៀរឡើយ!</span>`;
+        }
+
+        playerDiv.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; border-bottom: 1px solid #475569; padding-bottom: 3px;">
+                <div><strong>👤 ${p.name}</strong></div>
+                <div>${rankBadgeHTML}</div>
+            </div>
+            <div class="result-cards">${cardsHTML}</div>
+        `;
+        resultList.appendChild(playerDiv);
+    });
+
+    showPlayAgainButton(winnerName);
+});
+
+// 🛠️ ធ្វើបច្ចុប្បន្នភាពមុខងារ៖ កែប្រែ gameWon ដើម្បីបង្ហាញព័ត៌មានឈ្នះឌុប / ចាញ់ឌុប
+socket.on('gameWon', ({ winner, winnerId, allHands, isDoubleWin }) => {
     lastRoundWinnerId = winnerId;
     document.body.classList.remove('in-game');
     document.getElementById('gameArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'block';
-    document.getElementById('winnerName').innerText = winner;
+    
+    if (isDoubleWin) {
+        document.getElementById('winnerName').innerHTML = `${winner} <span style="color: #ef4444; font-size: 14px;">[👑 ឈ្នះឌុបដាច់តុ!]</span>`;
+    } else {
+        document.getElementById('winnerName').innerText = winner;
+    }
 
     const resultList = document.getElementById('resultList');
     resultList.innerHTML = '';
@@ -1045,10 +1095,22 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
             rankBadgeHTML = `<span style="color: #94a3b8; font-weight: bold;">👀 អ្នកមើល</span>`;
             cardsHTML = `<span style="color: #64748b; font-style: italic;">(គ្មានសន្លឹកបៀរឡើយ)</span>`;
         } else {
-            if (p.rank === 1) rankBadgeHTML = `<span style="color: #eab308; font-weight: bold;">👑 លេខ ១ (🏆 អ្នកឈ្នះ)</span>`;
-            else if (p.rank === 2) rankBadgeHTML = `<span style="color: #3b82f6; font-weight: bold;">🥈 លេខ ២</span>`;
-            else if (p.rank === 3) rankBadgeHTML = `<span style="color: #a855f7; font-weight: bold;">🥉 លេខ ៣</span>`;
-            else rankBadgeHTML = `<span style="color: #ef4444; font-weight: bold;">❌ អ្នកចាញ់</span>`;
+            if (p.rank === 1) {
+                rankBadgeHTML = isDoubleWin 
+                    ? `<span style="color: #eab308; font-weight: bold;">👑 លេខ ១ (ឈ្នះឌុប)</span>` 
+                    : `<span style="color: #eab308; font-weight: bold;">👑 លេខ ១ (🏆 អ្នកឈ្នះ)</span>`;
+            } else if (p.rank === 2) {
+                rankBadgeHTML = `<span style="color: #3b82f6; font-weight: bold;">🥈 លេខ ២</span>`;
+            } else if (p.rank === 3) {
+                rankBadgeHTML = `<span style="color: #a855f7; font-weight: bold;">🥉 លេខ ៣</span>`;
+            } else {
+                rankBadgeHTML = `<span style="color: #ef4444; font-weight: bold;">❌ អ្នកចាញ់</span>`;
+            }
+
+            // បន្ថែមចំណាំបើចាញ់ឌុប
+            if (p.isDoubleLeaved) {
+                rankBadgeHTML += ` <br><span style="color: #ef4444; font-size: 10px; font-weight: bold;">(ចាញ់ឌុប សល់១៣សន្លឹក)</span>`;
+            }
 
             const remainingCards = p.remaining || p.hand || [];
             if (remainingCards.length > 0) {
@@ -1073,13 +1135,18 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
                     <strong>👤 ${p.name}</strong>
                     ${countText}
                 </div>
-                <div>${rankBadgeHTML}</div>
+                <div style="text-align: right;">${rankBadgeHTML}</div>
             </div>
             <div class="result-cards">${cardsHTML}</div>
         `;
         resultList.appendChild(playerDiv);
     });
 
+    showPlayAgainButton(winner);
+});
+
+// 🛠️ មុខងារជំនួយ៖ បង្ហាញប៊ូតុងលេងម្ដងទៀតឱ្យត្រូវតាមសិទ្ធិ
+function showPlayAgainButton(winnerName) {
     const playAgainBtn = document.getElementById('hostPlayAgainBtn');
     const waitText = document.getElementById('waitHostText');
     
@@ -1088,26 +1155,19 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
         waitText.style.display = 'none';
         playAgainBtn.innerText = "🔄 ចាប់ផ្ដើមវគ្គថ្មី (Start Next Round)";
         
-        playAgainBtn.onclick = null;
-        playAgainBtn.ontouchstart = null;
-
         playAgainBtn.onclick = function() {
-            if (currentRoom) {
-                socket.emit('startGame', currentRoom);
-            }
+            if (currentRoom) socket.emit('startGame', currentRoom);
         };
         playAgainBtn.ontouchstart = function(e) {
             e.preventDefault(); 
-            if (currentRoom) {
-                socket.emit('startGame', currentRoom);
-            }
+            if (currentRoom) socket.emit('startGame', currentRoom);
         };
     } else {
         playAgainBtn.style.display = 'none';
         waitText.style.display = 'block';
-        waitText.innerText = `សូមរង់ចាំអ្នកឈ្នះ (${winner}) ចាប់ផ្ដើមវគ្គថ្មី...`;
+        waitText.innerText = `សូមរង់ចាំអ្នកឈ្នះ (${winnerName}) ចាប់ផ្ដើមវគ្គថ្មី...`;
     }
-});
+}
 
 function leaveRoom() {
     if (confirm("តើអ្នកពិតជាចង់ចាកចេញពីបន្ទប់នេះមែនទេ?")) {
@@ -1134,7 +1194,7 @@ socket.on('leftRoom', () => {
 });
 
 // =================================================================
-// 🛠️ ផ្នែក LOGIC ជួសជុលបន្ថែមប្រព័ន្ធ ICE SERVERS ឱ្យនិយាយឮច្បាស់
+// 🛠️ ផ្នែក LOGIC ប្រព័ន្ធ ICE SERVERS សម្រាប់ Voice Chat
 // =================================================================
 
 function toggleMic() {
@@ -1183,12 +1243,10 @@ function closeAllVoiceConnections() {
         localStream.getTracks().forEach(track => track.stop());
         localStream = null;
     }
-    // សម្អាតចំណាំឧបករណ៍ ដើម្បីឱ្យសាកល្បងម្ដងទៀតពេលចូលបន្ទប់ថ្មី
     localStorage.removeItem('has_no_mic');
 }
 
 function initVoiceAndExecute(callback) {
-    // ១. បើមាន localStream រួចហើយ ឬដឹងថាគ្មានឧបករណ៍ Mic (ដឹងថាអត់ Mic) ក៏ឱ្យរត់ callback ដែរ
     if (localStream || localStorage.getItem('has_no_mic') === 'true') {
         if (callback) callback();
         return;
@@ -1217,21 +1275,17 @@ function initVoiceAndExecute(callback) {
         if (callback) callback();
     })
     .catch(err => {
-        // ២. ករណីរកឧបករណ៍មិនឃើញ (NotFoundError) ឬអត់សិទ្ធិ (NotAllowedError)
-        console.warn("មិនអាចបើក Mic ផ្ញើទៅគេបានទេ (Computer អត់ Mic ឬអត់សិទ្ធិ) ប៉ុន្តែប្រព័ន្ធនឹងបើកឱ្យស្ដាប់គេបានដដែល: ", err);
-        
-        // ចំណាំទុកក្នុង LocalStorage ថាឧបករណ៍នេះអត់ Mic ទេ ដើម្បីកុំឱ្យវាព្យាយាមសុំសិទ្ធិរំខានញឹកញាប់
+        console.warn("មិនអាចបើក Mic ផ្ញើទៅគេបានទេ ប៉ុន្តែប្រព័ន្ធនឹងបើកឱ្យស្ដាប់គេបានដដែល: ", err);
         localStorage.setItem('has_no_mic', 'true');
-        updateMicButtonUI(); // ធ្វើបច្ចុប្បន្នភាព UI ប៊ូតុង
+        updateMicButtonUI();
 
-        // 🌟 ចំណុចសំខាន់៖ ទោះគ្មាន Mic ខ្លួនឯង ក៏ត្រូវតែឱ្យរត់ callback() ទៅបង្កើត Peer ដែរ ដើម្បីអាចស្ដាប់គេឮ!
         if (callback) callback();
     });
 }
 
 function createPeer(targetSocketId, initiator) {
     if (peers[targetSocketId]) {
-        console.log(`Peer សម្រាប់ ${targetSocketId} មានរួចហើយ។`);
+        console.log(`Peer សម្រាប់ ${targetSocketId} មានរួចហើយ。`);
         return peers[targetSocketId];
     }
 
@@ -1281,7 +1335,6 @@ function createPeer(targetSocketId, initiator) {
         }
     });
 
-    // 🛠️ ចាប់ទិន្នន័យពេល Peer ត្រូវដាច់ដោយប្រយោល ដើម្បីសម្អាត Array កុំឱ្យគាំង
     p.on('close', () => {
         removeAudioElement(targetSocketId);
         if (peers[targetSocketId]) delete peers[targetSocketId];
