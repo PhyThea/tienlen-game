@@ -1,11 +1,10 @@
 {
-  "name": "tienlen-online",
+  "name": "tienlen-kate-online",
   "version": "1.0.0",
-  "description": "Tien Len and Ka Te Online Multiplayer",
+  "description": "Tien Len & Kate Multiplayer Game Portal",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "start-kate": "node server_kate.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.19.2",
