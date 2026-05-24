@@ -1311,17 +1311,15 @@ function removeAudioElement(id) {
 // ==========================================
 
 // ពេលមានអ្នកលេងថ្មីចូលមកក្នុងបន្ទប់
-socket.on('voice_user_joined', (userSocketId) => {
+socket.on('voice_user_joined', (data) => {
+    // 💡 សោរការពារ៖ ទាញយកអក្សរ ID សុទ្ធ ទោះ Server ផ្ញើមកជាកញ្ចប់ Object ក៏ដោយ
+    const userSocketId = typeof data === 'object' ? data.id : data;
+    
     console.log("អ្នកលេងថ្មីចូលរួម Voice:", userSocketId);
     if (userSocketId === socket.id) return;
 
-    // ធានាថា Mic ត្រូវបានបើករួចរាល់ មុននឹងបង្កើត Peer
     initVoiceAndExecute(() => {
-        // កំណត់លក្ខខណ្ឌ៖ អ្នកចូលមុនធ្វើជាអ្នកផ្ដើមហៅ (Initiator = true)
         const isInitiator = socket.id.localeCompare(userSocketId) > 0;
-        
-        // 💡 ដំណោះស្រាយសំខាន់៖ បើខ្លួនឯងជាអ្នកផ្ដើមហៅ (ចាស់វស្សា) ឱ្យបង្កើតភ្លាម (500ms) 
-        // បើខ្លួនឯងជាអ្នកទទួល (អ្នកថ្មី) ឱ្យពន្យារពេលយូរជាងនេះ (1500ms) ដើម្បីកុំឱ្យបុកគ្នា
         const delayTime = isInitiator ? 500 : 1500;
 
         setTimeout(() => {
@@ -1332,13 +1330,15 @@ socket.on('voice_user_joined', (userSocketId) => {
 
 // ទទួលសញ្ញា (Signal) ពីអ្នកលេងផ្សេង
 socket.on('voice_signal', (data) => {
-    const senderId = data.sender;
+    // 💡 សោរការពារ៖ ក្រែងលោ Server បាញ់មកជា {from: ...} ជំនួសឱ្យ {sender: ...}
+    const senderId = data.sender || data.from; 
     console.log("ទទួលសញ្ញា Voice ពី:", senderId);
+
+    if (!senderId) return;
 
     initVoiceAndExecute(() => {
         let p = peers[senderId];
         if (!p) {
-            // បើមិនទាន់មាន Peer ទេ ត្រូវបង្កើតវា (ករណីនេះខ្លួនឯងជាអ្នកទទួល Initiator = false)
             p = createPeer(senderId, false);
         }
         p.signal(data.signal);
@@ -1346,10 +1346,14 @@ socket.on('voice_signal', (data) => {
 });
 
 // ពេលមានអ្នកចាកចេញពីបន្ទប់
-socket.on('voice_user_left', (userSocketId) => {
+socket.on('voice_user_left', (data) => {
+    // 💡 សោរការពារ៖ ទាញយកអក្សរ ID សុទ្ធ
+    const userSocketId = typeof data === 'object' ? data.id : data;
+    
     console.log("អ្នកលេងចាកចេញពី Voice:", userSocketId);
     if (peers[userSocketId]) {
         peers[userSocketId].destroy();
+        delete peers[userSocketId];
     }
 });
 
