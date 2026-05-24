@@ -243,18 +243,14 @@ io.on('connection', (socket) => {
         };
         
         socket.join(roomId);
-        
-        // ➕ បន្ថែមបន្ទាត់នេះចូល ដើម្បីឱ្យអ្នកបង្កើតបន្ទប់ចាប់ផ្ដើមដំណើរការ Voice ដែរ
-        socket.emit('voice_user_joined', { id: socket.id }); 
-
         socket.emit('roomCreated', { roomId, playerId: socket.id });
         io.to(roomId).emit('updatePlayers', rooms[roomId].players);
         broadcastRoomList();
     });
 
-    // ក្នុង server.js
+    // រកមើលកូដចាស់ត្រង់ socket.on('voice_signal') រួចដូរជំនួសដោយកូដនេះ៖
     socket.on('voice_signal', (data) => {
-        // ប្រើទិន្នន័យ target និង sender ឱ្យដូចនឹង Client ដែរ
+        // បញ្ជូនសញ្ញាទៅកាន់គោលដៅ (target) ដោយភ្ជាប់ជាមួយ ID របស់អ្នកផ្ញើ (sender)
         io.to(data.target).emit('voice_signal', {
             sender: socket.id, 
             signal: data.signal
@@ -269,8 +265,13 @@ io.on('connection', (socket) => {
 
         const isSpectator = room.status === 'playing';
 
-        // ➕ បញ្ជូនសញ្ញាប្រាប់អ្នកនៅក្នុង Room ថាមានសមាជិកថ្មីចូលរួម Voice Chat
+        // ១. ប្រាប់អ្នកចាស់ៗនៅក្នុងបន្ទប់ឱ្យរៀបចំចាំទទួលខ្សែសំឡេងពីសមាជិកថ្មី
         socket.to(roomId).emit('voice_user_joined', { id: socket.id });
+
+        // ២. ប្រាប់អ្នកថ្មី (ខ្លួនឯង) ឱ្យផ្ដើមបង្កើត Peer ហៅទៅកាន់អ្នកចាស់ៗម្នាក់ៗដែលមានក្នុងបន្ទប់ស្រាប់
+        room.players.forEach(existingPlayer => {
+            socket.emit('voice_initiate_peer', { target: existingPlayer.id });
+        });
 
         room.players.push({ 
             id: socket.id, 
@@ -282,8 +283,7 @@ io.on('connection', (socket) => {
         });
 
         socket.join(roomId);
-        
-        // 🛠️ កែសម្រួល៖ ផ្ញើទាំង playedCards និង currentTurnIndex ទៅឱ្យអ្នកលេងដែលទើបចូលរួម
+
         socket.emit('roomJoined', { 
             roomId, 
             playerId: socket.id, 
@@ -291,7 +291,7 @@ io.on('connection', (socket) => {
             playedCards: room.playedCards,
             currentTurnIndex: room.currentTurnIndex
         });
-        
+
         io.to(roomId).emit('updatePlayers', room.players);
         broadcastRoomList();
     });
@@ -402,7 +402,7 @@ io.on('connection', (socket) => {
                     cards, 
                     nextTurn: room.currentTurnIndex,
                     cardCount: player.hand.length,
-                    updatedHands: room.players 
+                    updatedHands: room.players
                 });
 
                  setTimeout(() => {
