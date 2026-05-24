@@ -251,9 +251,9 @@ io.on('connection', (socket) => {
 
     // ក្នុង server.js
     socket.on('voice_signal', (data) => {
-        // data.to គឺជា socket.id របស់ Peer ដែលយើងចង់ផ្ញើទៅ
-        io.to(data.to).emit('voice_signal', {
-            from: socket.id, // នេះជាចំណុចសំខាន់បំផុត ដើម្បីឱ្យគេដឹងថា signal មកពីណា
+        // ប្រើទិន្នន័យ target និង sender ឱ្យដូចនឹង Client ដែរ
+        io.to(data.target).emit('voice_signal', {
+            sender: socket.id, 
             signal: data.signal
         });
     });
