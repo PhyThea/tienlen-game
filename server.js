@@ -8,7 +8,10 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+    pingTimeout: 60000, // បង្កើនពេលវេលារង់ចាំរហូតដល់ 60 វិនាទី
+    pingInterval: 25000 // ផ្ញើការសាកសួរ (Ping) រៀងរាល់ 25 វិនាទី
+});
 
 app.use(express.static(__dirname));
 
