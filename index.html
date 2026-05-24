@@ -428,8 +428,7 @@ button:disabled {
         <h2>Room: <span id="showRoom" style="color: #3b82f6;"></span></h2>
         <br>
         <div id="lobbyPlayers" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;"></div>
-        <button id="startBtn" class="btn-green" onclick="resumeAudio(); startGame()" style="display: none;">🚀 Start Game</button>
-        <button class="btn-red" onclick="leaveRoom()">🚪 ចាកចេញ (Leave)</button>
+        <button id="startBtn" class="btn-green" onclick="startGame()" style="display: none;">🚀 Start Game</button>
     </div>
 
     <div id="gameArea">
@@ -462,7 +461,7 @@ button:disabled {
         <h3>📊 ចំណាត់ថ្នាក់ និងសន្លឹកបៀដែលនៅសល់៖</h3>
         <div id="resultList"></div>
         <br>
-        <button id="hostPlayAgainBtn" class="btn-green" onclick="resumeAudio(); startGame()" style="display: none;">🔄 ចាប់ផ្ដើមវគ្គថ្មី (Start Next Round)</button>
+        <button id="hostPlayAgainBtn" class="btn-green" onclick="startGame()" style="display: none;">🔄 ចាប់ផ្ដើមវគ្គថ្មី (Start Next Round)</button>
         <div id="waitHostText" style="color: #94a3b8; margin-top: 15px;">សូមរង់ចាំ Host ចាប់ផ្ដើមវគ្គថ្មី...</div>
         <button class="btn-red" onclick="leaveRoom()">🚪 ចាកចេញទៅទំព័រដើម</button>
     </div>
@@ -1254,32 +1253,23 @@ function createPeer(targetSocketId, initiator) {
             audio = document.createElement('audio');
             audio.id = `audio_${targetSocketId}`;
             audio.autoplay = true;
+            
+            // 💡 ចំណុចសំខាន់សម្រាប់ទូរស័ព្ទ (iOS / Android)
+            audio.playsInline = true; 
+            
             document.body.appendChild(audio);
         }
         audio.srcObject = stream;
-    });
 
-    p.on('close', () => {
-        console.log(`ការភ្ជាប់សំឡេងជាមួយ ${targetSocketId} ត្រូវបានបិទ`);
-        removeAudioElement(targetSocketId);
-        delete peers[targetSocketId];
+        // 💡 ចាប់យក Error ប្រសិនបើទូរស័ព្ទ Block មិនឱ្យលឺសំឡេង
+        let playPromise = audio.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(error => {
+                console.error(`ទូរស័ព្ទ Block សំឡេងពី ${targetSocketId}:`, error);
+                // វិធីកែបណ្ដោះអាសន្នពេលវា Block គឺតម្រូវឱ្យអ្នកលេងចុចបិទបើក Mic ម្តង ដើម្បីដាស់ប្រព័ន្ធសំឡេង
+            });
+        }
     });
-
-    p.on('error', err => {
-        console.error(`Peer ជួបបញ្ហា (${targetSocketId}):`, err);
-        removeAudioElement(targetSocketId);
-        delete peers[targetSocketId];
-    });
-
-    // បន្ថែម Auto-Reconnect ពេលអ៊ីនធឺណិតដាច់មួយភ្លែត
-    if (p._pc) {
-        p._pc.oniceconnectionstatechange = () => {
-            if (p._pc.iceConnectionState === 'failed' || p._pc.iceConnectionState === 'disconnected') {
-                console.log(`ការភ្ជាប់ទៅ ${targetSocketId} បានដាច់។ ព្យាយាមភ្ជាប់ឡើងវិញ...`);
-                p.destroy();
-            }
-        };
-    }
 
     peers[targetSocketId] = p;
     return p;
@@ -1404,6 +1394,29 @@ function closeAllVoiceConnections() {
         });
     }
 }
+
+</script>
+<div id="mobile-console" style="position: fixed; bottom: 0; left: 0; width: 100%; height: 200px; background: rgba(0,0,0,0.85); color: #0f0; overflow-y: scroll; font-size: 13px; z-index: 9999; padding: 10px; display: none; word-wrap: break-word;"></div>
+<button onclick="document.getElementById('mobile-console').style.display='block'" style="position: fixed; bottom: 10px; left: 10px; z-index: 10000; padding: 10px; background: red; color: white; border-radius: 5px; border: none; font-weight: bold;">🔍 មើល Log (ទូរស័ព្ទ)</button>
+<button onclick="document.getElementById('mobile-console').style.display='none'" style="position: fixed; bottom: 10px; left: 130px; z-index: 10000; padding: 10px; background: gray; color: white; border-radius: 5px; border: none; font-weight: bold;">បិទ</button>
+
+<script>
+    const mc = document.getElementById('mobile-console');
+    function logToScreen(msg, type='log') {
+        const div = document.createElement('div');
+        div.style.color = type === 'error' ? '#ff4c4c' : (type === 'warn' ? '#ffcc00' : '#0f0');
+        div.innerText = typeof msg === 'object' ? JSON.stringify(msg) : msg;
+        mc.appendChild(div);
+        mc.scrollTop = mc.scrollHeight; // អូសចុះក្រោមរហូត
+    }
+    const oldLog = console.log;
+    const oldErr = console.error;
+    const oldWarn = console.warn;
+    
+    console.log = function(...args) { logToScreen(args.join(' ')); oldLog.apply(console, args); };
+    console.error = function(...args) { logToScreen(args.join(' '), 'error'); oldErr.apply(console, args); };
+    console.warn = function(...args) { logToScreen(args.join(' '), 'warn'); oldWarn.apply(console, args); };
+
 </script>
 </body>
 </html>
