@@ -549,11 +549,27 @@ socket.on('roomList', (rooms) => {
 });
 
 function quickJoin(roomId, hasPassword) {
-    document.getElementById('roomInput').value = roomId;
-    if (hasPassword) {
-        const pass = prompt("សូមបញ្ចូលលេខកូដសម្ងាត់បន្ទប់៖");
-        if (pass !== null) document.getElementById('roomPass').value = pass;
+    // ១. រកមើល Element ទាំង ២ នេះសិន
+    const roomInput = document.getElementById('roomInput');
+    const passInput = document.getElementById('roomPass');
+
+    // ២. ប្រសិនបើរកមិនឃើញ (null) យើងត្រូវចាត់ការកុំឱ្យវាគាំង
+    if (!roomInput) {
+        console.error("រកមិនឃើញប្រអប់បញ្ចូលលេខបន្ទប់ (roomInput)!");
+        return;
     }
+
+    // ៣. បញ្ចូលតម្លៃទៅក្នុង Input
+    roomInput.value = roomId;
+
+    if (hasPassword && passInput) {
+        const pass = prompt("សូមបញ្ចូលលេខកូដសម្ងាត់បន្ទប់៖");
+        if (pass !== null) {
+            passInput.value = pass;
+        }
+    }
+
+    // ៤. ហៅ JoinRoom
     joinRoom();
 }
 
@@ -593,12 +609,21 @@ socket.on('connect', () => {
 });
 
 
-// បន្ថែមចូលក្នុង function ដែលអ្នកប្រើសម្រាប់ចូលបន្ទប់ (joinRoom)
 function joinRoom() {
-    const roomId = document.getElementById('roomIdInput').value; // ឧទាហរណ៍
-    const playerName = document.getElementById('nameInput').value;
-    
-    // កត់ត្រាទុកដើម្បីឱ្យវា Auto-reconnect បានពេលដាច់អ៊ីនធឺណិត
+    // ស្វែងរក Element ទាំងពីរនេះ
+    const roomIdInput = document.getElementById('roomIdInput');
+    const nameInput = document.getElementById('nameInput');
+
+    // ពិនិត្យមើលថាវាមាននៅលើអេក្រង់ដែរឬទេ
+    if (!roomIdInput || !nameInput) {
+        console.error("កំហុស៖ រកមិនឃើញប្រអប់បញ្ចូលទិន្នន័យ (Input) ទេ។ តើអ្នកស្ថិតក្នុងទំព័រត្រឹមត្រូវមែនទេ?");
+        return; // បញ្ឈប់ការដំណើរការត្រឹមនេះ ដើម្បីកុំឱ្យគាំង
+    }
+
+    // បន្តដំណើរការធម្មតា
+    const roomId = roomIdInput.value;
+    const playerName = nameInput.value;
+
     localStorage.setItem('last_room_id', roomId);
     localStorage.setItem('player_name', playerName);
     
