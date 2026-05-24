@@ -275,13 +275,30 @@ socket.on('moveRecorded', (data) => {
     const tableDiv = document.getElementById('table'); tableDiv.innerHTML = '';
     data.tableCards.forEach(m => {
         const box = document.createElement('div'); box.className = 'player-card-box';
-        const cardEl = document.createElement('img'); cardEl.style.width = '55px'; cardEl.style.borderRadius = '4px';
-        if (m.action === 'fold' && data.round <= 4) cardEl.src = 'PNG-cards/back.png'; else cardEl.src = getCardFileName(m.card);
-        const badge = document.createElement('div'); badge.className = 'action-badge'; badge.innerText = `${m.name}: ${m.action}`;
-        box.appendChild(badge); box.appendChild(cardEl); tableDiv.appendChild(box);
+        
+        if (m.action === 'fold' && data.round <= 4) {
+            // 🛠️ បង្កើតខ្នងបៀរដោយប្រើ CSS ពណ៌ក្រហម (មិនបារម្ភរឿងបាត់ឯកសាររូបភាព back.png ទៀតទេ)
+            const cardBackEl = document.createElement('div');
+            cardBackEl.style.width = '55px';
+            cardBackEl.style.height = '80px';
+            cardBackEl.style.borderRadius = '4px';
+            cardBackEl.style.background = 'linear-gradient(135deg, #b91c1c, #7f1d1d)'; // ពណ៌ក្រហមខ្នងបៀ
+            cardBackEl.style.border = '1.5px solid white';
+            cardBackEl.style.boxShadow = '0 2px 4px rgba(0,0,0,0.4)';
+            
+            const badge = document.createElement('div'); badge.className = 'action-badge'; badge.innerText = `${m.name}: ${m.action}`;
+            box.appendChild(badge); box.appendChild(cardBackEl);
+        } else {
+            // បង្ហាញរូបភាពមុខបៀរធម្មតាពេលស៊ី ឬផ្ងារ
+            const cardEl = document.createElement('img'); cardEl.style.width = '55px'; cardEl.style.borderRadius = '4px';
+            cardEl.src = getCardFileName(m.card);
+            
+            const badge = document.createElement('div'); badge.className = 'action-badge'; badge.innerText = `${m.name}: ${m.action}`;
+            box.appendChild(badge); box.appendChild(cardEl);
+        }
+        tableDiv.appendChild(box);
     });
 });
-
 socket.on('turnChanged', ({ currentTurnIndex: turn }) => { currentTurnIndex = turn; renderPlayers(playersData); updateControlsState(); });
 
 socket.on('nextRoundStarted', (data) => {
