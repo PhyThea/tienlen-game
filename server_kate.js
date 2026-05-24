@@ -10,16 +10,18 @@ const io = new Server(server, {
     pingInterval: 25000
 });
 
-// បើកឱ្យប្រើប្រាស់ឯកសារ Static នៅក្នុង Folder ជាមួយគ្នា
 app.use(express.static(__dirname));
 
 app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'main.html'));
+});
+
+app.get('/kate', (req, res) => {
     res.sendFile(path.join(__dirname, 'index_kate.html'));
 });
 
 const rooms = {};
 
-// ច្បាប់កាតេ៖ ២ តូចជាងគេ, អាត់ (A) ធំជាងគេបង្អស់
 const CARD_ORDER = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
 const SUIT_ORDER = { '♠': 0, '♣': 1, '♦': 2, '♥': 3 };
 
@@ -57,7 +59,6 @@ function moveToNextTurn(room) {
     for (let i = 1; i <= room.players.length; i++) {
         let checkIndex = (originalIndex + i) % room.players.length;
         let p = room.players[checkIndex];
-        // ក្នុងកាតេ អ្នកអស់បៀរមុន ឬអ្នកត្រូវបានកាត់សិទ្ធិ (ដាច់ទឹក) មិនអាចលេងបានទេ
         if (p && p.hand.length > 0 && !p.isSpectator) {
             nextIndex = checkIndex;
             found = true;
@@ -69,24 +70,21 @@ function moveToNextTurn(room) {
 
 function handleKaTeRoundStatus(room) {
     room.currentSubTurnCount++;
+    const activePlayers = room.players.filter(p => !p.isSpectator && p.hand.length >= 0);
     
-    // បើសិនជាគ្រប់គ្នាលេងបានម្នាក់មួយសន្លឹកហើយ (ចប់មួយជុំតូច)
-    const activePlayers = room.players.filter(p => !p.isSpectator);
     if (room.currentSubTurnCount >= activePlayers.length) {
-        // ស្វែងរកអ្នកឈ្នះក្នុងជុំនេះ (អ្នកទម្លាក់បៀរត្រូវទឹក និងធំបំផុត)
         let winCard = room.playedCards[0];
         let winPlayerId = room.roundActionLog[0].playerId;
 
         for (let i = 1; i < room.playedCards.length; i++) {
             let c = room.playedCards[i];
             let log = room.roundActionLog[i];
-            if (c.suit === winCard.suit && getCardPower(c) > getCardPower(winCard) && !log.isBurned) {
+            if (c && winCard && c.suit === winCard.suit && getCardPower(c) > getCardPower(winCard) && !log.isBurned) {
                 winCard = c;
                 winPlayerId = log.playerId;
             }
         }
 
-        // កត់ត្រាទុកថាអ្នកណាឈ្នះជុំនេះ
         let winnerPlayer = room.players.find(p => p.id === winPlayerId);
         if (winnerPlayer) {
             winnerPlayer.wonRounds.push(room.currentRoundNumber);
@@ -94,39 +92,33 @@ function handleKaTeRoundStatus(room) {
             room.currentTurnIndex = room.players.findIndex(p => p.id === winPlayerId);
         }
 
-        // ត្រៀមឡើងជុំថ្មី
         room.currentRoundNumber++;
         room.currentSubTurnCount = 0;
         room.playedCards = [];
         room.roundActionLog = [];
 
-        // ឆែកមើលថាតើដល់ជុំទី ៥ ឬនៅ?
         if (room.currentRoundNumber === 5) {
-            // អ្នកលេងណាដែលគ្មានឈ្នះសោះក្នុង ៤ ជុំដំបូង ត្រូវដាច់ទឹក (ធ្លាក់)
             room.players.forEach(p => {
                 if (!p.isSpectator && p.wonRounds.length === 0) {
-                    p.hand = []; // ជម្រុះចេញ
+                    p.hand = []; 
                 }
             });
             
             const survivors = room.players.filter(p => p.hand.length > 0);
             if (survivors.length <= 1) {
-                // បើសល់តែម្នាក់ គឺឈ្នះដាច់តែម្ដង
                 endGameWithWinner(room, survivors[0] ? survivors[0] : winnerPlayer);
                 return;
             }
         }
 
-        // ឆែកមើលថាតើចប់ជុំទី ៦ ឬនៅ? (ចប់ហ្គេម)
         if (room.currentRoundNumber > 6) {
-            // រកអ្នកឈ្នះចុងក្រោយនៅជុំទី ៦
             let finalWinner = room.players.find(p => p.id === room.lastRoundWinnerId);
             endGameWithWinner(room, finalWinner);
             return;
         }
 
         io.to(room.roomId).emit('clearTable', { 
-            nextPlayer: room.players[room.currentTurnIndex].name,
+            nextPlayer: room.players[room.currentTurnIndex] ? room.players[room.currentTurnIndex].name : "បន្ទាប់",
             roundNumber: room.currentRoundNumber 
         });
     } else {
@@ -195,9 +187,9 @@ io.on('connection', (socket) => {
             password: password || "",
             currentTurnIndex: 0,
             playedCards: [],
-            roundActionLog: [], // ទុកចំណាំសកម្មភាពក្នុងជុំនីមួយៗ
+            roundActionLog: [], 
             lastRoundWinnerId: null,
-            currentRoundNumber: 1, // រាប់ពីជុំទី ១ ដល់ ទី ៦
+            currentRoundNumber: 1, 
             currentSubTurnCount: 0
         };
         
@@ -214,10 +206,6 @@ io.on('connection', (socket) => {
         if (room.players.length >= 4) return socket.emit('errorMsg', 'បន្ទប់ពេញហើយ!');
 
         const isSpectator = room.status === 'playing';
-        socket.to(roomId).emit('voice_user_joined', { id: socket.id });
-
-        room.players.forEach(ep => socket.emit('voice_initiate_peer', { target: ep.id }));
-
         room.players.push({ id: socket.id, name: playerName || 'Guest', hand: [], isSpectator, rank: null, wonRounds: [] });
         socket.join(roomId);
 
@@ -226,17 +214,9 @@ io.on('connection', (socket) => {
         broadcastRoomList();
     });
 
-    socket.on('voice_signal', (data) => {
-        io.to(data.target).emit('voice_signal', { sender: socket.id, signal: data.signal });
-    });
-
     socket.on('startGame', (roomId) => {
         const room = rooms[roomId];
         if (!room) return;
-
-        if (room.lastRoundWinnerId ? room.lastRoundWinnerId !== socket.id : room.creatorId !== socket.id) {
-            return socket.emit('errorMsg', 'គ្មានសិទ្ធិចាប់ផ្ដើមហ្គេមទេ!');
-        }
 
         room.players.forEach(p => { p.isSpectator = false; p.hand = []; p.rank = null; p.wonRounds = []; });
         const activePlayers = room.players.filter(p => !p.isSpectator);
@@ -249,14 +229,12 @@ io.on('connection', (socket) => {
         room.currentRoundNumber = 1;
         room.currentSubTurnCount = 0;
         
-        // កាតេចែកម្នាក់ៗតែ ៦ សន្លឹកប៉ុណ្ណោះ
         room.players.forEach((p, i) => {
             p.hand = sortCards(deck.slice(i * 6, (i + 1) * 6));
         });
 
         room.players.forEach(p => io.to(p.id).emit('dealCards', { hand: p.hand }));
 
-        // ជុំដំបូងគេបង្អស់ឱ្យអ្នកឈ្នះវគ្គមុន ឬម្ចាស់បន្ទប់ចេញមុនគេ
         let startingIndex = room.lastRoundWinnerId ? room.players.findIndex(p => p.id === room.lastRoundWinnerId) : 0;
         if (startingIndex === -1) startingIndex = 0;
         room.currentTurnIndex = startingIndex;
@@ -271,7 +249,6 @@ io.on('connection', (socket) => {
         const player = room.players[room.currentTurnIndex];
         if (!player || player.id !== socket.id) return socket.emit('errorMsg', 'មិនមែនវេនអ្នកទេ');
 
-        // ដកបៀរចេញពីដៃអ្នកលេង
         const cardIdx = player.hand.findIndex(c => c.value === card.value && c.suit === card.suit);
         if (cardIdx === -1) return socket.emit('errorMsg', 'រកមិនឃើញបៀរនេះក្នុងដៃឡើយ');
         player.hand.splice(cardIdx, 1);
@@ -279,16 +256,11 @@ io.on('connection', (socket) => {
         let statusMessage = "";
         let finalBurnedStatus = isBurnAction;
 
-        // --- លក្ខខណ្ឌពិសេសសម្រាប់ជុំទី ៥ ---
         if (room.currentRoundNumber === 5) {
-            // សន្លឹកទី ៥ បង្ហាញឱ្យឃើញជានិច្ច មិនផ្កាប់មុខទេ
             finalBurnedStatus = false; 
-            
-            // បើក្បាលជុំទី ៥ (អ្នកចេញមុនគេ)
             if (room.playedCards.length === 0) {
                 statusMessage = "គប់ទេ";
             } else {
-                // អ្នកវេនបន្ទាប់ដេញទឹក
                 let leadCard = room.playedCards[0];
                 if (card.suit === leadCard.suit && getCardPower(card) > getCardPower(leadCard)) {
                     statusMessage = "គប់ហើយ";
@@ -297,7 +269,6 @@ io.on('connection', (socket) => {
                 }
             }
         } else {
-            // ជុំធម្មតា (១ ដល់ ៤) និងជុំទី ៦
             statusMessage = isBurnAction ? "ធិបផ្កាប់បៀ ❌" : "ស៊ីបៀរ 🎯";
         }
 
@@ -305,6 +276,7 @@ io.on('connection', (socket) => {
         room.roundActionLog.push({ playerId: socket.id, isBurned: finalBurnedStatus });
 
         io.to(roomId).emit('kaTeCardPlayed', {
+            playerId: socket.id,
             by: player.name,
             card: card,
             isBurned: finalBurnedStatus,
@@ -314,13 +286,6 @@ io.on('connection', (socket) => {
         });
 
         handleKaTeRoundStatus(room);
-    });
-
-    socket.on('leaveRoom', () => {
-        // ... (រក្សាទុក Logic Leave Room ដូចកូដដើមដើម្បីសុវត្ថិភាពទិន្នន័យ) ...
-    });
-    socket.on('disconnect', () => {
-        // ... (រក្សាទុក Logic Disconnect ដូចកូដដើម) ...
     });
 });
 
