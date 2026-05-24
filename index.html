@@ -483,24 +483,6 @@ let amISpectator = false;
 let lastRoundWinnerId = null; 
 let micEnabled = true;
 
-const iceConfig = {
-    iceServers: [
-        { 
-            urls: "stun:stun.l.google.com:19302" 
-        },
-        {
-            urls: "turn:global.relay.metered.ca:80",
-            username: "70c58d936fe4c62e38eff96c",
-            credential: "4tMqFurEIksvhg2h",
-        },
-        {
-            urls: "turn:global.relay.metered.ca:443?transport=tcp",
-            username: "70c58d936fe4c62e38eff96c",
-            credential: "4tMqFurEIksvhg2h",
-        }
-    ]
-};
-
 let peers = {};
 let localStream = null;
 
@@ -549,13 +531,11 @@ socket.on('roomList', (rooms) => {
 });
 
 function quickJoin(roomId, hasPassword) {
-    // ១. បង្ហាញផ្ទាំង Login ក្នុងករណីវាត្រូវបានលាក់ (Display Block)
     const loginArea = document.getElementById('loginArea');
     if (loginArea) {
         loginArea.style.display = 'block'; 
     }
 
-    // ២. កំណត់តម្លៃលេខបន្ទប់
     const roomInput = document.getElementById('roomInput');
     if (roomInput) {
         roomInput.value = roomId;
@@ -564,18 +544,15 @@ function quickJoin(roomId, hasPassword) {
         return;
     }
 
-    // ៣. បើសិនបន្ទប់មានលេខកូដសម្ងាត់
     const passInput = document.getElementById('roomPass');
     if (hasPassword && passInput) {
         const pass = prompt("សូមបញ្ចូលលេខកូដសម្ងាត់បន្ទប់៖");
         if (pass !== null) {
             passInput.value = pass;
         } else {
-            return; // បញ្ឈប់ការងារបើអ្នកលេងចុច Cancel
+            return;
         }
     }
-
-    // ៤. ហៅ JoinRoom បន្ទាប់ពីកំណត់តម្លៃរួចរាល់
     joinRoom();
 }
 
@@ -596,32 +573,14 @@ function createRoom() {
     const password = document.getElementById('roomPass').value;
     if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!");
     
-    // 💡 ជួសជុល៖ ផ្ញើទៅ server ភ្លាមៗ លែងហៅមុខងារបើក Mic ជាន់គ្នានៅទីនេះទៀតហើយ
     socket.emit('createRoom', { roomId, password, playerName });
 }
 
-socket.on('connect', () => {
-    const savedRoomId = localStorage.getItem('last_room_id');
-    const playerName = localStorage.getItem('player_name');
-    
-    // បើធ្លាប់នៅក្នុងបន្ទប់ ឱ្យវាចូលវិញដោយស្វ័យប្រវត្តិ
-    if (savedRoomId && playerName) {
-        socket.emit('joinRoom', { 
-            roomId: savedRoomId, 
-            playerName: playerName 
-        });
-        console.log("កំពុងចូលបន្ទប់វិញដោយស្វ័យប្រវត្តិ...");
-    }
-});
-
-
 function joinRoom() {
-    // ទាញយកធាតុទាំង ៣ មកប្រើ
     const nameInput = document.getElementById('playerName');
     const roomIdInput = document.getElementById('roomInput');
     const passInput = document.getElementById('roomPass');
 
-    // ពិនិត្យសោរការពារ៖ ប្រាកដថា Element មានវត្តមាននៅលើអេក្រង់
     if (!nameInput || !roomIdInput) {
         alert("កំហុស៖ រកមិនឃើញប្រអប់បញ្ចូលទិន្នន័យ (Input)។");
         return;
@@ -641,11 +600,9 @@ function joinRoom() {
         return;
     }
 
-    // រក្សាទុកក្នុង localStorage ដើម្បីឱ្យប្រព័ន្ធ Auto-reconnect ស្គាល់បន្ទប់ចាស់
     localStorage.setItem('last_room_id', roomId);
     localStorage.setItem('player_name', playerName);
 
-    // បញ្ជូនទៅ Server
     console.log("កំពុងចូលបន្ទប់:", roomId, "ដោយឈ្មោះ:", playerName);
     socket.emit('joinRoom', { 
         roomId: roomId, 
@@ -668,7 +625,6 @@ socket.on('roomJoined', ({ roomId, playerId, isSpectator, playedCards, currentTu
     amISpectator = isSpectator;
     
     if (amISpectator) {
-        // 🛠️ បន្ថែម៖ បើហ្គេមកំពុងលេង ឱ្យអ្នកមើលចូលទៅកាន់ផ្ទាំង Game ភ្លាមៗ និងបង្ហាញបៀរលើតុ
         currentTurnIndex = serverTurn;
         
         document.body.classList.remove('round-over'); 
@@ -681,7 +637,6 @@ socket.on('roomJoined', ({ roomId, playerId, isSpectator, playedCards, currentTu
         
         document.getElementById('actionControls').style.display = 'none';
         
-        // បង្ហាញបៀរដែលមាននៅលើតុស្រាប់
         const tableDiv = document.getElementById('table');
         tableDiv.innerHTML = ''; 
         if (playedCards && playedCards.length > 0) {
@@ -695,7 +650,6 @@ socket.on('roomJoined', ({ roomId, playerId, isSpectator, playedCards, currentTu
             tableDiv.innerHTML = '<div style="color: #a7f3d0; font-size:12px;">មិនទាន់មានបៀរចុះឡើយ</div>';
         }
     } else {
-        // បើហ្គេមមិនទាន់លេង ឱ្យទៅរង់ចាំនៅផ្ទាំង Lobby សិន
         showLobby(roomId);
     }
 });
@@ -717,8 +671,6 @@ socket.on('updatePlayers', (players) => {
         amISpectator = me.isSpectator;
     }
     renderPlayers(players);
-    
-    // ➕ បន្ថែមការហៅអនុគមន៍នេះនៅចុងក្រោយគេ
     updateRoomUI(); 
 });
 
@@ -761,27 +713,18 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn, lastRoundWinnerId: 
     }, 50);
 });
 
-// 🛠️ បន្ថែម៖ ស្ដាប់សញ្ញាផ្ទេរសិទ្ធិមេបន្ទប់/អ្នកឈ្នះ ពេលមានមនុស្ស Disconnect
 socket.on('winnerTransferred', (data) => {
-    // ធ្វើបច្ចុប្បន្នភាពអថេរនៅក្នុង Client
     lastRoundWinnerId = data.newWinnerId;
-    
-    // ហៅអនុគមន៍ឱ្យ Update UI ប៊ូតុងភ្លាមៗ
     updateRoomUI(data);
 });
 
 function updateRoomUI(data) {
-    // សម្គាល់៖ បើហៅមកធម្មតាគ្មាន data ឱ្យប្រើទិន្នន័យដែលមានស្រាប់
     const targetWinnerId = data ? data.newWinnerId : lastRoundWinnerId;
     const targetCreatorId = data ? data.creatorId : (playersData[0] ? playersData[0].id : null);
-    
-    // 🛠️ ជួសជុល៖ ប្រើ socket.id ផ្ទាល់របស់ Client ជំនួសឱ្យការប្រកាសជាន់អថេរចាស់
     const mySessionId = socket.id; 
 
-    // ពិនិត្យមើលថាតើខ្លួនយើងជា Creator ឬជា Last Winner ដែរឬទេ?
     const hasControl = (targetWinnerId === mySessionId || targetCreatorId === mySessionId);
 
-    // 1. គ្រប់គ្រង Button "Start Game" នៅក្នុងផ្ទាំង Lobby
     const startBtn = document.getElementById('startBtn');
     if (startBtn) {
         if (hasControl) {
@@ -795,7 +738,6 @@ function updateRoomUI(data) {
         }
     }
 
-    // 2. គ្រប់គ្រងប៊ូតុងនៅក្នុងផ្ទាំង Result (ពេលចប់ហ្គេម)
     const playAgainBtn = document.getElementById('hostPlayAgainBtn');
     const waitText = document.getElementById('waitHostText');
     
@@ -807,7 +749,6 @@ function updateRoomUI(data) {
             playAgainBtn.style.display = 'none';
             waitText.style.display = 'block';
             
-            // ស្វែងរកឈ្មោះអ្នកកាន់សិទ្ធិថ្មីមកបង្ហាញឱ្យស្អាត
             let managerName = 'មេបន្ទប់';
             const targetId = targetWinnerId || targetCreatorId;
             const manager = playersData.find(p => p.id === targetId);
@@ -1165,58 +1106,10 @@ socket.on('gameWon', ({ winner, winnerId, allHands }) => {
     }
 });
 
-// 🛠️ ជួសជុល៖ ស្ដាប់សញ្ញាផ្ទេរសិទ្ធិមេបន្ទប់/អ្នកឈ្នះ ពេលមានមនុស្ស Disconnect ឬចាកចេញ
-socket.on('winnerTransferred', (data) => {
-    // ធ្វើបច្ចុប្បន្នភាពអថេរដែលអាចទុកចិត្តបាននៅក្នុង Client ភ្លាមៗ
-    lastRoundWinnerId = data.newWinnerId;
-    
-    // ពិនិត្យមើលថាតើខ្លួនយើងជាអ្នកទទួលបានសិទ្ធិថ្មីមែនទេ? (ពិនិត្យតាម socket.id ផ្ទាល់)
-    const mySessionId = socket.id;
-    const hasControl = (data.newWinnerId === mySessionId || data.creatorId === mySessionId);
-
-    // 1. គ្រប់គ្រងប៊ូតុង "Start Game" នៅក្នុងផ្ទាំង Lobby
-    const startBtn = document.getElementById('startBtn');
-    if (startBtn) {
-        if (hasControl) {
-            startBtn.style.display = 'inline-block';
-            startBtn.disabled = false;
-            startBtn.innerText = "🚀 Start Game";
-            startBtn.classList.remove('btn-blue');
-            startBtn.classList.add('btn-green');
-        } else {
-            startBtn.style.display = 'none';
-        }
-    }
-
-    // 2. គ្រប់គ្រងប៊ូតុងនៅក្នុងផ្ទាំង Result (ពេលចប់ហ្គេម)
-    const playAgainBtn = document.getElementById('hostPlayAgainBtn');
-    const waitText = document.getElementById('waitHostText');
-    
-    if (playAgainBtn && waitText) {
-        if (hasControl) {
-            playAgainBtn.style.display = 'block';
-            waitText.style.display = 'none';
-        } else {
-            playAgainBtn.style.display = 'none';
-            waitText.style.display = 'block';
-            
-            // ស្វែងរកឈ្មោះអ្នកកាន់សិទ្ធិថ្មីមកបង្ហាញពី playersData ឱ្យបានត្រឹមត្រូវ
-            let newManagerName = 'មេបន្ទប់';
-            const targetId = data.newWinnerId || data.creatorId;
-            const newManager = playersData.find(p => p.id === targetId);
-            if (newManager) {
-                newManagerName = newManager.name;
-            }
-            
-            waitText.innerText = `សូមរង់ចាំ ${newManagerName} ចាប់ផ្ដើមវគ្គថ្មី...`;
-        }
-    }
-});
-
 function leaveRoom() {
     if (confirm("តើអ្នកពិតជាចង់ចាកចេញពីបន្ទប់នេះមែនទេ?")) {
         socket.emit('leaveRoom');
-        closeAllVoiceConnections(); // 🛠️ ជួសជុល៖ ហៅមុខងារសម្អាតភ្លាមៗពេលចុចចាកចេញ
+        closeAllVoiceConnections(); 
     }
 }
 
@@ -1229,7 +1122,7 @@ socket.on('leftRoom', () => {
     amISpectator = false;
     lastRoundWinnerId = null; 
     
-    closeAllVoiceConnections(); // 🛠️ ជួសជុល៖ ធានាសម្អាតខ្សែតភ្ជាប់ទាំងអស់ពេលត្រឡប់មកអេក្រង់ដើម
+    closeAllVoiceConnections(); 
 
     document.getElementById('loginArea').style.display = 'block';
     document.getElementById('lobbyArea').style.display = 'none';
@@ -1241,7 +1134,41 @@ socket.on('leftRoom', () => {
 // 🛠️ ផ្នែក LOGIC ជួសជុលបន្ថែមប្រព័ន្ធ ICE SERVERS ឱ្យនិយាយឮច្បាស់
 // =================================================================
 
-// មុខងារចាប់ផ្ដើម Mic ជាមួយ Audio Optimizations ជួយកាត់បន្ថយសំឡេងរំខាន
+function toggleMic() {
+    if (!localStream) return;
+    micEnabled = !micEnabled;
+    localStream.getAudioTracks().forEach(track => {
+        track.enabled = micEnabled;
+    });
+    localStorage.setItem('mic_enabled', micEnabled);
+    updateMicButtonUI();
+    console.log(`🎙️ ស្ថានភាព Mic ត្រូវបានផ្លាស់ប្តូរទៅជា: ${micEnabled ? 'បើក' : 'បិទ'}`);
+}
+
+function updateMicButtonUI() {
+    const btn = document.getElementById('micToggleBtn');
+    if (btn) {
+        if (micEnabled) {
+            btn.innerText = "🎙️ Mic: On";
+            btn.classList.remove('muted');
+        } else {
+            btn.innerText = "🔇 Mic: Off";
+            btn.classList.add('muted');
+        }
+    }
+}
+
+function closeAllVoiceConnections() {
+    console.log("🧹 កំពុងសម្អាត និងបិទខ្សែតភ្ជាប់ Voice ទាំងអស់...");
+    for (let id in peers) {
+        if (peers[id]) {
+            peers[id].destroy();
+        }
+        removeAudioElement(id);
+    }
+    peers = {};
+}
+
 function initVoiceAndExecute(callback) {
     if (localStream) {
         if (callback) callback();
@@ -1251,17 +1178,16 @@ function initVoiceAndExecute(callback) {
     console.log("កំពុងចាប់ផ្ដើមយកគំរូសំឡេង (Audio Stream)...");
     navigator.mediaDevices.getUserMedia({ 
         audio: {
-            echoCancellation: true,    // បំបាត់សំឡេងឆ្លុះ/អេកូ
-            noiseSuppression: true,    // កាត់បន្ថយសំឡេងរំខានជុំវិញខ្លួន
-            autoGainControl: true      // តម្រូវកម្រិតសំឡេងឱ្យស្មើគ្នាស្វ័យប្រវត្តិ
+            echoCancellation: true,    
+            noiseSuppression: true,    
+            autoGainControl: true      
         }, 
         video: false 
     })
     .then(stream => {
         localStream = stream;
-        console.log("ទទួលបាន Audio Stream ជោគជ័យ។");
+        console.log("ទទួលបាន Audio Stream ជោគជ័យ。");
         
-        // កំណត់ស្ថានភាព Mic តាមចាស់
         micEnabled = localStorage.getItem('mic_enabled') !== 'false';
         localStream.getAudioTracks().forEach(track => {
             track.enabled = micEnabled;
@@ -1276,7 +1202,6 @@ function initVoiceAndExecute(callback) {
     });
 }
 
-// មុខងារបង្កើតការភ្ជាប់ទៅកាន់អ្នកលេងម្នាក់ៗ (Peer Connection)
 function createPeer(targetSocketId, initiator) {
     if (peers[targetSocketId]) {
         console.log(`Peer សម្រាប់ ${targetSocketId} មានរួចហើយ។`);
@@ -1303,7 +1228,6 @@ function createPeer(targetSocketId, initiator) {
     });
 
     p.on('signal', data => {
-        // ផ្ញើសញ្ញាភ្ជាប់ទៅកាន់ Server ដើម្បីបញ្ជូនបន្តទៅកាន់ Target
         socket.emit('voice_signal', {
             target: targetSocketId,
             signal: data
@@ -1312,26 +1236,20 @@ function createPeer(targetSocketId, initiator) {
 
     p.on('stream', stream => {
         console.log(`ទទួលបានខ្សែសំឡេងពី: ${targetSocketId}`);
-        // បង្កើត Element Audio ដើម្បីស្ដាប់សំឡេង
         let audio = document.getElementById(`audio_${targetSocketId}`);
         if (!audio) {
             audio = document.createElement('audio');
             audio.id = `audio_${targetSocketId}`;
             audio.autoplay = true;
-            
-            // 💡 ចំណុចសំខាន់សម្រាប់ទូរស័ព្ទ (iOS / Android)
             audio.playsInline = true; 
-            
             document.body.appendChild(audio);
         }
         audio.srcObject = stream;
 
-        // 💡 ចាប់យក Error ប្រសិនបើទូរស័ព្ទ Block មិនឱ្យលឺសំឡេង
         let playPromise = audio.play();
         if (playPromise !== undefined) {
             playPromise.catch(error => {
                 console.error(`ទូរស័ព្ទ Block សំឡេងពី ${targetSocketId}:`, error);
-                // វិធីកែបណ្ដោះអាសន្នពេលវា Block គឺតម្រូវឱ្យអ្នកលេងចុចបិទបើក Mic ម្តង ដើម្បីដាស់ប្រព័ន្ធសំឡេង
             });
         }
     });
@@ -1340,142 +1258,79 @@ function createPeer(targetSocketId, initiator) {
     return p;
 }
 
-function addStreamToPeers(stream) {
-    for (let id in peers) {
-        if (peers[id] && peers[id].addStream) {
-            try {
-                // ប្រសិនបើ peer នោះមិនទាន់មាន stream ទេ ទើបយើងបន្ថែមចូល
-                if (!peers[id].streams.includes(stream)) {
-                    peers[id].addStream(stream);
-                    console.log(`បានបញ្ជូន Stream ទៅកាន់ Peer របស់: ${id}`);
-                }
-            } catch (e) {
-                console.error(`កំហុសក្នុងការបញ្ជូន Stream ទៅ ${id}:`, e);
-            }
-        }
-    }
-}
-
 function removeAudioElement(id) {
     const audio = document.getElementById(`audio_${id}`);
     if (audio) audio.remove();
 }
 
-// ==========================================
-// ផ្នែកស្ដាប់សញ្ញាពី SOCKET.IO (SOCKET LISTENERS)
-// ==========================================
+// =================================================================
+// 🛠️ ផ្នែក SOCKET LISTENERS សម្រាប់ VOICE CHAT
+// =================================================================
 
-// ពេលមានអ្នកលេងថ្មីចូលមកក្នុងបន្ទប់
 socket.on('voice_user_joined', (data) => {
-    // 💡 សោរការពារ៖ ទាញយកអក្សរ ID សុទ្ធ ទោះ Server ផ្ញើមកជាកញ្ចប់ Object ក៏ដោយ
     const userSocketId = typeof data === 'object' ? data.id : data;
+    console.log("👥 អ្នកលេងថ្មីចូលរួម Voice:", userSocketId);
     
-    console.log("អ្នកលេងថ្មីចូលរួម Voice:", userSocketId);
     if (userSocketId === socket.id) return;
 
     initVoiceAndExecute(() => {
-        const isInitiator = socket.id.localeCompare(userSocketId) > 0;
-        const delayTime = isInitiator ? 500 : 1500;
-
         setTimeout(() => {
-            createPeer(userSocketId, isInitiator);
-        }, delayTime);
+            createPeer(userSocketId, false);
+        }, 500);
     });
 });
 
-socket.on('connect', () => {
-    console.log("បានតភ្ជាប់ទៅ Server វិញហើយ! កំពុងចាប់ផ្ដើម Voice ឡើងវិញ...");
+socket.on('voice_initiate_peer', (data) => {
+    const targetSocketId = data.target;
+    console.log("📞 ចាប់ផ្ដើមតភ្ជាប់ទៅកាន់អ្នកចាស់ក្នុងបន្ទប់:", targetSocketId);
     
-    // លុបការតភ្ជាប់ចាស់ៗចោល ដើម្បីកុំឱ្យវាជាន់គ្នា
-    closeAllVoiceConnections(); 
-    
-    // បើខ្លួនឯងបានបើក Mic ទុកមុនដាច់ សុំឱ្យវាតភ្ជាប់ឡើងវិញដោយស្វ័យប្រវត្តិ
-    const wasMicEnabled = localStorage.getItem('mic_enabled') === 'true';
-    if (wasMicEnabled) {
-        initVoiceAndExecute(() => {
-            console.log("Voice បានតភ្ជាប់ឡើងវិញដោយជោគជ័យ!");
-        });
+    if (targetSocketId === socket.id) return;
+
+    initVoiceAndExecute(() => {
+        setTimeout(() => {
+            createPeer(targetSocketId, true);
+        }, 1000); 
+    });
+});
+
+socket.on('voice_signal', (data) => {
+    console.log("📶 ទទួលបានសញ្ញា Voice ពី:", data.sender);
+    if (peers[data.sender]) {
+        peers[data.sender].signal(data.signal);
     }
 });
 
-// ទទួលសញ្ញា (Signal) ពីអ្នកលេងផ្សេង
-socket.on('voice_signal', (data) => {
-    // 💡 សោរការពារ៖ ក្រែងលោ Server បាញ់មកជា {from: ...} ជំនួសឱ្យ {sender: ...}
-    const senderId = data.sender || data.from; 
-    console.log("ទទួលសញ្ញា Voice ពី:", senderId);
-
-    if (!senderId) return;
-
-    initVoiceAndExecute(() => {
-        let p = peers[senderId];
-        if (!p) {
-            p = createPeer(senderId, false);
-        }
-        p.signal(data.signal);
-    });
-});
-
-// ពេលមានអ្នកចាកចេញពីបន្ទប់
 socket.on('voice_user_left', (data) => {
-    // 💡 សោរការពារ៖ ទាញយកអក្សរ ID សុទ្ធ
     const userSocketId = typeof data === 'object' ? data.id : data;
+    console.log("🚪 អ្នកលេងចាកចេញពី Voice:", userSocketId);
     
-    console.log("អ្នកលេងចាកចេញពី Voice:", userSocketId);
     if (peers[userSocketId]) {
         peers[userSocketId].destroy();
         delete peers[userSocketId];
     }
+    removeAudioElement(userSocketId);
 });
 
-// មុខងារបើក/បិទ Mic
-function toggleMic() {
-    if (!localStream) {
-        initVoiceAndExecute(() => { 
-            micEnabled = localStorage.getItem('mic_enabled') !== 'false';
-            updateMicButtonUI();
-        });
-        return;
-    }
+socket.on('connect', () => {
+    console.log("🔄 បានតភ្ជាប់ទៅ Server វិញហើយ! កំពុងចាប់ផ្ដើម Voice ឡើងវិញ...");
     
-    micEnabled = !micEnabled;
-    localStorage.setItem('mic_enabled', micEnabled);
+    const savedRoomId = localStorage.getItem('last_room_id');
+    const playerName = localStorage.getItem('player_name');
+    if (savedRoomId && playerName) {
+        socket.emit('joinRoom', { roomId: savedRoomId, playerName: playerName });
+    }
+
+    closeAllVoiceConnections(); 
     
-    localStream.getAudioTracks().forEach(track => {
-        track.enabled = micEnabled;
-    });
-    updateMicButtonUI();
-}
-
-function updateMicButtonUI() {
-    const btn = document.getElementById('micToggleBtn');
-    if (!btn) return;
-    if (micEnabled) {
-        btn.innerText = "🎙️ Mic: On";
-        btn.classList.remove('muted');
-    } else {
-        btn.innerText = "🔇 Mic: Muted";
-        btn.classList.add('muted');
-    }
-}
-
-function closeAllVoiceConnections() {
-    for (let id in peers) {
-        if (peers[id]) {
-            try { peers[id].destroy(); } catch (e) { console.log(e); }
-        }
-    }
-    peers = {};
-    const audios = document.querySelectorAll('audio');
-    audios.forEach(a => a.remove());
-
-    if (localStream) {
-        localStream.getAudioTracks().forEach(track => {
-            track.enabled = micEnabled; 
+    const wasMicEnabled = localStorage.getItem('mic_enabled') !== 'false';
+    if (wasMicEnabled && localStream) {
+        initVoiceAndExecute(() => {
+            console.log("Voice Chat រួចរាល់។");
         });
     }
-}
-
+});
 </script>
+
 <div id="mobile-console" style="position: fixed; bottom: 0; left: 0; width: 100%; height: 200px; background: rgba(0,0,0,0.85); color: #0f0; overflow-y: scroll; font-size: 13px; z-index: 9999; padding: 10px; display: none; word-wrap: break-word;"></div>
 <button onclick="document.getElementById('mobile-console').style.display='block'" style="position: fixed; bottom: 10px; left: 10px; z-index: 10000; padding: 10px; background: red; color: white; border-radius: 5px; border: none; font-weight: bold;">🔍 មើល Log (ទូរស័ព្ទ)</button>
 <button onclick="document.getElementById('mobile-console').style.display='none'" style="position: fixed; bottom: 10px; left: 130px; z-index: 10000; padding: 10px; background: gray; color: white; border-radius: 5px; border: none; font-weight: bold;">បិទ</button>
@@ -1487,7 +1342,7 @@ function closeAllVoiceConnections() {
         div.style.color = type === 'error' ? '#ff4c4c' : (type === 'warn' ? '#ffcc00' : '#0f0');
         div.innerText = typeof msg === 'object' ? JSON.stringify(msg) : msg;
         mc.appendChild(div);
-        mc.scrollTop = mc.scrollHeight; // អូសចុះក្រោមរហូត
+        mc.scrollTop = mc.scrollHeight; 
     }
     const oldLog = console.log;
     const oldErr = console.error;
@@ -1496,7 +1351,6 @@ function closeAllVoiceConnections() {
     console.log = function(...args) { logToScreen(args.join(' ')); oldLog.apply(console, args); };
     console.error = function(...args) { logToScreen(args.join(' '), 'error'); oldErr.apply(console, args); };
     console.warn = function(...args) { logToScreen(args.join(' '), 'warn'); oldWarn.apply(console, args); };
-
 </script>
 </body>
 </html>
