@@ -578,15 +578,31 @@ function createRoom() {
     socket.emit('createRoom', { roomId, password, playerName });
 }
 
-function joinRoom() {
-    const playerName = getPlayerName();
-    if (!playerName) return;
-    const roomId = document.getElementById('roomInput').value.trim();
-    const password = document.getElementById('roomPass').value;
-    if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!");
+socket.on('connect', () => {
+    const savedRoomId = localStorage.getItem('last_room_id');
+    const playerName = localStorage.getItem('player_name');
     
-    // 💡 ជួសជុល៖ ផ្ញើទៅ server ភ្លាមៗ ទុកឱ្យមុខងារខាងក្រោមជាអ្នកគ្រប់គ្រងវេនបើក Mic
-    socket.emit('joinRoom', { roomId, password, playerName });
+    // បើធ្លាប់នៅក្នុងបន្ទប់ ឱ្យវាចូលវិញដោយស្វ័យប្រវត្តិ
+    if (savedRoomId && playerName) {
+        socket.emit('joinRoom', { 
+            roomId: savedRoomId, 
+            playerName: playerName 
+        });
+        console.log("កំពុងចូលបន្ទប់វិញដោយស្វ័យប្រវត្តិ...");
+    }
+});
+
+
+// បន្ថែមចូលក្នុង function ដែលអ្នកប្រើសម្រាប់ចូលបន្ទប់ (joinRoom)
+function joinRoom() {
+    const roomId = document.getElementById('roomIdInput').value; // ឧទាហរណ៍
+    const playerName = document.getElementById('nameInput').value;
+    
+    // កត់ត្រាទុកដើម្បីឱ្យវា Auto-reconnect បានពេលដាច់អ៊ីនធឺណិត
+    localStorage.setItem('last_room_id', roomId);
+    localStorage.setItem('player_name', playerName);
+    
+    socket.emit('joinRoom', { roomId, playerName });
 }
 
 socket.on('roomCreated', ({ roomId, playerId }) => {
@@ -1316,6 +1332,21 @@ socket.on('voice_user_joined', (data) => {
             createPeer(userSocketId, isInitiator);
         }, delayTime);
     });
+});
+
+socket.on('connect', () => {
+    console.log("បានតភ្ជាប់ទៅ Server វិញហើយ! កំពុងចាប់ផ្ដើម Voice ឡើងវិញ...");
+    
+    // លុបការតភ្ជាប់ចាស់ៗចោល ដើម្បីកុំឱ្យវាជាន់គ្នា
+    closeAllVoiceConnections(); 
+    
+    // បើខ្លួនឯងបានបើក Mic ទុកមុនដាច់ សុំឱ្យវាតភ្ជាប់ឡើងវិញដោយស្វ័យប្រវត្តិ
+    const wasMicEnabled = localStorage.getItem('mic_enabled') === 'true';
+    if (wasMicEnabled) {
+        initVoiceAndExecute(() => {
+            console.log("Voice បានតភ្ជាប់ឡើងវិញដោយជោគជ័យ!");
+        });
+    }
 });
 
 // ទទួលសញ្ញា (Signal) ពីអ្នកលេងផ្សេង
