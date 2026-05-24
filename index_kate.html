@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>🎴 Ka Te Online</title>
 <style>
-    /* យក Style ពីកូដ Tien Len ដើមទាំងអស់មកប្រើដើម្បីរក្សាទម្រង់ស្អាតដដែល */
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     body { font-family: Arial, sans-serif; background: #0b1329; color: white; overflow: hidden; position: fixed; width: 100vw; height: 100vh; }
     .container { max-width: 1200px; margin: auto; padding: 10px; width: 100%; height: 100%; }
@@ -49,7 +48,7 @@
             <button class="btn-green" onclick="createRoom()">➕ បង្កើតបន្ទប់កាតេ</button>
             <button class="btn-blue" onclick="joinRoom()">🚪 ចូលរួមលេង</button>
         </div>
-        <button class="btn-red" onclick="window.location.href='http://localhost:3000/main.html'">⬅️ ត្រឡប់ទៅទំព័រជ្រើសរើសហ្គេម</button>
+        <button class="btn-red" onclick="window.location.href='http://localhost:3000/'">⬅️ ត្រឡប់ទៅទំព័រជ្រើសរើសហ្គេម</button>
     </div>
 
     <div id="lobbyArea" class="panel" style="display: none;">
@@ -160,27 +159,29 @@ function renderMyCards() {
 function playCard(isBurn) {
     if (!selectedCard) return alert("សូមជ្រើសរើសបៀរមួយសន្លឹកសិន!");
     socket.emit('playKaTeCard', { roomId: currentRoom, card: selectedCard, isBurnAction: isBurn });
+    
+    // ដកបៀរចេញពីដៃ Client ភ្លាមៗការពារកុំឱ្យចុចដដែលៗបាន
+    const idx = myHand.findIndex(c => c.value === selectedCard.value && c.suit === selectedCard.suit);
+    if(idx !== -1) myHand.splice(idx, 1);
     selectedCard = null;
+    renderMyCards();
 }
 
 socket.on('kaTeCardPlayed', (data) => {
     const table = document.getElementById('table');
-    if(document.getElementById('table').innerText.includes('ចាប់ផ្ដើម')) table.innerHTML = '';
+    if(table.innerText.includes('ចាប់ផ្ដើម') || table.innerText.includes('តុត្រូវបានសម្អាត')) table.innerHTML = '';
     
     const cardWrapper = document.createElement('div');
     cardWrapper.className = 'table-card-wrapper';
     
     if (data.isBurned) {
-        // បើកប់ផ្កាប់បៀរ បង្ហាញជាខ្នងបៀរពណ៌ក្រហមឱ្យគេឃើញផ្កាប់មុខ
-        cardWrapper.innerHTML = `<div class="table-card-img card-back">❌</div><div>${data.by} (ផ្កាប់បៀ)</div>`;
+        cardWrapper.innerHTML = `<div class="table-card-img card-back">❌</div><div>${data.by}</div>`;
     } else {
-        // បើលេងធម្មតា ឬជុំទី៥ បង្ហាញមុខបៀរចំហរឱ្យឃើញទាំងអស់
         cardWrapper.innerHTML = `<img src="${getCardFileName(data.card)}" class="table-card-img"><div>${data.by}</div>`;
     }
     table.appendChild(cardWrapper);
 
-    // បង្ហាញ Bubble Message: "គប់ទេ", "អត់គប់ទេ", "គប់ហើយ" នៅលើក្បាលអ្នកលេង
-    const pIdx = playersData.findIndex(p => p.name === data.by);
+    const pIdx = playersData.findIndex(p => p.id === data.playerId);
     if(pIdx !== -1) {
         const pCard = document.getElementById(`p-${pIdx}`);
         if(pCard) {
@@ -200,7 +201,7 @@ socket.on('turnChanged', (data) => {
 });
 
 socket.on('clearTable', (data) => {
-    document.getElementById('table').innerHTML = `<div>តុត្រូវបានសម្អាត! ត្រៀមជុំបន្ទាប់...</div>`;
+    document.getElementById('table').innerHTML = `<div>តុត្រូវបានសម្អាត! វេន៖ ${data.nextPlayer}</div>`;
     updateUI(data.roundNumber);
 });
 
@@ -213,11 +214,10 @@ function updateUI(roundNum) {
         pDiv.innerHTML += `
             <div class="player ${activeClass}" id="p-${idx}">
                 <strong>👤 ${p.name}</strong><br>
-                <span>បៀរ៖ ${p.hand ? p.hand.length : 6} សន្លឹក</span>
+                <span>បៀរ៖ ${p.hand ? p.hand.length : 0} សន្លឹក</span>
             </div>`;
     });
 
-    // ក្នុងជុំទី ៥ មិនអនុញ្ញាតឱ្យចុចប៊ូតុងកប់ផ្កាប់បៀរឡើយ ព្រោះត្រូវបង្ហាញមុខបៀរទាំងអស់
     if(roundNum === 5) {
         document.getElementById('burnBtn').disabled = true;
         document.getElementById('playBtn').innerText = "🎯 ចាក់ដេញទឹក (ជុំទី៥)";
@@ -225,6 +225,10 @@ function updateUI(roundNum) {
         document.getElementById('burnBtn').disabled = false;
         document.getElementById('playBtn').innerText = "🎯 ស៊ីបៀរ / ចេញបៀរ";
     }
+    
+    const myTurn = (playersData[currentTurnIndex] && playersData[currentTurnIndex].id === myId);
+    document.getElementById('playBtn').disabled = !myTurn;
+    document.getElementById('burnBtn').disabled = (roundNum === 5) ? true : !myTurn;
 }
 
 socket.on('gameWon', (data) => {
@@ -241,7 +245,7 @@ socket.on('gameWon', (data) => {
                 <div>ឈ្នះបានចំនួន៖ ${p.wonRounds.length} ជុំ</div>
             </div>`;
     });
-    if(data.allHands[0].id === myId) document.getElementById('hostPlayAgainBtn').style.display = 'block';
+    if(playersData[0] && playersData[0].id === myId) document.getElementById('hostPlayAgainBtn').style.display = 'block';
 });
 </script>
 </body>
