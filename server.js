@@ -15,10 +15,12 @@ const io = new Server(server, {
 
 app.use(express.static(__dirname));
 
+// កូដត្រង់ចំណុចផ្ដើមទំព័រដំបូង
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'main.html')); // ឱ្យវាហៅទំព័ររើសហ្គេមមុនគេ
+    res.sendFile(path.join(__dirname, 'main.html')); // បើកមកឱ្យឃើញទំព័ររើសហ្គេមមុនគេ
 });
-// បង្កើតផ្លូវថ្មីមួយទៀតសម្រាប់ហៅទំព័រ Tien Len
+
+// បង្កើតផ្លូវដាច់ដោយឡែកសម្រាប់ហៅទំព័រ Tien Len
 app.get('/tienlen', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
