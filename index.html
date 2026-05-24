@@ -1208,8 +1208,8 @@ function initVoiceAndExecute(callback) {
         if (callback) callback();
     })
     .catch(err => {
-        console.error("មិនអាចបើក Mic បានទេ: ", err);
-        alert("សូមអនុញ្ញាតឱ្យគេហទំព័រប្រើ Mic របស់អ្នកដើម្បីនិយាយគ្នា!");
+        console.error("មិនអាចបើក Mic ផ្ញើទៅគេបានទេ (Computer អត់ Mic ឬអត់សិទ្ធិ) ប៉ុន្តែនៅតែអាចស្ដាប់គេបាន: ", err);
+        // លុប alert ចោល ដើម្បីកុំឱ្យរំខានផ្ទាំង Pop-up ដល់អ្នកលេងដែលគ្រាន់តែចង់ចូលមកស្ដាប់
     });
 }
 
