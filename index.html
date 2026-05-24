@@ -1138,6 +1138,10 @@ socket.on('leftRoom', () => {
 // =================================================================
 
 function toggleMic() {
+    if (localStorage.getItem('has_no_mic') === 'true') {
+        alert("Computer របស់អ្នកមិនមានឧបករណ៍ Mic សម្រាប់បើកឡើយ ប៉ុន្តែអ្នកអាចស្ដាប់អ្នកដទៃបានធម្មតា!");
+        return;
+    }
     if (!localStream) return;
     micEnabled = !micEnabled;
     localStream.getAudioTracks().forEach(track => {
@@ -1145,12 +1149,16 @@ function toggleMic() {
     });
     localStorage.setItem('mic_enabled', micEnabled);
     updateMicButtonUI();
-    console.log(`🎙️ ស្ថានភាព Mic ត្រូវបានផ្លាស់ប្តូរទៅជា: ${micEnabled ? 'បើក' : 'បិទ'}`);
 }
 
 function updateMicButtonUI() {
     const btn = document.getElementById('micToggleBtn');
     if (btn) {
+        if (localStorage.getItem('has_no_mic') === 'true') {
+            btn.innerText = "🔇 អត់ Mic (គ្រាន់តែស្ដាប់)";
+            btn.classList.add('muted');
+            return;
+        }
         if (micEnabled) {
             btn.innerText = "🎙️ Mic: On";
             btn.classList.remove('muted');
@@ -1161,14 +1169,11 @@ function updateMicButtonUI() {
     }
 }
 
-/* 🛠️ ពង្រឹងការ Cleanup: ពេលចាកចេញ ត្រូវ Destroy peer នីមួយៗឱ្យដាច់ និងបិទ Stream របស់ Mic */
 function closeAllVoiceConnections() {
     console.log("🧹 កំពុងសម្អាត និងបិទខ្សែតភ្ជាប់ Voice ទាំងអស់...");
     for (let id in peers) {
         if (peers[id]) {
-            try {
-                peers[id].destroy();
-            } catch(e) { console.log(e); }
+            try { peers[id].destroy(); } catch(e) {}
         }
         removeAudioElement(id);
     }
@@ -1178,10 +1183,13 @@ function closeAllVoiceConnections() {
         localStream.getTracks().forEach(track => track.stop());
         localStream = null;
     }
+    // សម្អាតចំណាំឧបករណ៍ ដើម្បីឱ្យសាកល្បងម្ដងទៀតពេលចូលបន្ទប់ថ្មី
+    localStorage.removeItem('has_no_mic');
 }
 
 function initVoiceAndExecute(callback) {
-    if (localStream) {
+    // ១. បើមាន localStream រួចហើយ ឬដឹងថាគ្មានឧបករណ៍ Mic (ដឹងថាអត់ Mic) ក៏ឱ្យរត់ callback ដែរ
+    if (localStream || localStorage.getItem('has_no_mic') === 'true') {
         if (callback) callback();
         return;
     }
@@ -1198,6 +1206,7 @@ function initVoiceAndExecute(callback) {
     .then(stream => {
         localStream = stream;
         console.log("ទទួលបាន Audio Stream ជោគជ័យ។");
+        localStorage.setItem('has_no_mic', 'false');
         
         micEnabled = localStorage.getItem('mic_enabled') !== 'false';
         localStream.getAudioTracks().forEach(track => {
@@ -1208,8 +1217,15 @@ function initVoiceAndExecute(callback) {
         if (callback) callback();
     })
     .catch(err => {
-        console.error("មិនអាចបើក Mic ផ្ញើទៅគេបានទេ (Computer អត់ Mic ឬអត់សិទ្ធិ) ប៉ុន្តែនៅតែអាចស្ដាប់គេបាន: ", err);
-        // លុប alert ចោល ដើម្បីកុំឱ្យរំខានផ្ទាំង Pop-up ដល់អ្នកលេងដែលគ្រាន់តែចង់ចូលមកស្ដាប់
+        // ២. ករណីរកឧបករណ៍មិនឃើញ (NotFoundError) ឬអត់សិទ្ធិ (NotAllowedError)
+        console.warn("មិនអាចបើក Mic ផ្ញើទៅគេបានទេ (Computer អត់ Mic ឬអត់សិទ្ធិ) ប៉ុន្តែប្រព័ន្ធនឹងបើកឱ្យស្ដាប់គេបានដដែល: ", err);
+        
+        // ចំណាំទុកក្នុង LocalStorage ថាឧបករណ៍នេះអត់ Mic ទេ ដើម្បីកុំឱ្យវាព្យាយាមសុំសិទ្ធិរំខានញឹកញាប់
+        localStorage.setItem('has_no_mic', 'true');
+        updateMicButtonUI(); // ធ្វើបច្ចុប្បន្នភាព UI ប៊ូតុង
+
+        // 🌟 ចំណុចសំខាន់៖ ទោះគ្មាន Mic ខ្លួនឯង ក៏ត្រូវតែឱ្យរត់ callback() ទៅបង្កើត Peer ដែរ ដើម្បីអាចស្ដាប់គេឮ!
+        if (callback) callback();
     });
 }
 
