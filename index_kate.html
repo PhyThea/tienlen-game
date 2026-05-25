@@ -321,6 +321,23 @@ function renderHand() {
 function submitMove(action) {
     if (!isMyTurn()) return alert("មិនទាន់ដល់វេនឡើយ!");
     if (!selectedCard) return alert("សូមជ្រើសរើសសន្លឹកបៀរមួយសន្លឹកសិន!");
+
+    // ទាញយកជុំបច្ចុប្បន្នពីស្ថានភាពនៅលើអេក្រង់ "ជុំទី៖ X"
+    const statusText = document.getElementById('status').innerText;
+    const currentRound = parseInt(statusText.replace(/[^0-9]/g, '')) || 1;
+
+    // 🛠️ ស្ទាក់ចាប់ឱ្យត្រូវគ្នាជាមួយ Server៖
+    if (currentRound <= 4) {
+        if (action === 'play') {
+            // បើជុំទី ១ ដល់ ៤ ហើយចុចប៊ូតុង "ស៊ីបៀរ" (play) គឺប្តូរឈ្មោះសកម្មភាពទៅជា 'eat' ឱ្យចំលក្ខខណ្ឌ Server ឆែកទឹក
+            action = 'eat';
+        } else if (action === 'fold') {
+            // បើចុចប៊ូតុង "ផ្កាប់បៀរ" (fold) គឺត្រូវប្តូរឈ្មោះសកម្មភាពទៅជា 'fold' ដូចគ្នា (ត្រូវជាមួយ Server រួចរាល់)
+            action = 'fold';
+        }
+    }
+
+    // បញ្ជូនទិន្នន័យទៅកាន់ Server
     socket.emit('kt_playMove', { roomId: currentRoom, action, card: selectedCard });
     selectedCard = null;
 }
