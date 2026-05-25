@@ -27,7 +27,7 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
             const room = ktRooms[roomId];
             if (!room) return socket.emit('errorMsg', 'រកមិនឃើញបន្ទប់!');
             if (room.password && room.password !== password) return socket.emit('errorMsg', 'លេខកូដសម្ងាត់មិនត្រឹមត្រូវ!');
-            if (room.players.length >= 4 && room.status !== 'playing') return socket.emit('errorMsg', 'បន្ទប់ពេញហើយ!');
+            if (room.players.length >= 6 && room.status !== 'playing') return socket.emit('errorMsg', 'បន្ទប់ពេញហើយ!');
 
             const isSpectator = (room.status === 'playing' || room.players.length >= 4);
             
@@ -48,7 +48,7 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
             
             // ប្ដូរគ្រប់គ្នា (៤នាក់ដំបូង) ឱ្យមកលេងវិញ មិនឱ្យជាប់ធ្វើ Spectator ឬ ទីវ ឡើយ
             room.players.forEach((p, idx) => {
-                if (idx < 4) {
+                if (idx < 6) {
                     p.isSpectator = false;
                     p.isTiv = false;
                 }
