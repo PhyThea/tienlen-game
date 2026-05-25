@@ -328,17 +328,26 @@ function submitMove(action) {
     const statusText = document.getElementById('status').innerText;
     const currentRound = parseInt(statusText.replace(/[^0-9]/g, '')) || 1;
 
+    let finalAction = action;
+
+    // ជុំទី ១ ដល់ ទី ៤ (វគ្គដេញទឹកស៊ី)
     if (currentRound <= 4) {
         if (action === 'play') {
-            action = 'eat'; 
+            finalAction = 'eat'; // ចុចប៊ូតុងបៃតង គឺស្មើនឹងសកម្មភាព "ស៊ីបៀរ"
+        } else {
+            finalAction = 'fold'; // ចុចប៊ូតុងក្រហម គឺស្មើនឹងសកម្មភាព "ធីប/ផ្កាប់"
         }
-    } else if (currentRound === 5) {
+    } 
+    // ជុំទី ៥ (វគ្គគប់បៀរដេញយកឡង)
+    else if (currentRound === 5) {
         if (action === 'play') {
-            action = 'eat'; 
+            finalAction = 'eat'; // រក្សាទុកពាក្យ 'eat' ដើម្បីឱ្យ Server ដឹងថាអ្នកលេងចង់ "គប់ប្រជែង" (Server នឹងប្ដូរទៅជា 'គប់ហើយ' ឬ 'គប់ទេ' ស្វ័យប្រវត្តិ)
+        } else {
+            finalAction = 'fold'; // ចុចប៊ូតុងក្រហម គឺស្មើនឹងការ "បោះបង់/អត់គប់ទេ"
         }
     }
 
-    socket.emit('kt_playMove', { roomId: currentRoom, action, card: cardToSend });
+    socket.emit('kt_playMove', { roomId: currentRoom, action: finalAction, card: cardToSend });
 }
 
 socket.on('moveRecorded', (data) => {
@@ -405,7 +414,7 @@ socket.on('gameWon', (data) => {
         if (p.finalWinner) { 
             pDiv.style.border = '2px solid #22c55e'; 
             pDiv.style.background = '#14532d'; 
-        } else if (p.gameStatus && p.gameStatus.includes('កាត់ឡង')) {
+        } else if (p.gameStatus && (p.gameStatus.includes('កាត់ឡង') || p.gameStatus.includes('ទីវហើយ'))) {
             pDiv.style.border = '2px solid #ef4444';
             pDiv.style.background = '#2d1717';
         }
@@ -429,7 +438,7 @@ socket.on('gameWon', (data) => {
         
         pDiv.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; border-bottom:1px solid #475569; padding-bottom:3px;">
-            <div><strong>👤 ${p.name}</strong> (ស៊ីបាន៖ ${p.winRounds || 0} ជុំ)</div>
+            <div><strong>👤 ${p.name}</strong> ${p.isTiv ? '<span style="color:#ef4444; font-weight:bold;">(ទីវហើយ)</span>' : `(ស៊ីបាន៖ ${p.winRounds || 0} ជុំ)`}</div>
             <div>${statusBadge}</div>
         </div>
         <div class="result-cards" style="padding: 5px 0;">${cardsHTML}</div>`;
