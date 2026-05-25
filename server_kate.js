@@ -157,32 +157,121 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                         }
                     } else if (room.currentRound === 5) {
                         const cutters = room.tableCards.filter(m => m.action === 'គប់ហើយ');
-                        if (cutters.length > 0) { cutters.sort((a,b) => ktModule.getKatePower(b.card) - ktModule.getKatePower(a.card)); winMove = cutters[0]; } else { winMove = room.tableCards[0]; }
-                    } else { winMove = room.tableCards[0]; }
-                
+                        if (cutters.length > 0) { 
+                            cutters.sort((a,b) => ktModule.getKatePower(b.card) - ktModule.getKatePower(a.card)); 
+                            winMove = cutters[0]; 
+                        } else { 
+                            winMove = room.tableCards[0]; 
+                        }
+                    }
+
                     if (winMove) {
                         const winnerPl = room.players.find(p => p.id === winMove.playerId);
                         if(winnerPl) {
-                            winnerPl.winRounds++; if(room.currentRound <= 4) winnerPl.hasCat = true; room.lastWinnerId = winnerPl.id; room.currentTurnIndex = room.players.findIndex(p => p.id === winnerPl.id);
+                            winnerPl.winRounds++; 
+                            if(room.currentRound <= 4) winnerPl.hasCat = true; 
+                            room.lastWinnerId = winnerPl.id; 
+                            room.currentTurnIndex = room.players.findIndex(p => p.id === winnerPl.id);
                             io.to('kt_' + roomId).emit('winnerTransferred', { newWinnerId: room.lastWinnerId, creatorId: room.creatorId });
                         }
                     }
-                    if (room.currentRound === 4) { room.players.forEach(p => { if (!p.isSpectator && !p.hasCat) p.isSpectator = true; }); }
-                
-                    if (room.currentRound < 6) {
-                        room.currentRound++; room.tableCards = []; room.roundSuit = null; const survivors = room.players.filter(p => !p.isSpectator);
+
+                    if (room.currentRound === 4) { 
+                        room.players.forEach(p => { if (!p.isSpectator && !p.hasCat) p.isSpectator = true; }); 
+                    }
+
+                    // 👉 ជួសជុល៖ ត្រឹមជុំទី ៤ គឺដេញធម្មតា បើចូលដល់ជុំទី ៥ គឺបញ្ចប់ហ្គេមយកតែម្ដង (មិនឱ្យទៅជុំទី ៦ ទេ)
+                    if (room.currentRound < 5) {
+                        room.currentRound++; 
+                        room.tableCards = []; 
+                        room.roundSuit = null; 
+                        const survivors = room.players.filter(p => !p.isSpectator);
+                        
                         if (survivors.length === 1) {
-                            room.status = 'waiting'; survivors[0].finalWinner = true;
-                            const finalHandsResult = room.players.map(p => ({ name: p.name, initialHandCopy: p.initialHandCopy, winRounds: p.winRounds, finalWinner: p.id === survivors[0].id, isSpectator: p.isSpectator }));
+                            room.status = 'waiting'; 
+                            survivors[0].finalWinner = true;
+                            const finalHandsResult = room.players.map(p => ({ name: p.name, initialHandCopy: p.initialHandCopy, winRounds: p.winRounds, finalWinner: p.id === survivors[0].id, isSpectator: p.isSpectator, lastCard: p.hand[0], status: 'ឈ្នះផ្តាច់' }));
                             io.to('kt_' + roomId).emit('gameWon', { winner: survivors[0].name, winnerId: survivors[0].id, allHands: finalHandsResult });
-                        } else { io.to('kt_' + roomId).emit('nextRoundStarted', { currentRound: room.currentRound, winnerName: winMove ? winMove.name : 'គ្មាន', currentTurnIndex: room.currentTurnIndex, players: room.players }); }
-                    } else {
-                        room.status = 'waiting'; const finalWinner = room.players.find(p => p.id === room.lastWinnerId); if(finalWinner) finalWinner.finalWinner = true;
-                        const finalHandsResult = room.players.map(p => ({ name: p.name, initialHandCopy: p.initialHandCopy, winRounds: p.winRounds, finalWinner: p.id === room.lastWinnerId, isSpectator: p.isSpectator }));
-                        io.to('kt_' + roomId).emit('gameWon', { winner: finalWinner ? finalWinner.name : 'គ្មានអ្នកឈ្នះ', winnerId: room.lastWinnerId, allHands: finalHandsResult });
+                        } else { 
+                            io.to('kt_' + roomId).emit('nextRoundStarted', { currentRound: room.currentRound, winnerName: winMove ? winMove.name : 'គ្មាន', currentTurnIndex: room.currentTurnIndex, players: room.players }); 
+                        }
+                    } 
+                    // 🏆 វគ្គគណនា "កាត់ឡង សងគូទ" ស្វ័យប្រវត្តនៅជុំទី ៥
+                    else { 
+                        room.status = 'waiting';
+                        
+                        // ១. រកទឹកបៀរដេញ (Round Suit ជុំទី៥)
+                        const finalSuit = room.roundSuit;
+                        
+                        // ២. ស្វែងរកអ្នក "សងគូទ" (អ្នកដែលសល់បៀរចុងក្រោយក្នុងដៃធំបំផុតនៅក្នុងទឹកដេញ finalSuit)
+                        let songKoutPlayer = null;
+                        let maxLastCardPower = -1;
+
+                        room.players.forEach(p => {
+                            if (!p.isSpectator && p.hand.length > 0) {
+                                const lastCard = p.hand[0]; // បៀទី៦ ដែលនៅសល់ក្នុងដៃ
+                                if (lastCard.suit === finalSuit) {
+                                    const power = ktModule.getKatePower(lastCard);
+                                    if (power > maxLastCardPower) {
+                                        maxLastCardPower = power;
+                                        songKoutPlayer = p;
+                                    }
+                                }
+                            }
+                        });
+
+                        // ៣. កំណត់រកម្ចាស់ជើងឯកចុងក្រោយ
+                        let finalWinnerPlayer = null;
+                        let resultStatusMap = {};
+
+                        // អ្នកឈ្នះជុំទី ៥ (ម្ចាស់ឡង)
+                        const round5Winner = room.players.find(p => p.id === room.lastWinnerId);
+
+                        if (songKoutPlayer && songKoutPlayer.id !== round5Winner.id) {
+                            // ករណី៖ មានអ្នកសងគូទដណ្តើមបានសម្រេច
+                            finalWinnerPlayer = songKoutPlayer;
+                            room.lastWinnerId = songKoutPlayer.id;
+                            
+                            resultStatusMap[songKoutPlayer.id] = "👑 ឈ្នះ (សងគូទបានសម្រេច!)";
+                            resultStatusMap[round5Winner.id] = "💔 ចាញ់ (ត្រូវគេកាត់ឡងសងគូទ)";
+                        } else {
+                            // ករណី៖ គ្មានអ្នកសងគូទ ឬម្ចាស់ឡងសល់បៀធំជាងគេស្រាប់ (ឈ្នះឡងឯង)
+                            finalWinnerPlayer = round5Winner;
+                            resultStatusMap[round5Winner.id] = "👑 ឈ្នះ (ស៊ីឡងពេញលេញ)";
+                        }
+
+                        if (finalWinnerPlayer) finalWinnerPlayer.finalWinner = true;
+
+                        // រៀបចំទិន្នន័យផ្ញើទៅ Client បង្ហាញមុខបៀទាំងអស់
+                        const finalHandsResult = room.players.map(p => {
+                            let pStatus = resultStatusMap[p.id];
+                            if (!pStatus) {
+                                pStatus = p.isSpectator ? "❌ លង់ (ចាញ់)" : "❌ ចាញ់គប់";
+                            }
+                            return {
+                                id: p.id,
+                                name: p.name,
+                                initialHandCopy: p.initialHandCopy, // បៀទាំង៦សន្លឹកតាំងពីដើមវគ្គ
+                                winRounds: p.winRounds,
+                                finalWinner: p.id === room.lastWinnerId,
+                                isSpectator: p.isSpectator,
+                                lastCard: p.hand[0] || null, // សន្លឹកទី៦ ចុងក្រោយបង្អស់
+                                gameStatus: pStatus
+                            };
+                        });
+
+                        io.to('kt_' + roomId).emit('gameWon', { 
+                            winner: finalWinnerPlayer ? finalWinnerPlayer.name : 'គ្មានអ្នកឈ្នះ', 
+                            winnerId: room.lastWinnerId, 
+                            allHands: finalHandsResult 
+                        });
+                        
+                        broadcastRoomLists();
                     }
                 }, 1500);
-            } else { io.to('kt_' + roomId).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex, players: room.players }); }
+            } else { 
+                io.to('kt_' + roomId).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex, players: room.players }); 
+            }
         });
 
     });
