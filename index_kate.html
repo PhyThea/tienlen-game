@@ -169,10 +169,10 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 
         <div class="hand-and-controls">
             <div class="card-container" id="myCards"></div>
-        <div class="controls" id="actionControls">
-            <button id="playBtn" class="btn-green" onclick="submitMove('play')">🎯 ស៊ីបៀរ / គប់បៀរ</button>
-            <button id="foldBtn" class="btn-red" onclick="submitMove('fold')">🖐️ ផ្កាប់បៀរ (ធីប)</button>
-        </div>
+            <div class="controls" id="actionControls">
+                <button id="playBtn" class="btn-green" onclick="submitMove('play')">🎯 ស៊ីបៀរ / គប់បៀរ</button>
+                <button id="foldBtn" class="btn-red" onclick="submitMove('fold')">🖐️ ផ្កាប់បៀរ (ធីប)</button>
+            </div>
         </div>
     </div>
 
@@ -267,18 +267,29 @@ socket.on('updatePlayers', (players) => {
 
 function startGame() { socket.emit('kt_startGame', currentRoom); }
 
+// 🛠️ ដំណោះស្រាយ៖ ធ្វើបច្ចុប្បន្នភាព និងជម្រះស្ថានភាព ទីវ ចាស់ៗរាល់ពេលចាប់ផ្តើមហ្គេមវគ្គថ្មី
 socket.on('gameStarted', ({ players, currentTurnIndex: turn, currentRound, lastRoundWinnerId: serverWinner }) => {
-    currentTurnIndex = turn; playersData = players; lastRoundWinnerId = serverWinner;
+    currentTurnIndex = turn; 
+    playersData = players; 
+    lastRoundWinnerId = serverWinner;
     selectedCard = null; 
-    document.body.classList.remove('round-over'); document.body.classList.add('in-game');
+    
+    document.body.classList.remove('round-over'); 
+    document.body.classList.add('in-game');
     document.getElementById('lobbyArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'none';
     document.getElementById('gameArea').style.display = 'block';
     document.getElementById('status').innerText = `ជុំទី៖ ${currentRound}`;
+    
+    const me = playersData.find(p => p.id === myId);
+    if (me) { amISpectator = me.isSpectator; }
+
     document.getElementById('actionControls').style.display = amISpectator ? 'none' : 'flex';
     document.getElementById('centerBadges').innerHTML = '';
     document.getElementById('tableCardsRow').innerHTML = `<div style="color: #a7f3d0; font-size: 12px;">ចាប់ផ្ដើមចែកបៀរ!</div>`;
-    renderPlayers(players); updateControlsState();
+    
+    renderPlayers(playersData); 
+    updateControlsState();
 });
 
 socket.on('winnerTransferred', (data) => { lastRoundWinnerId = data.newWinnerId; updateRoomUI(data); });
@@ -381,7 +392,13 @@ function submitMove(action) {
     const me = playersData.find(p => p.id === myId);
     if (me && me.isTiv) return alert("អ្នកបាន 'ទីវ' ហើយ មិនអាចលេងបានទេ!");
     
-    if (!selectedCard) return alert("សូមជ្រើសរើសសន្លឹកបៀរមួយសន្លឹកសិន!");
+    // 🛠️ បន្ថែមការត្រួតពិនិត្យការជ្រើសរើសបៀរឱ្យបានតឹងរ៉ឹង
+    if (action === 'play' && !selectedCard) {
+        return alert("សូមជ្រើសរើសសន្លឹកបៀរមួយសន្លឹកពីក្នុងដៃដើម្បី ចាក់ស៊ី/គប់បៀរ!");
+    }
+    if (action === 'fold' && !selectedCard) {
+        return alert("សូមជ្រើសរើសសន្លឹកបៀរមួយសន្លឹកពីក្នុងដៃដើម្បី ផ្កាប់ចោល(ធីប)!");
+    }
 
     const cardToSend = selectedCard;
     selectedCard = null;
@@ -446,7 +463,6 @@ socket.on('moveRecorded', (data) => {
     });
 });
 
-// 🛠️ ដំណោះស្រាយ៖ បង្ហាញលេខរាប់ថយក្រោយ ៥ វិនាទី ធំៗចំកណ្តាលតុលេងឱ្យច្បាស់
 socket.on('kt_startCountdown', (seconds) => {
     let timeLeft = seconds;
     const statusEl = document.getElementById('status');
@@ -495,6 +511,9 @@ socket.on('nextRoundStarted', (data) => {
     playersData = data.players; 
     selectedCard = null;
     
+    const me = playersData.find(p => p.id === myId);
+    if (me) amISpectator = me.isSpectator;
+
     renderPlayers(playersData); 
     renderHand(); 
     updateControlsState();
@@ -521,7 +540,7 @@ socket.on('gameWon', (data) => {
         } else if (p.gameStatus && p.gameStatus.includes('ងើយហើយ')) {
             pDiv.style.border = '2px solid #f59e0b';
             pDiv.style.background = '#3f2b0f';
-        } else if (p.gameStatus && (p.gameStatus.includes('កាត់ឡង') || p.gameStatus.includes('ទីវហើយ'))) {
+        } else if (p.gameStatus && (p.gameStatus.includes('ឡងសងគូទ') || p.gameStatus.includes('ទីវហើយ'))) {
             pDiv.style.border = '2px solid #ef4444';
             pDiv.style.background = '#2d1717';
         }
@@ -556,7 +575,6 @@ socket.on('gameWon', (data) => {
     const playAgainBtn = document.getElementById('hostPlayAgainBtn');
     const waitText = document.getElementById('waitHostText');
     
-    // 🛠️ ដំណោះស្រាយ៖ ឆែកអាយឌីឱ្យដឹងច្បាស់ថា ខ្ញុំពិតជា Host មែនឬទេ ដើម្បីកុំឱ្យគាំងប៊ូតុងវគ្គថ្មី
     if (playersData.length > 0 && playersData[0].id === myId) {
         isCreator = true;
     }
