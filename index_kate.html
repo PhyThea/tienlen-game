@@ -34,15 +34,56 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 .turn-badge { position: absolute; top: -8px; left: 50%; transform: translateX(-50%); background: #22c55e; color: white; font-size: 7px; font-weight: bold; padding: 0px 4px; border-radius: 10px; white-space: nowrap; }
 .card-counter { background: #1c2541; border-radius: 3px; padding: 0px 3px; font-weight: bold; font-size: 9px; color: #f59e0b; border: 1px solid #3a506b; display: inline-block; }
 
-/* 🛠️ ពង្រីកទីតាំងតុ និងកន្លែងបង្ហាញអក្សរ Badge ធំចំកណ្ដាលខ្ញុំគូស */
-.table-area { background: #14532d; border: 2px dashed #22c55e; border-radius: 10px; flex: 1; min-height: 60px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; padding: 6px; position: relative; margin: 4px 0; }
-.cards-row { display: flex; justify-content: center; align-items: center; gap: 8px; width: 100%; overflow-x: auto; }
-.center-badge-container { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 8px; width: 100%; min-height: 35px; padding: 4px 0; border-bottom: 1px dashed rgba(255,255,255,0.15); }
-
+/* 🛠️ កែសម្រួលតុឱ្យរៀបចំធាតុតាមលំដាប់លំដោយ មិនឱ្យបាំងប៊ូតុងខាងក្រោម */
+.table-area { 
+    background: #14532d; 
+    border: 2px dashed #22c55e; 
+    border-radius: 10px; 
+    flex: 1; 
+    min-height: 100px; 
+    display: flex; 
+    flex-direction: column; 
+    justify-content: space-between; 
+    align-items: center; 
+    padding: 8px; 
+    position: relative; 
+    margin: 4px 0; 
+    overflow: hidden;
+}
+.cards-row { 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    gap: 8px; 
+    width: 100%; 
+    flex: 1;
+}
+.center-badge-container { 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    flex-wrap: wrap; 
+    gap: 4px; 
+    width: 100%; 
+    max-height: 55px; 
+    overflow-y: auto;
+    padding-bottom: 4px; 
+    border-bottom: 1px dashed rgba(255,255,255,0.15); 
+}
 .player-card-box { display: flex; flex-direction: column; align-items: center; position: relative; }
 
-/* 👑 ពង្រីក Font អក្សរឱ្យធំច្បាស់ល្អ */
-.action-badge { position: relative; padding: 5px 12px; border-radius: 6px; font-size: 16px; font-weight: bold; white-space: nowrap; z-index: 10; box-shadow: 0 3px 6px rgba(0,0,0,0.4); text-shadow: 1px 1px 2px rgba(0,0,0,0.6); }
+/* 👑 កែសម្រួល Badge កុំឱ្យធំពេក និងលែងប្រើ absolute position នាំឱ្យបាំងគេ */
+.action-badge { 
+    position: relative; 
+    padding: 3px 8px; 
+    border-radius: 4px; 
+    font-size: 11px; 
+    font-weight: bold; 
+    white-space: nowrap; 
+    z-index: 2; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3); 
+    text-shadow: 1px 1px 1px rgba(0,0,0,0.5); 
+}
 
 .hand-and-controls { display: flex; flex-direction: column; gap: 4px; background: #1c2541; padding: 6px; border-radius: 10px; flex-shrink: 0; }
 .card-container { display: flex; justify-content: center; flex-wrap: nowrap; overflow-x: auto; padding: 2px 0; height: 120px; align-items: flex-end; }
@@ -109,7 +150,7 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
             <div class="card-container" id="myCards"></div>
             <div class="controls" id="actionControls">
                 <button id="playBtn" class="btn-green" onclick="submitMove('play')">🎯 ស៊ីបៀរ / គប់បៀរ</button>
-                <button id="foldBtn" class="btn-red" onclick="submitMove('fold')">🖐️ ផ្កាប់បៀរ</button>
+                <button id="foldBtn" class="btn-red" onclick="submitMove('fold')">🖐️ ផ្កាប់បៀរ (ធីប)</button>
             </div>
         </div>
     </div>
@@ -284,36 +325,36 @@ function submitMove(action) {
     selectedCard = null;
 }
 
-// 🛠| បង្ហាញអក្សរ Badge ឱ្យធំ និងស្ថិតនៅចំកណ្ដាលតុខាងលើ (កន្លែងគូស)
+// 🛠️ បង្ហាញអក្សរ Badge បន្តបន្ទាប់គ្នាក្នុងតុ មិនឱ្យហៀរបាំងប៊ូតុងបញ្ជាទូរស័ព្ទ
 socket.on('moveRecorded', (data) => {
     const badgeDiv = document.getElementById('centerBadges');
     const cardsRow = document.getElementById('tableCardsRow');
     badgeDiv.innerHTML = ''; cardsRow.innerHTML = '';
     
     data.tableCards.forEach(m => {
-        // ១. បង្ហាញ Badge អក្សរធំនៅផ្នែកកណ្ដាលតុខាងលើ
+        // ១. បង្ហាញ Badge អក្សរតម្រៀបគ្នាក្នុងតំបន់តុខាងលើ មិនឱ្យហៀរបាំងឡើយ
         const badge = document.createElement('div'); 
         badge.className = 'action-badge';
         if (m.action === 'គប់ហើយ' || m.action === 'ស៊ីបៀរ') {
             badge.style.background = '#22c55e'; badge.style.color = 'white';
-        } else if (m.action === 'អត់គប់ទេ' || m.action === 'ផ្កាប់បៀរ') {
+        } else if (m.action === 'អត់គប់ទេ' || m.action === 'ធីបហើយ') {
             badge.style.background = '#ef4444'; badge.style.color = 'white';
         } else if (m.action === 'គប់ទេ') {
             badge.style.background = '#3b82f6'; badge.style.color = 'white';
         }
-        badge.innerText = `${m.name}: ${m.action}`;
+        badge.innerText = `${m.name.substring(0,5)}: ${m.action}`;
         badgeDiv.appendChild(badge);
 
         // ២. បង្ហាញសន្លឹកបៀរនៅជួរខាងក្រោម
         const box = document.createElement('div'); box.className = 'player-card-box';
-        if (m.action === 'ផ្កាប់បៀរ' && data.round <= 4) {
+        if (m.action === 'ធីបហើយ' && data.round <= 4) {
             const cardBackEl = document.createElement('div');
-            cardBackEl.style.width = '55px'; cardBackEl.style.height = '80px'; cardBackEl.style.borderRadius = '4px';
+            cardBackEl.style.width = '45px'; cardBackEl.style.height = '65px'; cardBackEl.style.borderRadius = '4px';
             cardBackEl.style.background = 'linear-gradient(135deg, #b91c1c, #7f1d1d)';
             cardBackEl.style.border = '1.5px solid white'; cardBackEl.style.boxShadow = '0 2px 4px rgba(0,0,0,0.4)';
             box.appendChild(cardBackEl);
         } else {
-            const cardEl = document.createElement('img'); cardEl.style.width = '55px'; cardEl.style.borderRadius = '4px';
+            const cardEl = document.createElement('img'); cardEl.style.width = '45px'; cardEl.style.borderRadius = '4px';
             cardEl.src = getCardFileName(m.card);
             box.appendChild(cardEl);
         }
@@ -331,7 +372,6 @@ socket.on('nextRoundStarted', (data) => {
     renderPlayers(playersData); renderHand(); updateControlsState();
 });
 
-// 🛠️ ធ្វើបច្ចុប្បន្នភាព៖ បង្ហាញបៀដើមទាំង ៦ សន្លឹករបស់គ្រប់គ្នាទាំងអស់នៅពេលចប់ហ្គេមដូច ទៀនឡេន ដែរ
 socket.on('gameWon', (data) => {
     lastRoundWinnerId = data.winnerId;
     document.body.classList.remove('in-game'); document.body.classList.add('round-over');
