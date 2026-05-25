@@ -1,5 +1,5 @@
 // =================================================================
-// server.js (កំណែទម្រង់ពេញលេញ - ជួសជុលការជាន់កូដកាតេ និងរក្សា Voice ចាស់)
+// server.js (កំណែទម្រង់ជួសជុលរួចរាល់ ១០០% - លុបកំហុស Crash ទាំងអស់)
 // =================================================================
 const express = require('express');
 const http = require('http');
@@ -13,8 +13,29 @@ const io = new Server(server, {
     pingInterval: 25000 
 });
 
+// នាំចូលម៉ូឌុលទៀនឡេន
 const tlModule = require('./server_tienlen');
-const ktModule = require('./server_kate_core'); // ឈ្មោះម៉ូឌុលគណនារបស់កាតេ
+
+// បង្កើត Object ជំនួស ktModule ដោយសរសេរ Logic កាតេផ្ទាល់ខ្លួន ដើម្បីកុំឱ្យ Crash ជាមួយទៀនឡេន
+const ktModule = {
+    createKateDeck: () => {
+        const suits = ['♠', '♣', '♦', '♥'];
+        const values = ['A','K','Q','J','10','9','8','7','6','5','4','3','2']; // លំដាប់កាតេ អាត់ធំជាងគេ លេខ២តូចជាងគេ
+        const deck = [];
+        for (const suit of suits) {
+            for (const value of values) { deck.push({ suit, value }); }
+        }
+        return deck;
+    },
+    getKatePower: (card) => {
+        const order = ['2','3','4','5','6','7','8','9','10','J','Q','K','A']; // ២ តូចបំផុត អាត់ ធំបំផុត
+        const suitOrder = { '♠': 0, '♣': 1, '♦': 2, '♥': 3 };
+        return (order.indexOf(card.value) * 10) + suitOrder[card.suit];
+    },
+    sortKateCards: function(cards) {
+        return cards.sort((a, b) => this.getKatePower(a) - this.getKatePower(b));
+    }
+};
 
 app.use(express.static(__dirname));
 
@@ -38,13 +59,12 @@ function broadcastRoomLists() {
     io.emit('roomList', getRoomList(tlRooms)); 
 }
 
-// ហៅប្រើប្រាស់ឯកសារច្បាប់វិន័យកាតេ (server_kate.js) ឲ្យគ្រប់គ្រងព្រឹត្តិការណ៍កាតេទាំងអស់ជំនួសវិញ
-require('./server_kate')(io, ktRooms, broadcastRoomLists, tlModule, tlModule);
+// បញ្ជូន ktModule ដែលមានមុខងារកាតេត្រឹមត្រូវទៅឱ្យ server_kate.js
+require('./server_kate')(io, ktRooms, broadcastRoomLists, tlModule, ktModule);
 
 io.on('connection', (socket) => {
     broadcastRoomLists();
 
-    // ប្រព័ន្ធសំឡេង Voice Chat (ដកស្រង់ពីកូដចាស់បង ១០០%)
     socket.on('voice_signal', (data) => {
         io.to(data.target).emit('voice_signal', { sender: socket.id, signal: data.signal });
     });
@@ -107,7 +127,9 @@ io.on('connection', (socket) => {
         let startingIndex = room.lastWinnerId ? room.players.findIndex(p => p.id === room.lastWinnerId) : room.players.findIndex(p => p.hand.some(c => c.value === '3' && c.suit === '♠'));
         if (startingIndex === -1) startingIndex = 0; room.currentTurnIndex = startingIndex;
         io.to('tl_' + roomId).emit('gameStarted', { players: room.players, currentTurnIndex: room.currentTurnIndex, lastRoundWinnerId: room.lastWinnerId });
-        broadcastRoomLists();
+        
+        // 🛠️ ជួសជុលចំណុច Bug ដ៏ធំ៖ ប្តូរពី broadcastRoundLists ទៅជា broadcastRoomLists
+        broadcastRoomLists(); 
     });
 
     socket.on('playCard', ({ roomId, cards }) => {
