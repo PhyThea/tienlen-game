@@ -318,15 +318,34 @@ function renderPlayers(players) {
     div.innerHTML = ''; lobby.innerHTML = '';
     players.forEach((p, index) => {
         const el = document.createElement('div'); el.className = 'player';
-        if (currentTurnIndex === index && !p.isSpectator) el.classList.add('active-turn');
-        if (p.isSpectator && document.body.classList.contains('in-game')) el.classList.add('player-dead');
         
-        let roleText = p.isSpectator ? '<span style="color: #ef4444;">(លង់/អ្នកមើល)</span>' : `<div class="card-counter">🏆 ស៊ីបាន៖ ${p.winRounds || 0}</div>`;
-        el.innerHTML = `${currentTurnIndex === index && !p.isSpectator ? `<div class="turn-badge">🎯 វេន</div>` : ''}<strong>👤 ${p.name.substring(0,5)}</strong><br>${roleText}`;
+        // បន្ថែមលក្ខខណ្ឌ active-turn តែអ្នកមិនទាន់ស្លាប់ ឬមិនទាន់ទីវ
+        if (currentTurnIndex === index && !p.isSpectator && !p.isTiv) el.classList.add('active-turn');
+        
+        // ប្តូរពណ៌ទៅជាក្រហមងងឹត (ស្លាប់/Pass) បើសិនជា Spectator ឬត្រូវបាន "ទីវហើយ"
+        if ((p.isSpectator || p.isTiv) && document.body.classList.contains('in-game')) {
+            el.classList.add('player-dead');
+        }
+        
+        // កំណត់អក្សរបង្ហាញស្ថានភាពខាងក្រោមឈ្មោះ
+        let roleText = `<div class="card-counter">🏆 ស៊ីបាន៖ ${p.winRounds || 0}</div>`;
+        if (p.isSpectator) {
+            roleText = '<span style="color: #ef4444; font-weight: bold;">(លង់/អ្នកមើល)</span>';
+        } else if (p.isTiv) {
+            roleText = '<span style="color: #f87171; font-weight: bold;">🖐️ ទីវហើយ</span>';
+        }
+        
+        // បង្ហាញ Badge វេនលេង (លុបចោលបើអ្នកនោះទីវហើយ)
+        let turnBadge = (currentTurnIndex === index && !p.isSpectator && !p.isTiv) ? `<div class="turn-badge">🎯 វេន</div>` : '';
+        
+        el.innerHTML = `${turnBadge}<strong>👤 ${p.name.substring(0,5)}</strong><br>${roleText}`;
         div.appendChild(el);
 
+        // បច្ចុប្បន្នភាពបញ្ជីអ្នកលេងនៅក្នុង Lobby area
         const el2 = document.createElement('div'); el2.className = 'player'; el2.style.marginBottom = '10px';
-        el2.innerHTML = `👤 ${p.name} ${p.id === myId ? '(ខ្ញុំ)' : ''} ${p.isSpectator ? '<span style="color:#ef4444;">(លង់/អ្នកមើល)</span>':''}`; lobby.appendChild(el2);
+        let lobbyStatus = p.isSpectator ? ' <span style="color:#ef4444;">(លង់/អ្នកមើល)</span>' : (p.isTiv ? ' <span style="color:#f87171;">(ទីវហើយ)</span>' : '');
+        el2.innerHTML = `👤 ${p.name} ${p.id === myId ? '(ខ្ញុំ)' : ''}${lobbyStatus}`; 
+        lobby.appendChild(el2);
     });
 }
 
