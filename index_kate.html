@@ -27,8 +27,32 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 }
 
 .game-header { display: flex; justify-content: space-between; align-items: center; background: #1c2541; padding: 5px 10px; border-radius: 8px; flex-shrink: 0; height: 32px; }
-#players { display: flex; gap: 6px; justify-content: center; align-items: center; width: 100%; flex-shrink: 0; height: 42px; margin-top: 2px; }
-.player { background: #3a506b; padding: 3px 6px; border-radius: 6px; min-width: 80px; flex: 1; max-width: 140px; position: relative; border: 1.5px solid transparent; text-align: center; font-size: 11px; }
+
+/* 🛠️ ជំនួសស្ទីលថ្មីដើម្បីឱ្យវា Scannable និងស្អាតពេលលេង ៦ នាក់ */
+#players { 
+    display: flex; 
+    gap: 4px; 
+    justify-content: center; 
+    align-items: center; 
+    width: 100%; 
+    flex-shrink: 0; 
+    height: 42px; 
+    margin-top: 2px; 
+    flex-wrap: nowrap; /* ការពារកុំឱ្យធ្លាក់ជួរ */
+}
+.player { 
+    background: #3a506b; 
+    padding: 2px 4px; 
+    border-radius: 6px; 
+    min-width: 55px; /* បន្ថយទំហំតូចជាងមុនបន្តិច ដើម្បីញាត់ចូលអេក្រង់ទូរស័ព្ទត្រូវទាំង ៦នាក់ */
+    flex: 1; 
+    max-width: 140px; 
+    position: relative; 
+    border: 1.5px solid transparent; 
+    text-align: center; 
+    font-size: 10px; /* អក្សរតូចល្មមស្អាត */
+}
+
 .player.active-turn { border: 1.5px solid #22c55e !important; box-shadow: 0 0 6px rgba(34, 197, 94, 0.5) !important; }
 .player-dead { background: #2d1717 !important; opacity: 0.5; border: 1.5px solid #ef4444 !important; }
 .turn-badge { position: absolute; top: -8px; left: 50%; transform: translateX(-50%); background: #22c55e; color: white; font-size: 7px; font-weight: bold; padding: 0px 4px; border-radius: 10px; white-space: nowrap; }
@@ -330,20 +354,18 @@ function submitMove(action) {
 
     let finalAction = action;
 
-    // ជុំទី ១ ដល់ ទី ៤ (វគ្គដេញទឹកស៊ី)
     if (currentRound <= 4) {
         if (action === 'play') {
-            finalAction = 'eat'; // ចុចប៊ូតុងបៃតង គឺស្មើនឹងសកម្មភាព "ស៊ីបៀរ"
+            finalAction = 'eat'; 
         } else {
-            finalAction = 'fold'; // ចុចប៊ូតុងក្រហម គឺស្មើនឹងសកម្មភាព "ធីប/ផ្កាប់"
+            finalAction = 'fold'; 
         }
     } 
-    // ជុំទី ៥ (វគ្គគប់បៀរដេញយកឡង)
     else if (currentRound === 5) {
         if (action === 'play') {
-            finalAction = 'eat'; // រក្សាទុកពាក្យ 'eat' ដើម្បីឱ្យ Server ដឹងថាអ្នកលេងចង់ "គប់ប្រជែង" (Server នឹងប្ដូរទៅជា 'គប់ហើយ' ឬ 'គប់ទេ' ស្វ័យប្រវត្តិ)
+            finalAction = 'eat'; 
         } else {
-            finalAction = 'fold'; // ចុចប៊ូតុងក្រហម គឺស្មើនឹងការ "បោះបង់/អត់គប់ទេ"
+            finalAction = 'fold'; 
         }
     }
 
