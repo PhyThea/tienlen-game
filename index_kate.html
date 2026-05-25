@@ -307,7 +307,6 @@ function isMyTurn() { return !amISpectator && playersData[currentTurnIndex] && p
 function updateControlsState() {
     const playBtn = document.getElementById('playBtn'), foldBtn = document.getElementById('foldBtn');
     if (playBtn && foldBtn) {
-        // ពិនិត្យមើលថាតើខ្លួនឯង "ទីវហើយ" ឬនៅមុននឹងបើកប៊ូតុងបញ្ជា
         const me = playersData.find(p => p.id === myId);
         const amITiv = me ? me.isTiv : false;
 
@@ -362,7 +361,6 @@ function renderHand() {
         container.innerHTML = '<div style="color: #94a3b8; font-style: italic;">អ្នកកំពុងមើលការប្រកួត...</div>'; 
         return; 
     }
-    // 🛠️ បន្ថែមការបង្ហាញសារលាក់បៀរពេល "ទីវហើយ" មិនឱ្យចុចជ្រើសរើសច្រឡំគ្នា
     if (amITiv) {
         container.innerHTML = '<div style="color: #f87171; font-style: italic; font-weight: bold; font-size: 14px;">🖐️ អ្នកបាន "ទីវហើយ" (រង់ចាំមើលគេគប់ជុំទី ៥)</div>';
         return;
@@ -372,7 +370,6 @@ function renderHand() {
         const el = document.createElement('div'); el.className = 'card'; el.style.backgroundImage = `url('${getCardFileName(card)}')`;
         if (selectedCard && selectedCard.value === card.value && selectedCard.suit === card.suit) el.classList.add('selected');
         
-        // ចាក់សោរការជ្រើសរើសសន្លឹកបៀរបន្ថែមបើខ្លួនឯងបាន "ទីវហើយ"
         el.onclick = () => { if (isMyTurn() && !amITiv) { selectedCard = card; renderHand(); } };
         container.appendChild(el);
     });
@@ -402,7 +399,6 @@ function submitMove(action) {
             finalAction = 'fold'; 
         }
     } 
-    // 🛠️ កែសម្រួលការបញ្ជូនសកម្មភាពជុំទី ៥ ឱ្យត្រូវតាមលក្ខខណ្ឌរបស់ Server_kate.js
     else if (currentRound === 5) {
         if (action === 'play') {
             finalAction = 'eat'; 
@@ -484,6 +480,9 @@ socket.on('gameWon', (data) => {
         if (p.finalWinner) { 
             pDiv.style.border = '2px solid #22c55e'; 
             pDiv.style.background = '#14532d'; 
+        } else if (p.gameStatus && p.gameStatus.includes('ងើយហើយ')) {
+            pDiv.style.border = '2px solid #f59e0b';
+            pDiv.style.background = '#3f2b0f';
         } else if (p.gameStatus && (p.gameStatus.includes('កាត់ឡង') || p.gameStatus.includes('ទីវហើយ'))) {
             pDiv.style.border = '2px solid #ef4444';
             pDiv.style.background = '#2d1717';
