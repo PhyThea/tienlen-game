@@ -28,7 +28,6 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 
 .game-header { display: flex; justify-content: space-between; align-items: center; background: #1c2541; padding: 5px 10px; border-radius: 8px; flex-shrink: 0; height: 32px; }
 
-/* 🛠️ ជំនួសស្ទីលថ្មីដើម្បីឱ្យវា Scannable និងស្អាតពេលលេង ៦ នាក់ */
 #players { 
     display: flex; 
     gap: 4px; 
@@ -38,19 +37,19 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
     flex-shrink: 0; 
     height: 42px; 
     margin-top: 2px; 
-    flex-wrap: nowrap; /* ការពារកុំឱ្យធ្លាក់ជួរ */
+    flex-wrap: nowrap; 
 }
 .player { 
     background: #3a506b; 
     padding: 2px 4px; 
     border-radius: 6px; 
-    min-width: 55px; /* បន្ថយទំហំតូចជាងមុនបន្តិច ដើម្បីញាត់ចូលអេក្រង់ទូរស័ព្ទត្រូវទាំង ៦នាក់ */
+    min-width: 55px; 
     flex: 1; 
     max-width: 140px; 
     position: relative; 
     border: 1.5px solid transparent; 
     text-align: center; 
-    font-size: 10px; /* អក្សរតូចល្មមស្អាត */
+    font-size: 10px; 
 }
 
 .player.active-turn { border: 1.5px solid #22c55e !important; box-shadow: 0 0 6px rgba(34, 197, 94, 0.5) !important; }
@@ -308,8 +307,17 @@ function isMyTurn() { return !amISpectator && playersData[currentTurnIndex] && p
 function updateControlsState() {
     const playBtn = document.getElementById('playBtn'), foldBtn = document.getElementById('foldBtn');
     if (playBtn && foldBtn) {
-        if (isMyTurn()) { playBtn.disabled = false; foldBtn.disabled = false; } 
-        else { playBtn.disabled = true; foldBtn.disabled = true; }
+        // ពិនិត្យមើលថាតើខ្លួនឯង "ទីវហើយ" ឬនៅមុននឹងបើកប៊ូតុងបញ្ជា
+        const me = playersData.find(p => p.id === myId);
+        const amITiv = me ? me.isTiv : false;
+
+        if (isMyTurn() && !amITiv) { 
+            playBtn.disabled = false; 
+            foldBtn.disabled = false; 
+        } else { 
+            playBtn.disabled = true; 
+            foldBtn.disabled = true; 
+        }
     }
 }
 
@@ -319,15 +327,12 @@ function renderPlayers(players) {
     players.forEach((p, index) => {
         const el = document.createElement('div'); el.className = 'player';
         
-        // បន្ថែមលក្ខខណ្ឌ active-turn តែអ្នកមិនទាន់ស្លាប់ ឬមិនទាន់ទីវ
         if (currentTurnIndex === index && !p.isSpectator && !p.isTiv) el.classList.add('active-turn');
         
-        // ប្តូរពណ៌ទៅជាក្រហមងងឹត (ស្លាប់/Pass) បើសិនជា Spectator ឬត្រូវបាន "ទីវហើយ"
         if ((p.isSpectator || p.isTiv) && document.body.classList.contains('in-game')) {
             el.classList.add('player-dead');
         }
         
-        // កំណត់អក្សរបង្ហាញស្ថានភាពខាងក្រោមឈ្មោះ
         let roleText = `<div class="card-counter">🏆 ស៊ីបាន៖ ${p.winRounds || 0}</div>`;
         if (p.isSpectator) {
             roleText = '<span style="color: #ef4444; font-weight: bold;">(លង់/អ្នកមើល)</span>';
@@ -335,13 +340,11 @@ function renderPlayers(players) {
             roleText = '<span style="color: #f87171; font-weight: bold;">🖐️ ទីវហើយ</span>';
         }
         
-        // បង្ហាញ Badge វេនលេង (លុបចោលបើអ្នកនោះទីវហើយ)
         let turnBadge = (currentTurnIndex === index && !p.isSpectator && !p.isTiv) ? `<div class="turn-badge">🎯 វេន</div>` : '';
         
         el.innerHTML = `${turnBadge}<strong>👤 ${p.name.substring(0,5)}</strong><br>${roleText}`;
         div.appendChild(el);
 
-        // បច្ចុប្បន្នភាពបញ្ជីអ្នកលេងនៅក្នុង Lobby area
         const el2 = document.createElement('div'); el2.className = 'player'; el2.style.marginBottom = '10px';
         let lobbyStatus = p.isSpectator ? ' <span style="color:#ef4444;">(លង់/អ្នកមើល)</span>' : (p.isTiv ? ' <span style="color:#f87171;">(ទីវហើយ)</span>' : '');
         el2.innerHTML = `👤 ${p.name} ${p.id === myId ? '(ខ្ញុំ)' : ''}${lobbyStatus}`; 
@@ -351,17 +354,36 @@ function renderPlayers(players) {
 
 function renderHand() {
     const container = document.getElementById('myCards'); container.innerHTML = '';
-    if (amISpectator) { container.innerHTML = '<div style="color: #94a3b8; font-style: italic;">អ្នកកំពុងមើលការប្រកួត...</div>'; return; }
+    
+    const me = playersData.find(p => p.id === myId);
+    const amITiv = me ? me.isTiv : false;
+
+    if (amISpectator) { 
+        container.innerHTML = '<div style="color: #94a3b8; font-style: italic;">អ្នកកំពុងមើលការប្រកួត...</div>'; 
+        return; 
+    }
+    // 🛠️ បន្ថែមការបង្ហាញសារលាក់បៀរពេល "ទីវហើយ" មិនឱ្យចុចជ្រើសរើសច្រឡំគ្នា
+    if (amITiv) {
+        container.innerHTML = '<div style="color: #f87171; font-style: italic; font-weight: bold; font-size: 14px;">🖐️ អ្នកបាន "ទីវហើយ" (រង់ចាំមើលគេគប់ជុំទី ៥)</div>';
+        return;
+    }
+
     myHand.forEach(card => {
         const el = document.createElement('div'); el.className = 'card'; el.style.backgroundImage = `url('${getCardFileName(card)}')`;
         if (selectedCard && selectedCard.value === card.value && selectedCard.suit === card.suit) el.classList.add('selected');
-        el.onclick = () => { if (isMyTurn()) { selectedCard = card; renderHand(); } };
+        
+        // ចាក់សោរការជ្រើសរើសសន្លឹកបៀរបន្ថែមបើខ្លួនឯងបាន "ទីវហើយ"
+        el.onclick = () => { if (isMyTurn() && !amITiv) { selectedCard = card; renderHand(); } };
         container.appendChild(el);
     });
 }
 
 function submitMove(action) {
     if (!isMyTurn()) return alert("មិនទាន់ដល់វេនឡើយ!");
+    
+    const me = playersData.find(p => p.id === myId);
+    if (me && me.isTiv) return alert("អ្នកបាន 'ទីវ' ហើយ មិនអាចលេងបានទេ!");
+    
     if (!selectedCard) return alert("សូមជ្រើសរើសសន្លឹកបៀរមួយសន្លឹកសិន!");
 
     const cardToSend = selectedCard;
@@ -380,6 +402,7 @@ function submitMove(action) {
             finalAction = 'fold'; 
         }
     } 
+    // 🛠️ កែសម្រួលការបញ្ជូនសកម្មភាពជុំទី ៥ ឱ្យត្រូវតាមលក្ខខណ្ឌរបស់ Server_kate.js
     else if (currentRound === 5) {
         if (action === 'play') {
             finalAction = 'eat'; 
@@ -433,8 +456,14 @@ socket.on('nextRoundStarted', (data) => {
     document.getElementById('status').innerText = `ជុំទី៖ ${data.currentRound}`;
     document.getElementById('centerBadges').innerHTML = '';
     document.getElementById('tableCardsRow').innerHTML = `<div style="color:#a7f3d0; font-size:12px;">ជុំថ្មី! អ្នកស៊ីចុងក្រោយ៖ ${data.winnerName}</div>`;
-    currentTurnIndex = data.currentTurnIndex; playersData = data.players; selectedCard = null;
-    renderPlayers(playersData); renderHand(); updateControlsState();
+    
+    currentTurnIndex = data.currentTurnIndex; 
+    playersData = data.players; 
+    selectedCard = null;
+    
+    renderPlayers(playersData); 
+    renderHand(); 
+    updateControlsState();
 });
 
 socket.on('gameWon', (data) => {
