@@ -5,15 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🎰 មជ្ឈមណ្ឌលហ្គេមបៀអនឡាញ</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #0f172a; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .menu-container { text-align: center; background: #1e293b; padding: 40px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-width: 400px; width: 100%; }
-        h1 { margin-bottom: 30px; font-size: 24px; color: #f59e0b; }
-        .btn { display: block; width: 100%; padding: 15px; margin: 15px 0; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; text-decoration: none; text-align: center; color: white; transition: transform 0.2s, background 0.2s; }
+        body { font-family: Arial, sans-serif; background: #0f172a; color: white; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        /* 🛠️ រំកិលប្រអប់ឡើងលើដោយប្រើ margin-top តិចតួច និងកំណត់កម្ពស់តាមមាតិកា */
+        .menu-container { background: #1e293b; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-width: 450px; width: 100%; margin-top: -5vh; }
+        h1 { text-align: center; margin-bottom: 20px; font-size: 22px; color: #f59e0b; }
+        .btn { display: block; width: 100%; padding: 14px; margin: 10px 0; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; text-decoration: none; text-align: center; color: white; transition: transform 0.2s, background 0.2s; box-sizing: border-box; }
         .btn:active { transform: scale(0.98); }
         .btn-tienlen { background: #3b82f6; }
         .btn-tienlen:hover { background: #2563eb; }
         .btn-kate { background: #22c55e; }
         .btn-kate:hover { background: #16a34a; }
+        
+        /* 🏰 ស្ទីលបញ្ជីបន្ទប់ */
+        .room-section { margin-top: 25px; border-top: 1px dashed #475569; padding-top: 15px; }
+        .room-title { font-size: 15px; font-weight: bold; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+        .room-list { max-height: 180px; overflow-y: auto; margin-bottom: 15px; padding-right: 5px; }
+        /* បន្ថែម Scrollbar ស្អាត */
+        .room-list::-webkit-scrollbar { width: 6px; }
+        .room-list::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        
+        .room-item { background: #334155; padding: 10px 15px; border-radius: 8px; margin-top: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+        .no-room { color: #94a3b8; font-size: 13px; font-style: italic; text-align: center; padding: 10px 0; }
+        .join-badge { padding: 4px 10px; border-radius: 6px; font-weight: bold; text-decoration: none; color: white; font-size: 12px; }
     </style>
 </head>
 <body>
@@ -21,6 +34,57 @@
         <h1>🃏 សូមជ្រើសរើសហ្គេមលេង</h1>
         <a href="/tienlen" class="btn btn-tienlen">🃏 លេងបៀរ ទៀនឡេន (Tien Len)</a>
         <a href="/kate" class="btn btn-kate">🎴 លេងបៀរ កាតេ (Ka Te)</a>
+
+        <div class="room-section">
+            <div class="room-title" style="color: #3b82f6;">🏰 បន្ទប់រង់ចាំ ទៀនឡេន (Tien Len)៖</div>
+            <div id="tlRoomList" class="room-list">
+                <div class="no-room">កំពុងទាញយកទិន្នន័យ...</div>
+            </div>
+
+            <div class="room-title" style="color: #22c55e; margin-top: 15px;">🏰 បន្ទប់រង់ចាំ កាតេ (Ka Te)៖</div>
+            <div id="ktRoomList" class="room-list">
+                <div class="no-room">កំពុងទាញយកទិន្នន័យ...</div>
+            </div>
+        </div>
     </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        // ស្តាប់បញ្ជីបន្ទប់ Tien Len
+        socket.on('tlRoomList', (rooms) => {
+            renderRooms('tlRoomList', rooms, '/tienlen', 'btn-tienlen');
+        });
+
+        // ស្តាប់បញ្ជីបន្ទប់ Ka Te
+        socket.on('ktRoomList', (rooms) => {
+            renderRooms('ktRoomList', rooms, '/kate', 'btn-kate');
+        });
+
+        function renderRooms(elementId, rooms, redirectUrl, btnClass) {
+            const container = document.getElementById(elementId);
+            container.innerHTML = '';
+            
+            if (rooms.length === 0) {
+                container.innerHTML = '<div class="no-room">មិនទាន់មានបន្ទប់នៅឡើយទេ...</div>';
+                return;
+            }
+
+            rooms.forEach(r => {
+                const item = document.createElement('div');
+                item.className = 'room-item';
+                item.innerHTML = `
+                    <div>
+                        <strong>បន្ទប់: ${r.roomId}</strong> ${r.hasPassword ? '🔒' : '🔓'}
+                        <br>
+                        <small style="color: #94a3b8;">សមាជិក: ${r.playerCount}/4 នាក់</small>
+                    </div>
+                    <a href="${redirectUrl}" class="join-badge ${btnClass}">ចូលរួម</a>
+                `;
+                container.appendChild(item);
+            });
+        }
+    </script>
 </body>
 </html>
