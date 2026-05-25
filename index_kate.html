@@ -169,10 +169,10 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 
         <div class="hand-and-controls">
             <div class="card-container" id="myCards"></div>
-            <div class="controls" id="actionControls">
-                <button id="playBtn" class="btn-green" onclick="submitMove('play')">🎯 ស៊ីបៀរ / គប់បៀរ</button>
-                <button id="foldBtn" class="btn-red" onclick="submitMove('fold')">🖐️ ផ្កាប់បៀរ (ធីប)</button>
-            </div>
+        <div class="controls" id="actionControls">
+            <button id="playBtn" class="btn-green" onclick="submitMove('play')">🎯 ស៊ីបៀរ / គប់បៀរ</button>
+            <button id="foldBtn" class="btn-red" onclick="submitMove('fold')">🖐️ ផ្កាប់បៀរ (ធីប)</button>
+        </div>
         </div>
     </div>
 
@@ -399,12 +399,9 @@ function submitMove(action) {
             finalAction = 'fold'; 
         }
     } 
+    // 🛠️ កែសម្រួល៖ នៅជុំទី ៥ បង្ខំឱ្យផ្ញើទៅ Server ថាជាការលេង (play) ជានិច្ច មិនឱ្យមានសកម្មភាព fold ឡើយ
     else if (currentRound === 5) {
-        if (action === 'play') {
-            finalAction = 'eat'; 
-        } else {
-            finalAction = 'fold'; 
-        }
+        finalAction = 'play'; 
     }
 
     socket.emit('kt_playMove', { roomId: currentRoom, action: finalAction, card: cardToSend });
@@ -414,6 +411,10 @@ socket.on('moveRecorded', (data) => {
     const badgeDiv = document.getElementById('centerBadges');
     const cardsRow = document.getElementById('tableCardsRow');
     badgeDiv.innerHTML = ''; cardsRow.innerHTML = '';
+    
+    // ស្វែងរកជុំបច្ចុប្បន្នចេញពី UI status text
+    const statusText = document.getElementById('status').innerText;
+    const currentRound = parseInt(statusText.replace(/[^0-9]/g, '')) || 1;
     
     data.tableCards.forEach(m => {
         const badge = document.createElement('div'); 
@@ -429,21 +430,45 @@ socket.on('moveRecorded', (data) => {
         badgeDiv.appendChild(badge);
 
         const box = document.createElement('div'); box.className = 'player-card-box';
+        
+        // 🛠️ កែសម្រួល៖ បើនៅក្នុងជុំទី ៥ ទោះបីជាចុច ធីប ឬ អត់គប់ ក៏ត្រូវតែបង្ហាញសន្លឹកបៀរចំហរដាច់ខាត
         const isFoldedMove = (m.action === 'ធីបហើយ' || m.action === 'អត់គប់ទេ');
 
-        if (isFoldedMove) {
+        if (isFoldedMove && currentRound < 5) { 
+            // ជុំទី ១ ដល់ ៤ បង្ហាញខ្នងបៀរក្រហមផ្កាប់ចុះ
             const cardBackEl = document.createElement('div');
             cardBackEl.style.width = '45px'; cardBackEl.style.height = '65px'; cardBackEl.style.borderRadius = '4px';
             cardBackEl.style.background = 'linear-gradient(135deg, #b91c1c, #7f1d1d)';
             cardBackEl.style.border = '1.5px solid white'; cardBackEl.style.boxShadow = '0 2px 4px rgba(0,0,0,0.4)';
             box.appendChild(cardBackEl);
         } else {
+            // ជុំទី ៥ បង្ហាញរូបភាពសន្លឹកបៀរចំហរទាំងអស់
             const cardEl = document.createElement('img'); cardEl.style.width = '45px'; cardEl.style.borderRadius = '4px';
             cardEl.src = getCardFileName(m.card);
             box.appendChild(cardEl);
         }
         cardsRow.appendChild(box);
     });
+});
+
+// 🛠️ បន្ថែម៖ ទទួលបញ្ជារាប់ថយក្រោយ ៥ វិនាទីនៅជុំទី ៥ មុនពេលបង្ហាញលទ្ធផលចុងក្រោយ
+socket.on('kt_startCountdown', (seconds) => {
+    let timeLeft = seconds;
+    const statusEl = document.getElementById('status');
+    
+    // បង្ហាញអក្សររាប់ថយក្រោយនៅលើ Header ហ្គេម
+    statusEl.innerText = `⏱️ បង្ហាញលទ្ធផលក្នុង៖ ${timeLeft} វិនាទី`;
+    statusEl.style.color = '#f59e0b';
+
+    const countdownInterval = setInterval(() => {
+        timeLeft--;
+        if (timeLeft > 0) {
+            statusEl.innerText = `⏱️ បង្ហាញលទ្ធផលក្នុង៖ ${timeLeft} វិនាទី`;
+        } else {
+            clearInterval(countdownInterval);
+            statusEl.style.color = '#22c55e';
+        }
+    }, 1000);
 });
 
 socket.on('turnChanged', ({ currentTurnIndex: turn }) => { currentTurnIndex = turn; renderPlayers(playersData); updateControlsState(); });
