@@ -127,7 +127,9 @@ io.on('connection', (socket) => {
         let startingIndex = room.lastWinnerId ? room.players.findIndex(p => p.id === room.lastWinnerId) : room.players.findIndex(p => p.hand.some(c => c.value === '3' && c.suit === '♠'));
         if (startingIndex === -1) startingIndex = 0; room.currentTurnIndex = startingIndex;
         io.to('tl_' + roomId).emit('gameStarted', { players: room.players, currentTurnIndex: room.currentTurnIndex, lastRoundWinnerId: room.lastWinnerId });
-        broadcastRoomLists(); // 🛠️ ជួសជុលពី broadcastRoundLists ទៅជា broadcastRoomLists
+        
+        // 🛠️ ជួសជុលចំណុច Bug ដ៏ធំ៖ ប្តូរពី broadcastRoundLists ទៅជា broadcastRoomLists
+        broadcastRoomLists(); 
     });
 
     socket.on('playCard', ({ roomId, cards }) => {
