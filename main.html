@@ -26,7 +26,8 @@
         
         .room-item { background: #334155; padding: 10px 15px; border-radius: 8px; margin-top: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
         .no-room { color: #94a3b8; font-size: 13px; font-style: italic; text-align: center; padding: 10px 0; }
-        .join-badge { padding: 4px 10px; border-radius: 6px; font-weight: bold; text-decoration: none; color: white; font-size: 12px; }
+        .join-badge { padding: 8px 14px; border: none; border-radius: 6px; font-weight: bold; text-decoration: none; color: white; font-size: 12px; cursor: pointer; transition: background 0.2s; }
+        .join-badge:active { transform: scale(0.95); }
     </style>
 </head>
 <body>
@@ -80,10 +81,39 @@
                         <br>
                         <small style="color: #94a3b8;">សមាជិក: ${r.playerCount}/4 នាក់</small>
                     </div>
-                    <a href="${redirectUrl}" class="join-badge ${btnClass}">ចូលរួម</a>
+                    <button class="join-badge ${btnClass}" 
+                        onclick="directJoinRoom('${r.roomId}', ${r.hasPassword}, '${redirectUrl}')">
+                        ចូលរួម
+                    </button>
                 `;
                 container.appendChild(item);
             });
+        }
+
+        // 🚀 អនុគមន៍ថ្មី៖ ចម្លងទិន្នន័យចូល LocalStorage រួចរត់ចូល direct តែម្ដង
+        function directJoinRoom(roomId, hasPassword, redirectUrl) {
+            // ១. សួររកឈ្មោះអ្នកលេងជាមុនសិន បើមិនទាន់មានក្នុងម៉ាស៊ីន
+            let playerName = localStorage.getItem('tienlen_name') || '';
+            if (!playerName) {
+                playerName = prompt("សូមបញ្ចូលឈ្មោះរបស់អ្នកមុននឹងចូលរួមលេង៖");
+                if (!playerName || !playerName.trim()) return alert("ត្រូវការឈ្មោះដើម្បីចូលលេង!");
+                localStorage.setItem('tienlen_name', playerName.trim());
+            }
+
+            let password = "";
+            // ២. បើបន្ទប់មានជាប់សោរ 🔒 ត្រូវទារលេខកូដសម្ងាត់
+            if (hasPassword) {
+                const passInput = prompt("សូមបញ្ចូលលេខកូដសម្ងាត់បន្ទប់៖");
+                if (passInput === null) return; // ចុច Cancel មិនធ្វើអ្វីទាំងអស់
+                password = passInput;
+            }
+
+            // ៣. រក្សាទុកទិន្នន័យចាំបាច់ទាំងអស់ទៅក្នុង LocalStorage ដើម្បីឱ្យទំព័រហ្គេមទាញយកទៅប្រើភ្លាមៗ
+            localStorage.setItem('auto_join_room_id', roomId);
+            localStorage.setItem('auto_join_password', password);
+            
+            // ៤. រត់ទៅកាន់ទំព័រហ្គេមដោយស្វ័យប្រវត្ត
+            location.href = redirectUrl;
         }
     </script>
 </body>
