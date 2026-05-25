@@ -1,5 +1,5 @@
 // =================================================================
-// server_kate.js (កំណែទម្រង់កែសម្រួល៖ បង្ខំទម្លាក់បៀរជុំទី៥ និងពន្យារពេល ៥វិនាទី)
+// server_kate.js (កំណែទម្រង់ចុងក្រោយ៖ ជួសជុលការ Reset ស្ថានភាពលេងវគ្គថ្មី)
 // =================================================================
 
 module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
@@ -47,13 +47,19 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
         socket.on('kt_startGame', (roomId) => {
             const room = ktRooms[roomId]; if (!room) return;
             
+            // 🛠️ ដំណោះស្រាយ៖ ត្រូវ Reset ស្ថានភាពកាតាឡុករបស់អ្នកលេងទាំងអស់ឱ្យស្អាត (សំខាន់បំផុតកុំឱ្យគាំងវេន)
             room.players.forEach((p, idx) => {
                 if (idx < 6) {
                     p.isSpectator = false;
-                    p.isTiv = false;
+                    p.isTiv = false; // លុបស្ថានភាព "ទីវ" ចោលទាំងអស់ដើម្បីឱ្យលេងវគ្គថ្មីបាន
                 } else {
                     p.isSpectator = true; 
                 }
+                p.hasCat = false;
+                p.winRounds = 0;
+                p.finalWinner = false;
+                p.hand = [];
+                p.initialHandCopy = [];
             });
 
             const activePlayers = room.players.filter(p => !p.isSpectator);
@@ -65,7 +71,6 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
             activePlayers.forEach((p, i) => {
                 p.hand = ktModule.sortKateCards(deck.slice(i * 6, (i + 1) * 6));
                 p.initialHandCopy = [...p.hand]; 
-                p.hasCat = false; p.winRounds = 0; p.finalWinner = false; p.isTiv = false;
             });
 
             room.players.forEach(p => { 
@@ -74,8 +79,11 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                 }
             });
 
+            // កំណត់វេនអ្នកលេងដំបូង
             room.currentTurnIndex = room.lastWinnerId ? room.players.findIndex(p => p.id === room.lastWinnerId) : room.players.findIndex(p => !p.isSpectator);
-            if (room.currentTurnIndex === -1) room.currentTurnIndex = 0;
+            if (room.currentTurnIndex === -1 || room.players[room.currentTurnIndex].isSpectator) {
+                room.currentTurnIndex = room.players.findIndex(p => !p.isSpectator);
+            }
             
             io.to('kt_' + roomId).emit('gameStarted', { players: room.players, currentTurnIndex: room.currentTurnIndex, currentRound: room.currentRound, lastRoundWinnerId: room.lastWinnerId });
             
@@ -121,7 +129,7 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                 }
             } 
             // ==========================================
-            // 🛠️ កែសម្រួល៖ ជុំទី ៥៖ វគ្គគប់បៀរ (ដាច់ខាតត្រូវចេញចំហរ និងមិនឱ្យមានការធីប)
+            // 🛠️ ជុំទី ៥៖ វគ្គគប់បៀរ (ដាច់ខាតត្រូវចេញចំហរ និងមិនឱ្យមានការធីប)
             // ==========================================
             else if (room.currentRound === 5) {
                 if (player.isTiv) return socket.emit('errorMsg', 'អ្នកបាន "ទីវ" ហើយ មិនអាចលេងក្នុងជុំនេះបានទេ!');
@@ -181,7 +189,6 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
             } 
             // ជុំនីមួយៗត្រូវបានបញ្ចប់ (គ្រប់គ្នាបានលេងអស់ហើយ)
             else {
-                // 🛠️ កែសម្រួល៖ បើជាជុំទី ៥ ឱ្យផ្ញើព្រឹត្តិការណ៍រាប់ថយក្រោយ ៥ វិនាទីទៅកាន់ Client
                 let delayTime = 1500; // ជុំទី ១ ដល់ ៤ ទុក ១.៥ វិនាទីដដែល
                 if (room.currentRound === 5) {
                     delayTime = 5000; // ជុំទី ៥ ទុក ៥ វិនាទី
@@ -242,7 +249,7 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                             const finalHandsResult = room.players.map(p => ({
                                 id: p.id, name: p.name, initialHandCopy: p.initialHandCopy, winRounds: p.winRounds, finalWinner: p.id === survivors[0].id, isSpectator: p.isSpectator, lastCard: p.hand[0] || null, gameStatus: p.id === survivors[0].id ? '👑 ឈ្នះផ្ដាច់ (ស៊ីដាច់តុ)' : (p.isTiv ? '🖐️ ទីវហើយ (ចាញ់)' : '❌ ចាញ់')
                             }));
-                            io.to('kt_' + roomId).emit('gameWon', { winner: survivors[0].name, winnerId: survivors[0].id, allHands: finalHandsResult });
+                            io.to('kt_' + roomId).emit('gameWon', { winner: survivors[0].name, winnerId: survivors[0].id, creatorId: room.creatorId, allHands: finalHandsResult });
                         } else { 
                             io.to('kt_' + roomId).emit('nextRoundStarted', { 
                                 currentRound: room.currentRound, 
@@ -297,13 +304,13 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
 
                         if (songKoutPlayer && (songKoutPlayer.id !== round5Winner.id)) {
                             finalWinnerPlayer = songKoutPlayer;
-                            room.lastWinnerId = songKoutPlayer.id;
+                            room.lastWinnerId = songKoutPlayer.id; // ប្តូរ ID អ្នកឈ្នះពិតប្រាកដទៅឱ្យអ្នកសងគូទ
                             
                             resultStatusMap[songKoutPlayer.id] = "👑 ឈ្នះ (សងគូទបានសម្រេច!)";
-                            resultStatusMap[round5Winner.id] = "💔 ចាញ់ (ត្រូវគេកាត់ឡងសងគូទ)";
+                            if(round5Winner) resultStatusMap[round5Winner.id] = "💔 ចាញ់ (ត្រូវគេកាត់ឡងសងគូទ)";
                         } else {
                             finalWinnerPlayer = round5Winner;
-                            resultStatusMap[round5Winner.id] = "👑 ឈ្នះ (ស៊ីឡងពេញលេញ)";
+                            if(round5Winner) resultStatusMap[round5Winner.id] = "👑 ឈ្នះ (ស៊ីឡងពេញលេញ)";
                         }
 
                         if (finalWinnerPlayer) finalWinnerPlayer.finalWinner = true;
@@ -335,12 +342,13 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                         io.to('kt_' + roomId).emit('gameWon', { 
                             winner: finalWinnerPlayer ? finalWinnerPlayer.name : 'គ្មានអ្នកឈ្នះ', 
                             winnerId: room.lastWinnerId, 
+                            creatorId: room.creatorId, 
                             allHands: finalHandsResult 
                         });
                         
                         broadcastRoomLists();
                     }
-                }, delayTime); // 🛠️ ប្រើប្រាស់ delayTime (៥ វិនាទីសម្រាប់ជុំចុងក្រោយ)
+                }, delayTime); 
             }
         });
 
