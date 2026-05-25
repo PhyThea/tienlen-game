@@ -142,7 +142,7 @@ function getCardFileName(card) {
 
 if (localStorage.getItem('tienlen_name')) document.getElementById('playerName').value = localStorage.getItem('tienlen_name');
 
-socket.on('tlRoomList', (rooms) => {
+socket.on('roomList', (rooms) => {
     const div = document.getElementById('roomList'); div.innerHTML = '';
     if (rooms.length === 0) { div.innerHTML = '<div style="color: #64748b; margin-top: 10px;">មិនទាន់មានបន្ទប់នៅឡើយទេ...</div>'; return; }
     rooms.forEach(r => {
@@ -175,7 +175,7 @@ function createRoom() {
     const roomId = document.getElementById('roomInput').value.trim();
     const password = document.getElementById('roomPass').value;
     if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!");
-    socket.emit('tl_createRoom', { roomId, password, playerName });
+    socket.emit('createRoom', { roomId, password, playerName });
 }
 
 function joinRoom() {
@@ -183,8 +183,10 @@ function joinRoom() {
     const roomId = document.getElementById('roomInput').value.trim();
     const password = document.getElementById('roomPass').value;
     if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!");
+    
     localStorage.setItem('last_room_id', roomId);
-    socket.emit('tl_joinRoom', { roomId, password, playerName });
+    localStorage.setItem('player_name', playerName);
+    socket.emit('joinRoom', { roomId, password, playerName });
 }
 
 socket.on('roomCreated', ({ roomId, playerId }) => { myId = playerId; currentRoom = roomId; isCreator = true; showLobby(roomId); });
@@ -196,7 +198,7 @@ socket.on('roomJoined', ({ roomId, playerId, isSpectator, playedCards, currentTu
         document.getElementById('loginArea').style.display = 'none';
         document.getElementById('gameArea').style.display = 'block';
         document.getElementById('actionControls').style.display = 'none';
-        const tableDiv = document.getElementById('table'); tableDiv.innerHTML = ''; 
+        const tableDiv = document.getElementById('table'); tableDiv.innerHTML = '';
         if (playedCards && playedCards.length > 0) {
             playedCards.forEach(card => {
                 const el = document.createElement('img'); el.src = getCardFileName(card); el.className = 'table-card-img'; tableDiv.appendChild(el);
@@ -217,14 +219,13 @@ function showLobby(roomId) {
 socket.on('updatePlayers', (players) => {
     playersData = players; const me = players.find(p => p.id === myId);
     if (me) { isCreator = (players[0].id === myId); amISpectator = me.isSpectator; }
-    renderPlayers(players); updateRoomUI(); 
+    renderPlayers(players); updateRoomUI();
 });
 
-function startGame() { socket.emit('tl_startGame', currentRoom); }
+function startGame() { socket.emit('startGame', currentRoom); }
 
 socket.on('gameStarted', ({ players, currentTurnIndex: turn, lastRoundWinnerId: serverWinnerId }) => {
-    currentTurnIndex = turn; playersData = players; lastRoundWinnerId = serverWinnerId; 
-    const myData = players.find(p => p.id === myId); amISpectator = myData ? myData.isSpectator : false;
+    currentTurnIndex = turn; playersData = players; lastRoundWinnerId = serverWinnerId;
     document.body.classList.remove('round-over'); document.body.classList.add('in-game');
     document.getElementById('lobbyArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'none';
@@ -242,15 +243,17 @@ function updateRoomUI(data) {
     const targetCreatorId = data ? data.creatorId : (playersData[0] ? playersData[0].id : null);
     const hasControl = (targetWinnerId === myId || (!targetWinnerId && targetCreatorId === myId));
     const startBtn = document.getElementById('startBtn');
-    if (startBtn) { startBtn.style.display = hasControl ? 'inline-block' : 'none'; }
-    const playAgainBtn = document.getElementById('hostPlayAgainBtn');
-    const waitText = document.getElementById('waitHostText');
+    if (startBtn) startBtn.style.display = hasControl ? 'inline-block' : 'none';
+    
+    const playAgainBtn = document.getElementById('hostPlayAgainBtn'), waitText = document.getElementById('waitHostText');
     if (playAgainBtn && waitText) {
-        if (hasControl) { playAgainBtn.style.display = 'block'; waitText.style.display = 'none'; } 
+        if (hasControl) { playAgainBtn.style.display = 'block'; waitText.style.display = 'none'; }
         else {
             playAgainBtn.style.display = 'none'; waitText.style.display = 'block';
-            let managerName = 'អ្នកឈ្នះ'; const manager = playersData.find(p => p.id === targetWinnerId);
-            if (manager) managerName = manager.name; waitText.innerText = `សូមរង់ចាំ ${managerName} ចាប់ផ្ដើមវគ្គថ្មី...`;
+            let managerName = 'Host'; const targetId = targetWinnerId || targetCreatorId;
+            const manager = playersData.find(p => p.id === targetId);
+            if (manager) managerName = manager.name;
+            waitText.innerText = `សូមរង់ចាំ ${managerName} ចាប់ផ្ដើមវគ្គថ្មី...`;
         }
     }
 }
@@ -263,7 +266,8 @@ function updateControlsState() {
     if (playBtn && passBtn) {
         if (isMyTurn()) {
             playBtn.disabled = false;
-            const isNewRound = document.getElementById('table').innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || document.getElementById('table').innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || document.getElementById('table').innerHTML.includes('តុត្រូវបានសម្អាត!');
+            const tableDiv = document.getElementById('table');
+            const isNewRound = tableDiv && (tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត!'));
             passBtn.disabled = isNewRound;
         } else { playBtn.disabled = true; passBtn.disabled = true; }
     }
@@ -273,28 +277,30 @@ function renderPlayers(players) {
     const div = document.getElementById('players'), lobby = document.getElementById('lobbyPlayers');
     div.innerHTML = ''; lobby.innerHTML = '';
     players.forEach((p, index) => {
-        const el = document.createElement('div'); el.className = 'player'; el.id = `player-card-${p.id}`; 
+        const el = document.createElement('div'); el.className = 'player'; el.id = `player-card-${p.id}`;
         const isCurrentTurn = (currentTurnIndex !== null && index === currentTurnIndex && !p.isSpectator && p.hand && p.hand.length > 0);
         if (isCurrentTurn) el.classList.add('active-turn');
         const count = p.hand ? p.hand.length : (p.cardCount !== undefined ? p.cardCount : 13);
-        if (p.passed && count > 0) el.classList.add('player-passed'); 
+        if (p.passed && count > 0) el.classList.add('player-passed');
         if (!p.isSpectator && p.rank !== null && p.rank > 0) el.classList.add(p.rank === 1 ? 'player-rank-1' : 'player-rank-2');
 
         let roleText = p.isSpectator ? '<span style="color: #94a3b8;">(អ្នកមើល)</span>' : (p.rank ? `<div style="color: ${p.rank===1?'#eab308':'#3b82f6'}; font-weight: bold; font-size:9px;">${p.rank===1?'👑 លំដាប់ ១':'🥈 លំដាប់ ២'}</div>` : `<div class="card-counter">🃏 សល់៖ ${count}</div>`);
         if (p.passed && !p.isSpectator && count > 0) roleText += '<br><span style="color: #ef4444; font-weight: bold; font-size: 9px;">❌ Pass</span>';
-        el.innerHTML = `${isCurrentTurn ? `<div class="turn-badge">${p.id === myId ? '🟢 ខ្ញុំ' : '🎯 លេង'}</div>` : ''}<strong>👤 ${p.name.substring(0, 5)}</strong><br>${roleText}`;
+        el.innerHTML = `${isCurrentTurn ? `<div class="turn-badge">${p.id === myId ? '🟢 ខ្ញុំ' : '🎯 លេង'}</div>` : ''}<strong>👤 ${p.name.substring(0,5)}</strong><br>${roleText}`;
         div.appendChild(el);
 
         const el2 = document.createElement('div'); el2.className = 'player'; el2.style.marginBottom = '10px';
-        el2.innerHTML = `👤 ${p.name} ${p.id === myId ? '(ខ្ញុំ)' : ''} ${p.isSpectator ? '<span style="color: #ef4444;">(អ្នកមើល)</span>' : ''}`;
-        lobby.appendChild(el2);
+        el2.innerHTML = `👤 ${p.name} ${p.id === myId ? '(ខ្ញុំ)' : ''} ${p.isSpectator ? '<span style="color: #ef4444;">(អ្នកមើល)</span>' : ''}`; lobby.appendChild(el2);
     });
 }
 
 function renderMyCards() {
     const div = document.getElementById('myCards'); div.innerHTML = '';
     if (amISpectator) { div.innerHTML = '<div style="color: #94a3b8; font-style: italic; font-size:13px;">អ្នកកំពុងចូលរួមមើលការប្រកួត...</div>'; return; }
-    const myTurn = isMyTurn(), isNewRound = document.getElementById('table').innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || document.getElementById('table').innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || document.getElementById('table').innerHTML.includes('តុត្រូវបានសម្អាត!');
+    const myTurn = isMyTurn();
+    const tableDiv = document.getElementById('table');
+    const isNewRound = tableDiv && (tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត!'));
+
     myHand.forEach((card, index) => {
         const el = document.createElement('div'); el.className = 'card'; el.style.backgroundImage = `url('${getCardFileName(card)}')`; el.style.zIndex = index + 1;
         if (!myTurn) el.classList.add('disabled-card');
@@ -313,10 +319,10 @@ function toggleCard(card) {
 function playSelectedCards() {
     if (!isMyTurn()) return alert("មិនទាន់ដល់វេនរបស់អ្នកឡើយ!");
     if (selectedCards.length === 0) return alert("សូមជ្រើសរើសសន្លឹកបៀរមុននឹងចុះ!");
-    socket.emit('tl_playCard', { roomId: currentRoom, cards: selectedCards });
+    socket.emit('playCard', { roomId: currentRoom, cards: selectedCards });
 }
 
-function passTurn() { if (isMyTurn()) socket.emit('tl_passTurn', currentRoom); }
+function passTurn() { if (isMyTurn()) socket.emit('passTurn', currentRoom); }
 
 socket.on('turnChanged', ({ currentTurnIndex: turn, players }) => {
     currentTurnIndex = turn; if (players) playersData = players;
@@ -392,7 +398,7 @@ function showPlayAgainButton() {
     const playAgainBtn = document.getElementById('hostPlayAgainBtn'), waitText = document.getElementById('waitHostText');
     if (myId === lastRoundWinnerId) {
         playAgainBtn.style.display = 'block'; waitText.style.display = 'none';
-        playAgainBtn.onclick = () => { if(currentRoom) socket.emit('tl_startGame', currentRoom); };
+        playAgainBtn.onclick = () => { if(currentRoom) socket.emit('startGame', currentRoom); };
     } else {
         playAgainBtn.style.display = 'none'; waitText.style.display = 'block';
         const winPlayer = playersData.find(p => p.id === lastRoundWinnerId);
@@ -400,21 +406,16 @@ function showPlayAgainButton() {
     }
 }
 
-function leaveRoom() { if (confirm("តើអ្នកពិតជាចង់ចាកចេញមែនទេ?")) { socket.emit('tl_leaveRoom', currentRoom); closeAllVoiceConnections(); } }
-socket.on('leftRoom', () => { location.href = "/"; });
+function leaveRoom() { if (confirm("តើអ្នកពិតជាចង់ចាកចេញមែនទេ?")) { socket.emit('leaveRoom'); closeAllVoiceConnections(); location.href = "/"; } }
 
-// =================================================================
-// ប្រព័ន្ធ VOICE CHAT LOGIC (SIMPLE-PEER)
-// =================================================================
+// Voice Chat Logic
 function toggleMic() {
-    if (localStorage.getItem('has_no_mic') === 'true') { alert("មិនមានឧបករណ៍ Mic ឡើយ ប៉ុន្តែអ្នកអាចស្ដាប់គេបាន!"); return; }
+    if (localStorage.getItem('has_no_mic') === 'true') return alert("មិនមានឧបករណ៍ Mic ឡើយ!");
     if (!localStream) return; micEnabled = !micEnabled;
-    localStream.getAudioTracks().forEach(track => track.enabled = micEnabled);
-    updateMicButtonUI();
+    localStream.getAudioTracks().forEach(track => track.enabled = micEnabled); updateMicButtonUI();
 }
 function updateMicButtonUI() {
     const btn = document.getElementById('micToggleBtn'); if (!btn) return;
-    if (localStorage.getItem('has_no_mic') === 'true') { btn.innerText = "🔇 អត់ Mic (គ្រាន់តែស្ដាប់)"; btn.classList.add('muted'); return; }
     btn.innerText = micEnabled ? "🎙️ Mic: On" : "🔇 Mic: Off"; if (micEnabled) btn.classList.remove('muted'); else btn.classList.add('muted');
 }
 function closeAllVoiceConnections() {
@@ -423,9 +424,7 @@ function closeAllVoiceConnections() {
 }
 function initVoiceAndExecute(callback) {
     if (localStream || localStorage.getItem('has_no_mic') === 'true') { if (callback) callback(); return; }
-    navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false })
-    .then(stream => { localStream = stream; localStorage.setItem('has_no_mic', 'false'); updateMicButtonUI(); if (callback) callback(); })
-    .catch(err => { localStorage.setItem('has_no_mic', 'true'); updateMicButtonUI(); if (callback) callback(); });
+    navigator.mediaDevices.getUserMedia({ audio: true, video: false }).then(stream => { localStream = stream; updateMicButtonUI(); if (callback) callback(); }).catch(err => { localStorage.setItem('has_no_mic', 'true'); updateMicButtonUI(); if (callback) callback(); });
 }
 function createPeer(targetSocketId, initiator) {
     if (peers[targetSocketId]) return peers[targetSocketId];
@@ -440,13 +439,12 @@ function createPeer(targetSocketId, initiator) {
         audio.srcObject = stream;
     });
     p.on('close', () => { const el = document.getElementById(`audio_${targetSocketId}`); if(el) el.remove(); delete peers[targetSocketId]; });
-    p.on('error', () => { const el = document.getElementById(`audio_${targetSocketId}`); if(el) el.remove(); delete peers[targetSocketId]; });
     peers[targetSocketId] = p; return p;
 }
-socket.on('voice_user_joined', (id) => { if (id === socket.id) return; initVoiceAndExecute(() => setTimeout(() => createPeer(id, false), 500)); });
+socket.on('voice_user_joined', (data) => { const id = data.id || data; if (id === socket.id) return; initVoiceAndExecute(() => setTimeout(() => createPeer(id, false), 500)); });
 socket.on('voice_initiate_peer', (data) => { if (data.target === socket.id) return; initVoiceAndExecute(() => setTimeout(() => createPeer(data.target, true), 1000)); });
 socket.on('voice_signal', (data) => { if (peers[data.sender]) peers[data.sender].signal(data.signal); });
-socket.on('voice_user_left', (id) => { if (peers[id]) { try { peers[id].destroy(); } catch(e){} delete peers[id]; } const el = document.getElementById(`audio_${id}`); if(el) el.remove(); });
+socket.on('voice_user_left', (data) => { const id = data.id || data; if (peers[id]) { try { peers[id].destroy(); } catch(e){} delete peers[id]; } const el = document.getElementById(`audio_${id}`); if(el) el.remove(); });
 </script>
 </body>
 </html>
