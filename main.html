@@ -75,11 +75,14 @@
             rooms.forEach(r => {
                 const item = document.createElement('div');
                 item.className = 'room-item';
+                // កំណត់ចំនួនលីមីត៖ ទៀនឡេន ៤ នាក់ , កាតេ ៦ នាក់
+                const maxPlayers = redirectUrl.includes('kate') ? 6 : 4; 
+                
                 item.innerHTML = `
                     <div>
                         <strong>បន្ទប់: ${r.roomId}</strong> ${r.hasPassword ? '🔒' : '🔓'}
                         <br>
-                        <small style="color: #94a3b8;">សមាជិក: ${r.playerCount}/4 នាក់</small>
+                        <small style="color: #94a3b8;">សមាជិក: ${r.playerCount}/${maxPlayers} នាក់</small>
                     </div>
                     <button class="join-badge ${btnClass}" 
                         onclick="directJoinRoom('${r.roomId}', ${r.hasPassword}, '${redirectUrl}')">
