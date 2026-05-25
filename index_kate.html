@@ -22,10 +22,7 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 
 @media screen and (max-width: 932px) and (orientation: portrait) {
     body.in-game .container, body.round-over .container { padding: 0; max-width: 100%; width: 100%; height: 100%; }
-    /* បង្វិល ៩០ដឺក្រេ តែពេលកំពុងលេង (in-game) ប៉ុណ្ណោះ */
     body.in-game #gameArea { position: fixed; top: 50%; left: 50%; width: 100dvh; height: 100dvw; transform: translate(-50%, -50%) rotate(90deg); transform-origin: center center; background: #0b1329; padding: 10px 13px 10px 10px; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
-    
-    /* 🛠️ ជួសជុល៖ ពេលប្រកាសលទ្ធផល (round-over) គឺលុប transform rotate(90deg) ចេញ ឱ្យបង្ហាញជាបែបឈរធម្មតា */
     body.round-over #resultArea { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; max-height: 100vh !important; background: #0b1329; box-sizing: border-box; padding: 15px; display: block; overflow-y: auto; transform: none; }
 }
 
@@ -37,7 +34,6 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 .turn-badge { position: absolute; top: -8px; left: 50%; transform: translateX(-50%); background: #22c55e; color: white; font-size: 7px; font-weight: bold; padding: 0px 4px; border-radius: 10px; white-space: nowrap; }
 .card-counter { background: #1c2541; border-radius: 3px; padding: 0px 3px; font-weight: bold; font-size: 9px; color: #f59e0b; border: 1px solid #3a506b; display: inline-block; }
 
-/* 🛠️ កែសម្រួលតុឱ្យរៀបចំធាតុតាមលំដាប់លំដោយ មិនឱ្យបាំងប៊ូតុងខាងក្រោម */
 .table-area { 
     background: #14532d; 
     border: 2px dashed #22c55e; 
@@ -75,7 +71,6 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 }
 .player-card-box { display: flex; flex-direction: column; align-items: center; position: relative; }
 
-/* 👑 កែសម្រួល Badge កុំឱ្យធំពេក និងលែងប្រើ absolute position នាំឱ្យបាំងគេ */
 .action-badge { 
     position: relative; 
     padding: 3px 8px; 
@@ -251,6 +246,7 @@ function startGame() { socket.emit('kt_startGame', currentRoom); }
 
 socket.on('gameStarted', ({ players, currentTurnIndex: turn, currentRound, lastRoundWinnerId: serverWinner }) => {
     currentTurnIndex = turn; playersData = players; lastRoundWinnerId = serverWinner;
+    selectedCard = null; 
     document.body.classList.remove('round-over'); document.body.classList.add('in-game');
     document.getElementById('lobbyArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'none';
@@ -325,34 +321,32 @@ function submitMove(action) {
     if (!isMyTurn()) return alert("មិនទាន់ដល់វេនឡើយ!");
     if (!selectedCard) return alert("សូមជ្រើសរើសសន្លឹកបៀរមួយសន្លឹកសិន!");
 
-    // ទាញយកជុំបច្ចុប្បន្នពីស្ថានភាពនៅលើអេក្រង់ "ជុំទី៖ X"
+    const cardToSend = selectedCard;
+    selectedCard = null;
+    renderHand(); 
+
     const statusText = document.getElementById('status').innerText;
     const currentRound = parseInt(statusText.replace(/[^0-9]/g, '')) || 1;
 
-    // 🛠️ ស្ទាក់ចាប់ឱ្យត្រូវគ្នាជាមួយ Server៖
     if (currentRound <= 4) {
         if (action === 'play') {
-            // បើជុំទី ១ ដល់ ៤ ហើយចុចប៊ូតុង "ស៊ីបៀរ" (play) គឺប្តូរឈ្មោះសកម្មភាពទៅជា 'eat' ឱ្យចំលក្ខខណ្ឌ Server ឆែកទឹក
-            action = 'eat';
-        } else if (action === 'fold') {
-            // បើចុចប៊ូតុង "ផ្កាប់បៀរ" (fold) គឺត្រូវប្តូរឈ្មោះសកម្មភាពទៅជា 'fold' ដូចគ្នា (ត្រូវជាមួយ Server រួចរាល់)
-            action = 'fold';
+            action = 'eat'; 
+        }
+    } else if (currentRound === 5) {
+        if (action === 'play') {
+            action = 'eat'; 
         }
     }
 
-    // បញ្ជូនទិន្នន័យទៅកាន់ Server
-    socket.emit('kt_playMove', { roomId: currentRoom, action, card: selectedCard });
-    selectedCard = null;
+    socket.emit('kt_playMove', { roomId: currentRoom, action, card: cardToSend });
 }
 
-// 🛠️ បង្ហាញអក្សរ Badge បន្តបន្ទាប់គ្នាក្នុងតុ មិនឱ្យហៀរបាំងប៊ូតុងបញ្ជាទូរស័ព្ទ
 socket.on('moveRecorded', (data) => {
     const badgeDiv = document.getElementById('centerBadges');
     const cardsRow = document.getElementById('tableCardsRow');
     badgeDiv.innerHTML = ''; cardsRow.innerHTML = '';
     
     data.tableCards.forEach(m => {
-        // ១. បង្ហាញ Badge អក្សរតម្រៀបគ្នាក្នុងតំបន់តុខាងលើ មិនឱ្យហៀរបាំងឡើយ
         const badge = document.createElement('div'); 
         badge.className = 'action-badge';
         if (m.action === 'គប់ហើយ' || m.action === 'ស៊ីបៀរ') {
@@ -365,9 +359,10 @@ socket.on('moveRecorded', (data) => {
         badge.innerText = `${m.name.substring(0,5)}: ${m.action}`;
         badgeDiv.appendChild(badge);
 
-        // ២. បង្ហាញសន្លឹកបៀរនៅជួរខាងក្រោម
         const box = document.createElement('div'); box.className = 'player-card-box';
-        if (m.action === 'ធីបហើយ' && data.round <= 4) {
+        const isFoldedMove = (m.action === 'ធីបហើយ' || m.action === 'អត់គប់ទេ');
+
+        if (isFoldedMove) {
             const cardBackEl = document.createElement('div');
             cardBackEl.style.width = '45px'; cardBackEl.style.height = '65px'; cardBackEl.style.borderRadius = '4px';
             cardBackEl.style.background = 'linear-gradient(135deg, #b91c1c, #7f1d1d)';
@@ -394,41 +389,62 @@ socket.on('nextRoundStarted', (data) => {
 
 socket.on('gameWon', (data) => {
     lastRoundWinnerId = data.winnerId;
-    document.body.classList.remove('in-game'); document.body.classList.add('round-over');
+    document.body.classList.remove('in-game'); 
+    document.body.classList.add('round-over');
     document.getElementById('gameArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'block';
     document.getElementById('winnerName').innerText = data.winner;
     
-    const resList = document.getElementById('resultList'); resList.innerHTML = '';
+    const resList = document.getElementById('resultList'); 
+    resList.innerHTML = '';
     
     data.allHands.forEach(p => {
-        const pDiv = document.createElement('div'); pDiv.className = 'result-player';
-        if (p.finalWinner) { pDiv.style.border = '1.5px solid #22c55e'; pDiv.style.background = '#0b1329'; }
+        const pDiv = document.createElement('div'); 
+        pDiv.className = 'result-player';
         
-        let statusBadge = p.isSpectator ? '<span style="color:#ef4444;">❌ លង់ / ចាញ់</span>' : '<span style="color:#94a3b8;">👁️ អ្នកមើល</span>';
-        if (p.finalWinner) statusBadge = '<span style="color:#22c55e; font-weight:bold;">👑 ម្ចាស់ជើងឯក (WIN)</span>';
+        if (p.finalWinner) { 
+            pDiv.style.border = '2px solid #22c55e'; 
+            pDiv.style.background = '#14532d'; 
+        } else if (p.gameStatus && p.gameStatus.includes('កាត់ឡង')) {
+            pDiv.style.border = '2px solid #ef4444';
+            pDiv.style.background = '#2d1717';
+        }
+        
+        let statusTextText = p.gameStatus || (p.isSpectator ? '❌ លង់ / ចាញ់' : '❌ ចាញ់');
+        let statusBadge = `<span style="font-weight:bold;">${statusTextText}</span>`;
         
         let cardsHTML = '';
         if (p.initialHandCopy && p.initialHandCopy.length > 0) {
             p.initialHandCopy.forEach(c => {
-                cardsHTML += `<img src="${getCardFileName(c)}" style="width: 34px; height: auto; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); margin-right: 3px; margin-bottom: 3px;">`;
+                let isLastCard = p.lastCard && (c.value === p.lastCard.value && c.suit === p.lastCard.suit);
+                
+                cardsHTML += `
+                    <div style="position: relative; display: inline-block; margin-right: 5px;">
+                        <img src="${getCardFileName(c)}" style="width: 42px; height: auto; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.3); ${isLastCard ? 'border: 2px solid #f59e0b; box-shadow: 0 0 8px #f59e0b;' : ''}">
+                        ${isLastCard ? '<span style="position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); background: #f59e0b; color: black; font-size: 7px; font-weight: bold; padding: 0px 3px; border-radius: 3px; white-space: nowrap;">គូទ (ទី៦)</span>' : ''}
+                    </div>
+                `;
             });
         }
         
-        pDiv.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; border-bottom:1px solid #475569; padding-bottom:3px;">
+        pDiv.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; border-bottom:1px solid #475569; padding-bottom:3px;">
             <div><strong>👤 ${p.name}</strong> (ស៊ីបាន៖ ${p.winRounds || 0} ជុំ)</div>
             <div>${statusBadge}</div>
         </div>
-        <div class="result-cards">${cardsHTML}</div>`;
+        <div class="result-cards" style="padding: 5px 0;">${cardsHTML}</div>`;
+        
         resList.appendChild(pDiv);
     });
     
     const playAgainBtn = document.getElementById('hostPlayAgainBtn'), waitText = document.getElementById('waitHostText');
     if (myId === lastRoundWinnerId) {
-        playAgainBtn.style.display = 'block'; waitText.style.display = 'none';
+        playAgainBtn.style.display = 'block'; 
+        waitText.style.display = 'none';
         playAgainBtn.onclick = () => { if(currentRoom) socket.emit('kt_startGame', currentRoom); };
     } else {
-        playAgainBtn.style.display = 'none'; waitText.style.display = 'block';
+        playAgainBtn.style.display = 'none'; 
+        waitText.style.display = 'block';
         waitText.innerText = `សូមរង់ចាំអ្នកឈ្នះ (${data.winner}) ចាប់ផ្ដើមវគ្គថ្មី...`;
     }
 });
@@ -437,9 +453,6 @@ socket.on('errorMsg', msg => alert(msg));
 function leaveRoom() { if (confirm("តើអ្នកចង់ចាកចេញមែនទេ?")) { socket.emit('kt_leaveRoom', currentRoom); closeAllVoiceConnections(); } }
 socket.on('leftRoom', () => { location.href = "/"; });
 
-// =================================================================
-// 🛠️ ប្រព័ន្ធ VOICE CHAT LOGIC (ដកស្រង់ពីកូដចាស់បង ១០០% ធានាលឺច្បាស់)
-// =================================================================
 function toggleMic() {
     if (localStorage.getItem('has_no_mic') === 'true') {
         alert("Computer របស់អ្នកមិនមានឧបករណ៍ Mic សម្រាប់បើកឡើយ ប៉ុន្តែអ្នកអាចស្ដាប់អ្នកដទៃបានធម្មតា!");
@@ -473,7 +486,6 @@ function updateMicButtonUI() {
 }
 
 function closeAllVoiceConnections() {
-    console.log("🧹 កំពុងសម្អាត និងបិទខ្សែតភ្ជាប់ Voice ទាំងអស់...");
     for (let id in peers) {
         if (peers[id]) {
             try { peers[id].destroy(); } catch(e) {}
@@ -495,7 +507,6 @@ function initVoiceAndExecute(callback) {
         return;
     }
     
-    console.log("កំពុងចាប់ផ្ដើមយកគំរូសំឡេង (Audio Stream)...");
     navigator.mediaDevices.getUserMedia({ 
         audio: {
             echoCancellation: true,    
@@ -506,7 +517,6 @@ function initVoiceAndExecute(callback) {
     })
     .then(stream => {
         localStream = stream;
-        console.log("ទទួលបាន Audio Stream ជោគជ័យ។");
         localStorage.setItem('has_no_mic', 'false');
         
         micEnabled = localStorage.getItem('mic_enabled') !== 'false';
@@ -518,21 +528,14 @@ function initVoiceAndExecute(callback) {
         if (callback) callback();
     })
     .catch(err => {
-        console.warn("មិនអាចបើក Mic ផ្ញើទៅគេបានទេ ប៉ុន្តែប្រព័ន្ធនឹងបើកឱ្យស្ដាប់គេបានដដែល: ", err);
         localStorage.setItem('has_no_mic', 'true');
         updateMicButtonUI();
-
         if (callback) callback();
     });
 }
 
 function createPeer(targetSocketId, initiator) {
-    if (peers[targetSocketId]) {
-        console.log(`Peer សម្រាប់ ${targetSocketId} មានរួចហើយ。`);
-        return peers[targetSocketId];
-    }
-
-    console.log(`កំពុងបង្កើត Peer ទៅកាន់: ${targetSocketId} | Initiator: ${initiator}`);
+    if (peers[targetSocketId]) return peers[targetSocketId];
 
     const p = new SimplePeer({
         initiator: initiator,
@@ -559,7 +562,6 @@ function createPeer(targetSocketId, initiator) {
     });
 
     p.on('stream', stream => {
-        console.log(`ទទួលបានខ្សែសំឡេងពី: ${targetSocketId}`);
         let audio = document.getElementById(`audio_${targetSocketId}`);
         if (!audio) {
             audio = document.createElement('audio');
@@ -573,7 +575,7 @@ function createPeer(targetSocketId, initiator) {
         let playPromise = audio.play();
         if (playPromise !== undefined) {
             playPromise.catch(error => {
-                console.error(`ទូរស័ព្ទ Block សំឡេងពី ${targetSocketId}:`, error);
+                console.error(`Playback blocked:`, error);
             });
         }
     });
@@ -583,7 +585,6 @@ function createPeer(targetSocketId, initiator) {
         if (peers[targetSocketId]) delete peers[targetSocketId];
     });
     p.on('error', (err) => {
-        console.log("Peer Error:", err);
         removeAudioElement(targetSocketId);
         if (peers[targetSocketId]) delete peers[targetSocketId];
     });
@@ -630,11 +631,10 @@ socket.on('connect', () => {
     closeAllVoiceConnections(); 
     const wasMicEnabled = localStorage.getItem('mic_enabled') !== 'false';
     if (wasMicEnabled) {
-        initVoiceAndExecute(() => { console.log("Voice Chat រួចរាល់។"); });
+        initVoiceAndExecute(() => {});
     }
 });
 
-// 🚀 ស្ទាក់ចាប់ការចូលរួម Direct ស្វ័យប្រវត្តពីទំព័រដើម
 window.addEventListener('DOMContentLoaded', () => {
     const autoRoomId = localStorage.getItem('auto_join_room_id');
     const autoPassword = localStorage.getItem('auto_join_password');
