@@ -200,18 +200,20 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                         }
                     }
 
-                    // បញ្ចប់ជុំទី ៤៖ ស្វែងរកអ្នក "ទីវ" និងបច្ចុប្បន្នភាពទៅកាន់គ្រប់គ្នាភ្លាមៗ
+                    // ==========================================
+                    // 🛠️ ពិនិត្យស្ថានភាព "ទីវ" នៅពេលបញ្ចប់ជុំទី ៤ 
+                    // ==========================================
                     if (room.currentRound === 4) { 
                         room.players.forEach(p => { 
                             if (!p.isSpectator && !p.hasCat) {
                                 p.isTiv = true; 
                             }
                         }); 
-                        // ផ្ញើទៅប្រាប់អ្នកលេងទាំងអស់ឱ្យដឹងពីស្ថានភាព "ទីវហើយ" និងប្តូរពណ៌ភ្លាមៗ
-                        io.to('kt_' + roomId).emit('updatePlayers', room.players);
                     }
 
-                    // បន្តទៅជុំបន្ទាប់
+                    // ==========================================
+                    // 🚀 បន្តទៅជុំបន្ទាប់ ឬ បញ្ចប់ហ្គេមផ្ដាច់
+                    // ==========================================
                     if (room.currentRound < 5) {
                         room.currentRound++; 
                         room.tableCards = []; 
@@ -219,6 +221,7 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                         
                         const survivors = room.players.filter(p => !p.isSpectator && !p.isTiv);
                         
+                        // បើសិនសល់តែម្នាក់ឯង (អ្នកផ្សេងទីវអស់) ឱ្យឈ្នះដាច់តុតែម្ដង
                         if (survivors.length === 1) {
                             room.status = 'waiting'; 
                             survivors[0].finalWinner = true;
@@ -229,9 +232,16 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                             }));
                             io.to('kt_' + roomId).emit('gameWon', { winner: survivors[0].name, winnerId: survivors[0].id, allHands: finalHandsResult });
                         } else { 
-                            io.to('kt_' + roomId).emit('nextRoundStarted', { currentRound: room.currentRound, winnerName: winMove ? winMove.name : 'គ្មាន', currentTurnIndex: room.currentTurnIndex, players: room.players }); 
+                            // ផ្ញើទៅកាន់ Client ទាំងព្រម ដោយភ្ជាប់ទិន្នន័យ room.players ដែលបច្ចុប្បន្នភាព "ទីវហើយ" រួចជាស្រេច
+                            io.to('kt_' + roomId).emit('nextRoundStarted', { 
+                                currentRound: room.currentRound, 
+                                winnerName: winMove ? winMove.name : 'គ្មាន', 
+                                currentTurnIndex: room.currentTurnIndex, 
+                                players: room.players 
+                            }); 
                         }
-                    } 
+                    }
+
                     // 🏆 ជុំទី ៥៖ វគ្គគណនា "កាត់ឡង សងគូទ"
                     else { 
                         room.status = 'waiting';
