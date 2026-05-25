@@ -182,7 +182,7 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
         <h3>📊 ស្ថានភាព និងបៀក្នុងដៃទាំងអស់គ្នា៖</h3>
         <div id="resultList"></div>
         <br>
-        <button id="hostPlayAgainBtn" class="btn-green" onclick="startGame()" style="display: none;">🔄 ចាប់ផ្ដើមវគ្គថ្មី (Start Next Round)</button>
+        <button id="hostPlayAgainBtn" class="btn-green" style="display: none;">🔄 ចាប់ផ្ដើមវគ្គថ្មី (Start Next Round)</button>
         <div id="waitHostText" style="color: #94a3b8; margin-top: 15px;">សូមរង់ចាំអ្នកឈ្នះចាប់ផ្ដើមវគ្គថ្មី...</div>
         <button class="btn-red" onclick="leaveRoom()">🚪 ចាកចេញទៅទំព័រដើម</button>
     </div>
@@ -399,7 +399,6 @@ function submitMove(action) {
             finalAction = 'fold'; 
         }
     } 
-    // 🛠️ កែសម្រួល៖ នៅជុំទី ៥ បង្ខំឱ្យផ្ញើទៅ Server ថាជាការលេង (play) ជានិច្ច មិនឱ្យមានសកម្មភាព fold ឡើយ
     else if (currentRound === 5) {
         finalAction = 'play'; 
     }
@@ -412,7 +411,6 @@ socket.on('moveRecorded', (data) => {
     const cardsRow = document.getElementById('tableCardsRow');
     badgeDiv.innerHTML = ''; cardsRow.innerHTML = '';
     
-    // ស្វែងរកជុំបច្ចុប្បន្នចេញពី UI status text
     const statusText = document.getElementById('status').innerText;
     const currentRound = parseInt(statusText.replace(/[^0-9]/g, '')) || 1;
     
@@ -431,18 +429,15 @@ socket.on('moveRecorded', (data) => {
 
         const box = document.createElement('div'); box.className = 'player-card-box';
         
-        // 🛠️ កែសម្រួល៖ បើនៅក្នុងជុំទី ៥ ទោះបីជាចុច ធីប ឬ អត់គប់ ក៏ត្រូវតែបង្ហាញសន្លឹកបៀរចំហរដាច់ខាត
         const isFoldedMove = (m.action === 'ធីបហើយ' || m.action === 'អត់គប់ទេ');
 
         if (isFoldedMove && currentRound < 5) { 
-            // ជុំទី ១ ដល់ ៤ បង្ហាញខ្នងបៀរក្រហមផ្កាប់ចុះ
             const cardBackEl = document.createElement('div');
             cardBackEl.style.width = '45px'; cardBackEl.style.height = '65px'; cardBackEl.style.borderRadius = '4px';
             cardBackEl.style.background = 'linear-gradient(135deg, #b91c1c, #7f1d1d)';
             cardBackEl.style.border = '1.5px solid white'; cardBackEl.style.boxShadow = '0 2px 4px rgba(0,0,0,0.4)';
             box.appendChild(cardBackEl);
         } else {
-            // ជុំទី ៥ បង្ហាញរូបភាពសន្លឹកបៀរចំហរទាំងអស់
             const cardEl = document.createElement('img'); cardEl.style.width = '45px'; cardEl.style.borderRadius = '4px';
             cardEl.src = getCardFileName(m.card);
             box.appendChild(cardEl);
@@ -451,22 +446,40 @@ socket.on('moveRecorded', (data) => {
     });
 });
 
-// 🛠️ បន្ថែម៖ ទទួលបញ្ជារាប់ថយក្រោយ ៥ វិនាទីនៅជុំទី ៥ មុនពេលបង្ហាញលទ្ធផលចុងក្រោយ
+// 🛠️ ដំណោះស្រាយ៖ បង្ហាញលេខរាប់ថយក្រោយ ៥ វិនាទី ធំៗចំកណ្តាលតុលេងឱ្យច្បាស់
 socket.on('kt_startCountdown', (seconds) => {
     let timeLeft = seconds;
     const statusEl = document.getElementById('status');
     
-    // បង្ហាញអក្សររាប់ថយក្រោយនៅលើ Header ហ្គេម
-    statusEl.innerText = `⏱️ បង្ហាញលទ្ធផលក្នុង៖ ${timeLeft} វិនាទី`;
+    statusEl.innerText = `⏱️ លទ្ធផល៖ ${timeLeft}ស`;
     statusEl.style.color = '#f59e0b';
+
+    let countdownDiv = document.getElementById('tableCountdownText');
+    if (!countdownDiv) {
+        countdownDiv = document.createElement('div');
+        countdownDiv.id = 'tableCountdownText';
+        countdownDiv.style.position = 'absolute';
+        countdownDiv.style.top = '50%';
+        countdownDiv.style.left = '50%';
+        countdownDiv.style.transform = 'translate(-50%, -50%)';
+        countdownDiv.style.fontSize = '32px';
+        countdownDiv.style.fontWeight = 'bold';
+        countdownDiv.style.color = '#f59e0b';
+        countdownDiv.style.textShadow = '0px 0px 10px rgba(0,0,0,0.8)';
+        countdownDiv.style.zIndex = '99';
+        document.getElementById('table').appendChild(countdownDiv);
+    }
+    countdownDiv.innerText = `⏱️ បង្ហាញលទ្ធផលក្នុង៖ ${timeLeft}`;
 
     const countdownInterval = setInterval(() => {
         timeLeft--;
         if (timeLeft > 0) {
-            statusEl.innerText = `⏱️ បង្ហាញលទ្ធផលក្នុង៖ ${timeLeft} វិនាទី`;
+            statusEl.innerText = `⏱️ លទ្ធផល៖ ${timeLeft}ស`;
+            countdownDiv.innerText = `⏱️ បង្ហាញលទ្ធផលក្នុង៖ ${timeLeft}`;
         } else {
             clearInterval(countdownInterval);
             statusEl.style.color = '#22c55e';
+            if (countdownDiv) countdownDiv.remove(); 
         }
     }, 1000);
 });
@@ -540,15 +553,31 @@ socket.on('gameWon', (data) => {
         resList.appendChild(pDiv);
     });
     
-    const playAgainBtn = document.getElementById('hostPlayAgainBtn'), waitText = document.getElementById('waitHostText');
-    if (myId === lastRoundWinnerId) {
+    const playAgainBtn = document.getElementById('hostPlayAgainBtn');
+    const waitText = document.getElementById('waitHostText');
+    
+    // 🛠️ ដំណោះស្រាយ៖ ឆែកអាយឌីឱ្យដឹងច្បាស់ថា ខ្ញុំពិតជា Host មែនឬទេ ដើម្បីកុំឱ្យគាំងប៊ូតុងវគ្គថ្មី
+    if (playersData.length > 0 && playersData[0].id === myId) {
+        isCreator = true;
+    }
+
+    if (isCreator || myId === data.winnerId) {
         playAgainBtn.style.display = 'block'; 
         waitText.style.display = 'none';
-        playAgainBtn.onclick = () => { if(currentRoom) socket.emit('kt_startGame', currentRoom); };
+        playAgainBtn.onclick = () => { 
+            if (currentRoom) {
+                socket.emit('kt_startGame', currentRoom); 
+            }
+        };
     } else {
         playAgainBtn.style.display = 'none'; 
         waitText.style.display = 'block';
-        waitText.innerText = `សូមរង់ចាំអ្នកឈ្នះ (${data.winner}) ចាប់ផ្ដើមវគ្គថ្មី...`;
+        
+        let managerName = 'ម្ចាស់បន្ទប់';
+        const hostPlayer = playersData[0]; 
+        if (hostPlayer) managerName = hostPlayer.name;
+        
+        waitText.innerText = `សូមរង់ចាំមេបន្ទប់ (${managerName}) ចាប់ផ្ដើមវគ្គថ្មី...`;
     }
 });
 
