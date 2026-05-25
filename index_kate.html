@@ -22,8 +22,11 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 
 @media screen and (max-width: 932px) and (orientation: portrait) {
     body.in-game .container, body.round-over .container { padding: 0; max-width: 100%; width: 100%; height: 100%; }
+    /* បង្វិល ៩០ដឺក្រេ តែពេលកំពុងលេង (in-game) ប៉ុណ្ណោះ */
     body.in-game #gameArea { position: fixed; top: 50%; left: 50%; width: 100dvh; height: 100dvw; transform: translate(-50%, -50%) rotate(90deg); transform-origin: center center; background: #0b1329; padding: 10px 13px 10px 10px; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
-    body.round-over #resultArea { position: fixed; top: 50%; left: 50%; width: 100dvh; height: 100dvw; transform: translate(-50%, -50%) rotate(90deg); transform-origin: center center; max-height: 100dvw !important; background: #0b1329; box-sizing: border-box; padding: 15px; display: block; }
+    
+    /* 🛠️ ជួសជុល៖ ពេលប្រកាសលទ្ធផល (round-over) គឺលុប transform rotate(90deg) ចេញ ឱ្យបង្ហាញជាបែបឈរធម្មតា */
+    body.round-over #resultArea { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; max-height: 100vh !important; background: #0b1329; box-sizing: border-box; padding: 15px; display: block; overflow-y: auto; transform: none; }
 }
 
 .game-header { display: flex; justify-content: space-between; align-items: center; background: #1c2541; padding: 5px 10px; border-radius: 8px; flex-shrink: 0; height: 32px; }
@@ -628,6 +631,26 @@ socket.on('connect', () => {
     const wasMicEnabled = localStorage.getItem('mic_enabled') !== 'false';
     if (wasMicEnabled) {
         initVoiceAndExecute(() => { console.log("Voice Chat រួចរាល់។"); });
+    }
+});
+
+// 🚀 ស្ទាក់ចាប់ការចូលរួម Direct ស្វ័យប្រវត្តពីទំព័រដើម
+window.addEventListener('DOMContentLoaded', () => {
+    const autoRoomId = localStorage.getItem('auto_join_room_id');
+    const autoPassword = localStorage.getItem('auto_join_password');
+    const playerName = localStorage.getItem('tienlen_name');
+
+    if (autoRoomId && playerName) {
+        localStorage.removeItem('auto_join_room_id');
+        localStorage.removeItem('auto_join_password');
+
+        document.getElementById('playerName').value = playerName;
+        document.getElementById('roomInput').value = autoRoomId;
+        document.getElementById('roomPass').value = autoPassword || "";
+
+        setTimeout(() => {
+            joinRoom();
+        }, 300);
     }
 });
 </script>
