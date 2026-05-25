@@ -1,5 +1,5 @@
 // =================================================================
-// server_kate.js (កំណែទម្រង់ចុងក្រោយបង្អស់ - ជួសជុល Bug គាំងវេនលេង ៦ នាក់)
+// server_kate.js (កំណែទម្រង់ចុងក្រោយបង្អស់ - ជួសជុល Bug គាំងវេនលេង ៦ នាក់ និងបន្ថែមប្រព័ន្ធ "ងើយហើយ")
 // =================================================================
 
 module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
@@ -87,6 +87,10 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
             const room = ktRooms[roomId]; if (!room) return; 
             let player = room.players[room.currentTurnIndex]; if (player.id !== socket.id) return;
 
+            // 🛠️ ពិនិត្យថាបៀរដែល Client បញ្ជូនមក ពិតជាមាននៅក្នុងដៃអ្នកលេងពិតប្រាកដមែនឬទេ
+            const cardIdx = player.hand.findIndex(c => c.value === card.value && c.suit === card.suit);
+            if (cardIdx === -1) return socket.emit('errorMsg', 'រកមិនឃើញសន្លឹកបៀរនេះនៅក្នុងដៃរបស់អ្នកឡើយ!');
+
             let verifiedAction = '';
 
             // ==========================================
@@ -136,8 +140,14 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
             // បញ្ចូលទិន្នន័យបៀរទៅលើតុ
             room.tableCards.push({ playerId: player.id, name: player.name, card, action: verifiedAction });
 
-            const cardIdx = player.hand.findIndex(c => c.value === card.value && c.suit === card.suit); 
-            if (cardIdx !== -1) player.hand.splice(cardIdx, 1);
+            // 🛠️ ជួសជុល៖ កាត់សន្លឹកបៀរចេញពីដៃភ្លាមៗ ទោះបីជាស៊ីបៀរ គប់បៀរ ឬផ្កាប់បៀរចោលក៏ដោយ
+            player.hand.splice(cardIdx, 1);
+
+            // 🛠️ បន្ថែម Logic៖ ត្រួតពិនិត្យ "ទីវ" ភ្លាមៗនៅក្នុងជុំទី ៤ មុនគេ
+            // ប្រសិនបើជាជុំទី ៤ ហើយគាត់ធ្លាប់ចុច "fold (ធីបហើយ)" ឬទើបតែចុច "fold" ក្នុងវេននេះ ហើយគាត់មិនធ្លាប់ស៊ីបានជុំណាទេ (hasCat ស្មើ false)
+            if (room.currentRound === 4 && !player.hasCat) {
+                player.isTiv = true;
+            }
 
             io.to('kt_' + roomId).emit('moveRecorded', { by: player.name, action: verifiedAction, card, tableCards: room.tableCards, round: room.currentRound });
             io.to(player.id).emit('dealCards', { hand: player.hand }); 
@@ -145,12 +155,11 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
             // 🎯 ចំនួនអ្នកលេងសរុបពិតប្រាកដដែលត្រូវលេងក្នុងជុំនេះ
             const requiredPlayersCount = room.players.filter(p => !p.isSpectator && !(room.currentRound === 5 && p.isTiv)).length;
 
-            // 🛠️ ជួសជុល Logic ស្វែងរកវេនបន្ទាប់ (Next Turn) ការពារការគាំងស្លាប់
+            // 🛠️ ស្វែងរកវេនបន្ទាប់ (Next Turn) ការពារការគាំងស្លាប់
             if (room.tableCards.length < requiredPlayersCount) {
                 let nextTurn = (room.currentTurnIndex + 1) % room.players.length;
                 let attempts = 0;
                 
-                // លក្ខខណ្ឌស្វែងរក៖ មិនមែន Spectator, មិនមែនអ្នក Tiv, និងមិនទាន់បានទម្លាក់បៀរក្នុងជុំនេះឡើយ
                 while (attempts < room.players.length) {
                     let pCheck = room.players[nextTurn];
                     let hasPlayedInThisRound = room.tableCards.some(m => m.playerId === pCheck.id);
@@ -164,6 +173,8 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                 room.currentTurnIndex = nextTurn;
                 
                 if (room.status === 'playing') {
+                    // 🛠️ ផ្ញើបច្ចុប្បន្នភាពបញ្ជីឈ្មោះអ្នកលេងដែលមានស្ថានភាព "ទីវហើយ" ទៅឱ្យ Client បង្ហាញភ្លាមៗ
+                    io.to('kt_' + roomId).emit('updatePlayers', room.players);
                     io.to('kt_' + roomId).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex, players: room.players }); 
                 }
             } 
@@ -200,9 +211,7 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                         }
                     }
 
-                    // ==========================================
-                    // 🛠️ ពិនិត្យស្ថានភាព "ទីវ" នៅពេលបញ្ចប់ជុំទី ៤ 
-                    // ==========================================
+                    // វគ្គផ្ទៀងផ្ទាត់ចុងក្រោយពេលចប់ជុំទី ៤ (សម្រាប់អ្នកដែលមិនទាន់ដល់វេនលេង តែដឹងថាអត់មានបៀរស៊ីច្បាស់ណាស់)
                     if (room.currentRound === 4) { 
                         room.players.forEach(p => { 
                             if (!p.isSpectator && !p.hasCat) {
@@ -211,9 +220,6 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                         }); 
                     }
 
-                    // ==========================================
-                    // 🚀 បន្តទៅជុំបន្ទាប់ ឬ បញ្ចប់ហ្គេមផ្ដាច់
-                    // ==========================================
                     if (room.currentRound < 5) {
                         room.currentRound++; 
                         room.tableCards = []; 
@@ -221,7 +227,6 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                         
                         const survivors = room.players.filter(p => !p.isSpectator && !p.isTiv);
                         
-                        // បើសិនសល់តែម្នាក់ឯង (អ្នកផ្សេងទីវអស់) ឱ្យឈ្នះដាច់តុតែម្ដង
                         if (survivors.length === 1) {
                             room.status = 'waiting'; 
                             survivors[0].finalWinner = true;
@@ -232,7 +237,6 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                             }));
                             io.to('kt_' + roomId).emit('gameWon', { winner: survivors[0].name, winnerId: survivors[0].id, allHands: finalHandsResult });
                         } else { 
-                            // ផ្ញើទៅកាន់ Client ទាំងព្រម ដោយភ្ជាប់ទិន្នន័យ room.players ដែលបច្ចុប្បន្នភាព "ទីវហើយ" រួចជាស្រេច
                             io.to('kt_' + roomId).emit('nextRoundStarted', { 
                                 currentRound: room.currentRound, 
                                 winnerName: winMove ? winMove.name : 'គ្មាន', 
@@ -242,7 +246,9 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                         }
                     }
 
-                    // 🏆 ជុំទី ៥៖ វគ្គគណនា "កាត់ឡង សងគូទ"
+                    // ==========================================
+                    // 🏆 ជុំទី ៥៖ វគ្គគណនា "កាត់ឡង សងគូទ" និង "ងើយហើយ"
+                    // ==========================================
                     else { 
                         room.status = 'waiting';
                         const finalSuit = room.finalSuit || room.roundSuit;
@@ -250,6 +256,7 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                         let songKoutPlayer = null;
                         let maxLastCardPower = -1;
 
+                        // ១. រកមើលបៀរគូទ (សន្លឹកទី ៦) ដែលធំជាងគេពិតប្រាកដនៅលើតុ
                         room.players.forEach(p => {
                             if (!p.isSpectator && p.hand.length > 0) {
                                 const lastCard = p.hand[0]; 
@@ -258,6 +265,24 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                                     if (power > maxLastCardPower) {
                                         maxLastCardPower = power;
                                         songKoutPlayer = p;
+                                    }
+                                }
+                            }
+                        });
+
+                        // ២. ស្វែងរកអ្នក "ងើយ" (ចាក់ចោលនៅជុំទី ៥ តែបៀរនោះបែរជាធំជាងបៀរគូទចុងក្រោយរបស់គេ)
+                        let ngeuyPlayers = [];
+                        room.tableCards.forEach(m => {
+                            if (m.action === 'អត់គប់ទេ' || m.action === 'ធីបហើយ') {
+                                const thrownCard = m.card; 
+                                if (thrownCard.suit === finalSuit) {
+                                    const thrownPower = ktModule.getKatePower(thrownCard);
+                                    
+                                    // ពិនិត្យធៀបនឹងបៀរគូទដែលធំជាងគេ (maxLastCardPower) 
+                                    // និងធៀបនឹងបៀរដែលចេញដំបូងគេនៅជុំទី ៥ (tableCards[0]) ដើម្បីធានាថាវាពិតជាទឹកឈ្នះ
+                                    const firstMovePower = ktModule.getKatePower(room.tableCards[0].card);
+                                    if (thrownPower > maxLastCardPower && thrownPower > firstMovePower) {
+                                        ngeuyPlayers.push(m.playerId);
                                     }
                                 }
                             }
@@ -280,8 +305,14 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
 
                         if (finalWinnerPlayer) finalWinnerPlayer.finalWinner = true;
 
+                        // ៣. រៀបចំបញ្ជូនស្ថានភាពលទ្ធផលទៅកាន់គ្រប់គ្នា
                         const finalHandsResult = room.players.map(p => {
                             let pStatus = resultStatusMap[p.id];
+                            
+                            if (ngeuyPlayers.includes(p.id)) {
+                                pStatus = "😮 ងើយហើយ (មានទឹកឈ្នះតែចាក់ខុសជុំ)";
+                            }
+                            
                             if (!pStatus) {
                                 pStatus = p.isSpectator ? "❌ លង់ (អ្នកមើល)" : (p.isTiv ? "🖐️ ទីវហើយ (អត់បៀរស៊ី)" : "❌ ចាញ់គប់");
                             }
