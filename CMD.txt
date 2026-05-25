@@ -1,3 +1,4 @@
-git add .
-git commit -m "fix: correct syntax errors and full HTML"
-git push
+cd Desktop\tienlen-game  Old
+cd Documents\tienlen-game
+npm install
+npm start
