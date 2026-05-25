@@ -200,13 +200,15 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                         }
                     }
 
-                    // បញ្ចប់ជុំទី ៤៖ ស្វែងរកអ្នក "ទីវ" 
+                    // បញ្ចប់ជុំទី ៤៖ ស្វែងរកអ្នក "ទីវ" និងបច្ចុប្បន្នភាពទៅកាន់គ្រប់គ្នាភ្លាមៗ
                     if (room.currentRound === 4) { 
                         room.players.forEach(p => { 
                             if (!p.isSpectator && !p.hasCat) {
                                 p.isTiv = true; 
                             }
                         }); 
+                        // ផ្ញើទៅប្រាប់អ្នកលេងទាំងអស់ឱ្យដឹងពីស្ថានភាព "ទីវហើយ" និងប្តូរពណ៌ភ្លាមៗ
+                        io.to('kt_' + roomId).emit('updatePlayers', room.players);
                     }
 
                     // បន្តទៅជុំបន្ទាប់
