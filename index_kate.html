@@ -187,7 +187,7 @@ socket.on('ktRoomList', (rooms) => {
     if (rooms.length === 0) { div.innerHTML = '<div style="color: #64748b; margin-top: 10px;">មិនទាន់មានបន្ទប់នៅឡើយទេ...</div>'; return; }
     rooms.forEach(r => {
         const item = document.createElement('div'); item.className = 'room-item';
-        item.innerHTML = `<div><strong>បន្ទប់ ID: ${r.roomId}</strong> ${r.hasPassword?'🔒':'🔓'} <br><small style="color: #94a3b8;">សមាជិក៖ ${r.playerCount}/4 នាក់</small></div>
+        item.innerHTML = `<div><strong>បន្ទប់ ID: ${r.roomId}</strong> ${r.hasPassword?'🔒':'🔓'} <br><small style="color: #94a3b8;">សមាជិក៖ ${r.playerCount}/6 នាក់</small></div>
             <button class="btn-green" style="width: auto; margin-top: 0; padding: 6px 12px;" onclick="quickJoin('${r.roomId}', ${r.hasPassword})">ចូលរួម</button>`;
         div.appendChild(item);
     });
