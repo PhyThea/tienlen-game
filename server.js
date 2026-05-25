@@ -1,5 +1,5 @@
 // =================================================================
-// server.js (កំណែទម្រង់ពេញលេញ - ដោះស្រាយបញ្ហាស៊ីខុសទឹក និងរក្សា Voice ចាស់)
+// server.js (កំណែទម្រង់ពេញលេញ - ជួសជុលការជាន់កូដកាតេ និងរក្សា Voice ចាស់)
 // =================================================================
 const express = require('express');
 const http = require('http');
@@ -14,7 +14,7 @@ const io = new Server(server, {
 });
 
 const tlModule = require('./server_tienlen');
-const ktModule = require('./server_kate');
+const ktModule = require('./server_kate_core'); // ឈ្មោះម៉ូឌុលគណនារបស់កាតេ
 
 app.use(express.static(__dirname));
 
@@ -37,6 +37,9 @@ function broadcastRoomLists() {
     io.emit('ktRoomList', getRoomList(ktRooms));
     io.emit('roomList', getRoomList(tlRooms)); 
 }
+
+// ហៅប្រើប្រាស់ឯកសារច្បាប់វិន័យកាតេ (server_kate.js) ឲ្យគ្រប់គ្រងព្រឹត្តិការណ៍កាតេទាំងអស់ជំនួសវិញ
+require('./server_kate')(io, ktRooms, broadcastRoomLists, tlModule, tlModule);
 
 io.on('connection', (socket) => {
     broadcastRoomLists();
@@ -175,137 +178,8 @@ io.on('connection', (socket) => {
     });
 
     // ==========================================
-    // EVENTS - កាតេ (KA TE) -> 🛠️ ជួសជុលច្បាប់ស៊ីខុសទឹក
+    // CLEAN ROOM LOGIC
     // ==========================================
-    socket.on('kt_createRoom', ({ roomId, password, playerName }) => {
-        if (ktRooms[roomId]) return socket.emit('errorMsg', 'បន្ទប់នេះមានរួចហើយ!');
-        ktRooms[roomId] = {
-            roomId, password: password || "", status: 'waiting', creatorId: socket.id,
-            players: [{ id: socket.id, name: playerName || 'អ្នកលេង ១', hand: [], isSpectator: false, hasCat: false, winRounds: 0, finalWinner: false, initialHandCopy: [] }],
-            currentTurnIndex: 0, currentRound: 1, tableCards: [], roundSuit: null, lastWinnerId: null
-        };
-        socket.join('kt_' + roomId);
-        socket.emit('roomCreated', { roomId, playerId: socket.id });
-        io.to('kt_' + roomId).emit('updatePlayers', ktRooms[roomId].players);
-        socket.to('kt_' + roomId).emit('voice_user_joined', { id: socket.id });
-        broadcastRoomLists();
-    });
-
-    socket.on('kt_joinRoom', ({ roomId, password, playerName }) => {
-        const room = ktRooms[roomId]; if (!room) return socket.emit('errorMsg', 'រកមិនឃើញបន្ទប់!');
-        if (room.password && room.password !== password) return socket.emit('errorMsg', 'លេខកូដសម្ងាត់មិនត្រឹមត្រូវ!');
-        if (room.players.length >= 4 && room.status !== 'playing') return socket.emit('errorMsg', 'បន្ទប់ពេញហើយ!');
-
-        const isSpectator = (room.status === 'playing' || room.players.length >= 4);
-        socket.to('kt_' + roomId).emit('voice_user_joined', { id: socket.id });
-        room.players.forEach(p => socket.emit('voice_initiate_peer', { target: p.id }));
-
-        room.players.push({ id: socket.id, name: playerName || 'ភ្ញៀវ', hand: [], isSpectator, hasCat: false, winRounds: 0, finalWinner: false, initialHandCopy: [] });
-        socket.join('kt_' + roomId); socket.emit('roomJoined', { roomId, playerId: socket.id, isSpectator });
-        io.to('kt_' + roomId).emit('updatePlayers', room.players);
-        broadcastRoomLists();
-    });
-
-    socket.on('kt_startGame', (roomId) => {
-        const room = ktRooms[roomId]; if (!room) return; 
-        const deck = ktModule.createKateDeck();
-        const shuffled = tlModule.shuffleDeck(deck); 
-        
-        room.status = 'playing'; room.currentRound = 1; room.tableCards = []; room.roundSuit = null;
-        room.players.forEach((p, i) => {
-            if (!p.isSpectator) {
-                p.hand = ktModule.sortKateCards(shuffled.slice(i * 6, (i + 1) * 6)); p.initialHandCopy = [...p.hand];
-                p.hasCat = false; p.winRounds = 0; p.finalWinner = false;
-            }
-        });
-        room.players.forEach(p => { if(!p.isSpectator) io.to(p.id).emit('dealCards', { hand: p.hand }); });
-        room.currentTurnIndex = room.lastWinnerId ? room.players.findIndex(p => p.id === room.lastWinnerId) : room.players.findIndex(p => !p.isSpectator);
-        if (room.currentTurnIndex === -1) room.currentTurnIndex = 0;
-        io.to('kt_' + roomId).emit('gameStarted', { players: room.players, currentTurnIndex: room.currentTurnIndex, currentRound: room.currentRound, lastRoundWinnerId: room.lastWinnerId });
-    });
-
-    socket.on('kt_playMove', ({ roomId, action, card }) => {
-        const room = ktRooms[roomId]; if (!room) return; let player = room.players[room.currentTurnIndex]; if (player.id !== socket.id) return;
-        const cardIdx = player.hand.findIndex(c => c.value === card.value && c.suit === card.suit); if (cardIdx !== -1) player.hand.splice(cardIdx, 1);
-
-        // 🛠️ logic ថ្មី៖ ពិនិត្យមើល និងរៀបចំសកម្មភាពដើម្បីកុំឱ្យស៊ីបៀរខុសទឹកក្នុងជុំទី ១ ដល់ ទី ៤
-        if (room.currentRound <= 4) {
-            if (room.tableCards.length === 0) {
-                // អ្នកចេញបៀរដំបូងគេ គឺបានស៊ីជានិច្ច និងកំណត់ទឹកបៀរប្រចាំជុំ
-                room.roundSuit = card.suit;
-                room.tableCards.push({ playerId: player.id, name: player.name, card, action: 'ស៊ីបៀរ' });
-            } else {
-                // អ្នកបន្ទាប់ បើចុចស៊ី តែទឹកបៀរខុសគ្នា (ខុស Suit) គឺប្រព័ន្ធបង្ខំឱ្យទៅជា "ផ្កាប់បៀរ" ភ្លាមៗ
-                if (action === 'play' && card.suit === room.roundSuit) {
-                    room.tableCards.push({ playerId: player.id, name: player.name, card, action: 'ស៊ីបៀរ' });
-                } else {
-                    room.tableCards.push({ playerId: player.id, name: player.name, card, action: 'ផ្កាប់បៀរ' });
-                }
-            }
-        } 
-        // ជុំទី ៥ អនុញ្ញាតឱ្យបង្ហាញមុខបៀរទោះចាក់ខុសទឹកក៏ដោយ (តាមបញ្ជារបស់បង)
-        else if (room.currentRound === 5) {
-            if (room.tableCards.length === 0) {
-                room.roundSuit = card.suit; 
-                room.tableCards.push({ playerId: player.id, name: player.name, card, action: 'គប់ទេ' });
-            } else {
-                const isMatch = (card.suit === room.roundSuit && ktModule.getKatePower(card) > ktModule.getKatePower(room.tableCards[0].card));
-                room.tableCards.push({ playerId: player.id, name: player.name, card, action: isMatch ? 'គប់ហើយ' : 'អត់គប់ទេ' });
-            }
-        } 
-        else if (room.currentRound === 6) { 
-            room.tableCards.push({ playerId: player.id, name: player.name, card, action: 'លទ្ធផលចុងក្រោយ' }); 
-        }
-
-        io.to('kt_' + roomId).emit('moveRecorded', { by: player.name, action, card, tableCards: room.tableCards, round: room.currentRound });
-        io.to(player.id).emit('dealCards', { hand: player.hand }); 
-
-        let nextTurn = (room.currentTurnIndex + 1) % room.players.length; let attempts = 0;
-        while (room.players[nextTurn].isSpectator && attempts < room.players.length) { nextTurn = (nextTurn + 1) % room.players.length; attempts++; }
-        room.currentTurnIndex = nextTurn;
-        
-        if (room.tableCards.length === room.players.filter(p => !p.isSpectator).length) {
-            setTimeout(() => {
-                let winMove = null;
-                if (room.currentRound <= 4) {
-                    // រកតែអ្នកណាដែលបាន "ស៊ីបៀរ" ហើយមានទឹកបៀរត្រឹមត្រូវ និងធំជាងគេបង្អស់
-                    const validMoves = room.tableCards.filter(m => m.action === 'ស៊ីបៀរ' && m.card.suit === room.roundSuit);
-                    if (validMoves.length > 0) {
-                        validMoves.sort((a,b) => ktModule.getKatePower(b.card) - ktModule.getKatePower(a.card));
-                        winMove = validMoves[0];
-                    } else {
-                        winMove = room.tableCards[0]; // បើគ្មានអ្នកស៊ីត្រូវទឹកទេ គឺអ្នកចេញមុនគេជាអ្នកស៊ីដដែល
-                    }
-                } else if (room.currentRound === 5) {
-                    const cutters = room.tableCards.filter(m => m.action === 'គប់ហើយ');
-                    if (cutters.length > 0) { cutters.sort((a,b) => ktModule.getKatePower(b.card) - ktModule.getKatePower(a.card)); winMove = cutters[0]; } else { winMove = room.tableCards[0]; }
-                } else { winMove = room.tableCards[0]; }
-
-                if (winMove) {
-                    const winnerPl = room.players.find(p => p.id === winMove.playerId);
-                    if(winnerPl) {
-                        winnerPl.winRounds++; if(room.currentRound <= 4) winnerPl.hasCat = true; room.lastWinnerId = winnerPl.id; room.currentTurnIndex = room.players.findIndex(p => p.id === winnerPl.id);
-                        io.to('kt_' + roomId).emit('winnerTransferred', { newWinnerId: room.lastWinnerId, creatorId: room.creatorId });
-                    }
-                }
-                if (room.currentRound === 4) { room.players.forEach(p => { if (!p.isSpectator && !p.hasCat) p.isSpectator = true; }); }
-
-                if (room.currentRound < 6) {
-                    room.currentRound++; room.tableCards = []; room.roundSuit = null; const survivors = room.players.filter(p => !p.isSpectator);
-                    if (survivors.length === 1) {
-                        room.status = 'waiting'; survivors[0].finalWinner = true;
-                        const finalHandsResult = room.players.map(p => ({ name: p.name, initialHandCopy: p.initialHandCopy, winRounds: p.winRounds, finalWinner: p.id === survivors[0].id, isSpectator: p.isSpectator }));
-                        io.to('kt_' + roomId).emit('gameWon', { winner: survivors[0].name, winnerId: survivors[0].id, allHands: finalHandsResult });
-                    } else { io.to('kt_' + roomId).emit('nextRoundStarted', { currentRound: room.currentRound, winnerName: winMove ? winMove.name : 'គ្មាន', currentTurnIndex: room.currentTurnIndex, players: room.players }); }
-                } else {
-                    room.status = 'waiting'; const finalWinner = room.players.find(p => p.id === room.lastWinnerId); if(finalWinner) finalWinner.finalWinner = true;
-                    const finalHandsResult = room.players.map(p => ({ name: p.name, initialHandCopy: p.initialHandCopy, winRounds: p.winRounds, finalWinner: p.id === room.lastWinnerId, isSpectator: p.isSpectator }));
-                    io.to('kt_' + roomId).emit('gameWon', { winner: finalWinner ? finalWinner.name : 'គ្មានអ្នកឈ្នះ', winnerId: room.lastWinnerId, allHands: finalHandsResult });
-                }
-            }, 1500);
-        } else { io.to('kt_' + roomId).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex, players: room.players }); }
-    });
-
     socket.on('kt_leaveRoom', (roomId) => { socket.emit('leftRoom'); cleanLeave(roomId, 'kt'); });
     socket.on('leaveRoom', () => { socket.emit('leftRoom'); cleanLeave(Object.keys(tlRooms).find(id => tlRooms[id].players.some(p => p.id === socket.id)), 'tl'); });
 
