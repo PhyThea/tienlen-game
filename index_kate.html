@@ -94,7 +94,7 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
         <div class="hand-and-controls">
             <div class="card-container" id="myCards"></div>
             <div class="controls" id="actionControls">
-                <button id="playBtn" class="btn-green" onclick="submitMove('play')">🎯 ស៊ីបៀរ / ចេញបៀ</button>
+                <button id="playBtn" class="btn-green" onclick="submitMove('play')">🎯 ស៊ីបៀរ / គប់បៀរ</button>
                 <button id="foldBtn" class="btn-red" onclick="submitMove('fold')">🖐️ ផ្កាប់បៀរ</button>
             </div>
         </div>
@@ -276,8 +276,8 @@ socket.on('moveRecorded', (data) => {
     data.tableCards.forEach(m => {
         const box = document.createElement('div'); box.className = 'player-card-box';
         
-        if (m.action === 'fold' && data.round <= 4) {
-            // 🛠️ បង្កើតខ្នងបៀរដោយប្រើ CSS ពណ៌ក្រហម (មិនបារម្ភរឿងបាត់ឯកសាររូបភាព back.png ទៀតទេ)
+        // លក្ខខណ្ឌបង្ហាញសន្លឹកបៀរផ្កាប់ខ្នង (តែក្នុងជុំទី ១ ដល់ ទី ៤ ប៉ុណ្ណោះ)
+        if (m.action === 'ផ្កាប់បៀរ' && data.round <= 4) {
             const cardBackEl = document.createElement('div');
             cardBackEl.style.width = '55px';
             cardBackEl.style.height = '80px';
@@ -289,16 +289,28 @@ socket.on('moveRecorded', (data) => {
             const badge = document.createElement('div'); badge.className = 'action-badge'; badge.innerText = `${m.name}: ${m.action}`;
             box.appendChild(badge); box.appendChild(cardBackEl);
         } else {
-            // បង្ហាញរូបភាពមុខបៀរធម្មតាពេលស៊ី ឬផ្ងារ
+            // ជុំទី៥ ឬការស៊ីបៀរ៖ បង្ហាញរូបភាពមុខបៀរធម្មតាឱ្យឃើញទាំងអស់គ្នា
             const cardEl = document.createElement('img'); cardEl.style.width = '55px'; cardEl.style.borderRadius = '4px';
             cardEl.src = getCardFileName(m.card);
             
-            const badge = document.createElement('div'); badge.className = 'action-badge'; badge.innerText = `${m.name}: ${m.action}`;
+            // កំណត់ពណ៌ Badge ទៅតាមសកម្មភាពដើម្បីងាយស្រួលមើល
+            const badge = document.createElement('div'); 
+            badge.className = 'action-badge';
+            if (m.action === 'គប់ហើយ') {
+                badge.style.background = '#22c55e'; badge.style.color = 'white';
+            } else if (m.action === 'អត់គប់ទេ') {
+                badge.style.background = '#ef4444'; badge.style.color = 'white';
+            } else if (m.action === 'គប់ទេ') {
+                badge.style.background = '#3b82f6'; badge.style.color = 'white';
+            }
+            badge.innerText = `${m.name}: ${m.action}`;
+            
             box.appendChild(badge); box.appendChild(cardEl);
         }
         tableDiv.appendChild(box);
     });
 });
+
 socket.on('turnChanged', ({ currentTurnIndex: turn }) => { currentTurnIndex = turn; renderPlayers(playersData); updateControlsState(); });
 
 socket.on('nextRoundStarted', (data) => {
