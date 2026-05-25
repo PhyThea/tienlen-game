@@ -97,7 +97,7 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
             <div id="status" style="font-weight: bold; color: #22c55e; font-size: 12px;">Waiting...</div>
             <div style="display: flex; gap: 6px; align-items: center;">
                 <button id="micToggleBtn" class="mic-btn" onclick="toggleMic()">🎙️ Mic: On</button>
-                <button class="btn-red" onclick="leaveRoom()" style="margin-top: 0; padding: 2px 8px; font-size: 11px; width: auto; height: 24px;">🚪 ចាកចេញ</button>
+                <button class="btn-red" onclick="leaveRoom()" style="margin-top: 0; padding: 2px 8px; font-size: 11px; width: auto; height: 24px;">🚪 ផ្ទះដើម</button>
             </div>
         </div>
         <div id="players"></div>
@@ -142,14 +142,12 @@ function getCardFileName(card) {
 
 if (localStorage.getItem('tienlen_name')) document.getElementById('playerName').value = localStorage.getItem('tienlen_name');
 
-socket.on('roomList', (rooms) => {
+socket.on('tlRoomList', (rooms) => {
     const div = document.getElementById('roomList'); div.innerHTML = '';
     if (rooms.length === 0) { div.innerHTML = '<div style="color: #64748b; margin-top: 10px;">មិនទាន់មានបន្ទប់នៅឡើយទេ...</div>'; return; }
     rooms.forEach(r => {
         const item = document.createElement('div'); item.className = 'room-item';
-        const lockIcon = r.hasPassword ? '🔒' : '🔓';
-        const statusText = r.status === 'playing' ? '<span style="color: #ef4444;">(កំពុងលេង)</span>' : '<span style="color: #22c55e;">(ទំនេរ)</span>';
-        item.innerHTML = `<div><strong>បន្ទប់ ID: ${r.roomId}</strong> ${lockIcon} <br><small style="color: #94a3b8;">សមាជិក៖ ${r.playerCount}/4 នាក់ ${statusText}</small></div>
+        item.innerHTML = `<div><strong>បន្ទប់ ID: ${r.roomId}</strong> ${r.hasPassword?'🔒':'🔓'} <br><small style="color: #94a3b8;">សមាជិក៖ ${r.playerCount}/4 នាក់</small></div>
             <button class="btn-blue" style="width: auto; margin-top: 0; padding: 6px 12px;" onclick="quickJoin('${r.roomId}', ${r.hasPassword})">ចូលរួម</button>`;
         div.appendChild(item);
     });
@@ -183,7 +181,6 @@ function joinRoom() {
     const roomId = document.getElementById('roomInput').value.trim();
     const password = document.getElementById('roomPass').value;
     if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!");
-    
     localStorage.setItem('last_room_id', roomId);
     localStorage.setItem('player_name', playerName);
     socket.emit('joinRoom', { roomId, password, playerName });
@@ -241,7 +238,7 @@ socket.on('winnerTransferred', (data) => { lastRoundWinnerId = data.newWinnerId;
 function updateRoomUI(data) {
     const targetWinnerId = data ? data.newWinnerId : lastRoundWinnerId;
     const targetCreatorId = data ? data.creatorId : (playersData[0] ? playersData[0].id : null);
-    const hasControl = (targetWinnerId === myId || (!targetWinnerId && targetCreatorId === myId));
+    const hasControl = (targetWinnerId === socket.id || targetCreatorId === socket.id);
     const startBtn = document.getElementById('startBtn');
     if (startBtn) startBtn.style.display = hasControl ? 'inline-block' : 'none';
     
@@ -252,8 +249,7 @@ function updateRoomUI(data) {
             playAgainBtn.style.display = 'none'; waitText.style.display = 'block';
             let managerName = 'Host'; const targetId = targetWinnerId || targetCreatorId;
             const manager = playersData.find(p => p.id === targetId);
-            if (manager) managerName = manager.name;
-            waitText.innerText = `សូមរង់ចាំ ${managerName} ចាប់ផ្ដើមវគ្គថ្មី...`;
+            if (manager) managerName = manager.name; waitText.innerText = `សូមរង់ចាំ ${managerName} ចាប់ផ្ដើមវគ្គថ្មី...`;
         }
     }
 }
@@ -396,7 +392,7 @@ function renderFinalResults(allHands, isDoubleWin) {
 
 function showPlayAgainButton() {
     const playAgainBtn = document.getElementById('hostPlayAgainBtn'), waitText = document.getElementById('waitHostText');
-    if (myId === lastRoundWinnerId) {
+    if (socket.id === lastRoundWinnerId) {
         playAgainBtn.style.display = 'block'; waitText.style.display = 'none';
         playAgainBtn.onclick = () => { if(currentRoom) socket.emit('startGame', currentRoom); };
     } else {
@@ -406,31 +402,58 @@ function showPlayAgainButton() {
     }
 }
 
-function leaveRoom() { if (confirm("តើអ្នកពិតជាចង់ចាកចេញមែនទេ?")) { socket.emit('leaveRoom'); closeAllVoiceConnections(); location.href = "/"; } }
+function leaveRoom() { if (confirm("តើអ្នកពិតជាចង់ចាកចេញមែនទេ?")) { socket.emit('leaveRoom'); closeAllVoiceConnections(); } }
+socket.on('leftRoom', () => { location.href = "/"; });
 
-// Voice Chat Logic
+// =================================================================
+// 🛠️ ប្រព័ន្ធ VOICE CHAT LOGIC (ដកស្រង់ពីកូដចាស់បង ១០០% ធានាលឺច្បាស់)
+// =================================================================
 function toggleMic() {
-    if (localStorage.getItem('has_no_mic') === 'true') return alert("មិនមានឧបករណ៍ Mic ឡើយ!");
-    if (!localStream) return; micEnabled = !micEnabled;
-    localStream.getAudioTracks().forEach(track => track.enabled = micEnabled); updateMicButtonUI();
+    if (localStorage.getItem('has_no_mic') === 'true') {
+        alert("Computer របស់អ្នកមិនមានឧបករណ៍ Mic សម្រាប់បើកឡើយ ប៉ុន្តែអ្នកអាចស្ដាប់អ្នកដទៃបានធម្មតា!");
+        return;
+    }
+    if (!localStream) return;
+    micEnabled = !micEnabled;
+    localStream.getAudioTracks().forEach(track => { track.enabled = micEnabled; });
+    localStorage.setItem('mic_enabled', micEnabled);
+    updateMicButtonUI();
 }
+
 function updateMicButtonUI() {
-    const btn = document.getElementById('micToggleBtn'); if (!btn) return;
-    btn.innerText = micEnabled ? "🎙️ Mic: On" : "🔇 Mic: Off"; if (micEnabled) btn.classList.remove('muted'); else btn.classList.add('muted');
+    const btn = document.getElementById('micToggleBtn');
+    if (btn) {
+        if (localStorage.getItem('has_no_mic') === 'true') {
+            btn.innerText = "🔇 អត់ Mic (គ្រាន់តែស្ដាប់)"; btn.classList.add('muted'); return;
+        }
+        if (micEnabled) { btn.innerText = "🎙️ Mic: On"; btn.classList.remove('muted'); } 
+        else { btn.innerText = "🔇 Mic: Off"; btn.classList.add('muted'); }
+    }
 }
+
 function closeAllVoiceConnections() {
     for (let id in peers) { if (peers[id]) { try { peers[id].destroy(); } catch(e) {} } const el = document.getElementById(`audio_${id}`); if(el) el.remove(); }
     peers = {}; if (localStream) { localStream.getTracks().forEach(track => track.stop()); localStream = null; }
+    localStorage.removeItem('has_no_mic');
 }
+
 function initVoiceAndExecute(callback) {
     if (localStream || localStorage.getItem('has_no_mic') === 'true') { if (callback) callback(); return; }
-    navigator.mediaDevices.getUserMedia({ audio: true, video: false }).then(stream => { localStream = stream; updateMicButtonUI(); if (callback) callback(); }).catch(err => { localStorage.setItem('has_no_mic', 'true'); updateMicButtonUI(); if (callback) callback(); });
+    navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false }).then(stream => {
+        localStream = stream; localStorage.setItem('has_no_mic', 'false');
+        micEnabled = localStorage.getItem('mic_enabled') !== 'false';
+        localStream.getAudioTracks().forEach(track => { track.enabled = micEnabled; });
+        updateMicButtonUI(); if (callback) callback();
+    }).catch(err => {
+        localStorage.setItem('has_no_mic', 'true'); updateMicButtonUI(); if (callback) callback();
+    });
 }
+
 function createPeer(targetSocketId, initiator) {
     if (peers[targetSocketId]) return peers[targetSocketId];
     const p = new SimplePeer({
         initiator: initiator, trickle: false, stream: localStream,
-        config: { iceServers: [{ urls: "stun:stun.l.google.com:19302" }, { urls: "turn:global.relay.metered.ca:80", username: "70c58d936fe4c62e38eff96c", credential: "4tMqFurEIksvhg2h" }] }
+        config: { iceServers: [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }, { urls: "turn:global.relay.metered.ca:80", username: "70c58d936fe4c62e38eff96c", credential: "4tMqFurEIksvhg2h" }] }
     });
     p.on('signal', data => socket.emit('voice_signal', { target: targetSocketId, signal: data }));
     p.on('stream', stream => {
@@ -439,12 +462,31 @@ function createPeer(targetSocketId, initiator) {
         audio.srcObject = stream;
     });
     p.on('close', () => { const el = document.getElementById(`audio_${targetSocketId}`); if(el) el.remove(); delete peers[targetSocketId]; });
+    p.on('error', () => { const el = document.getElementById(`audio_${targetSocketId}`); if(el) el.remove(); delete peers[targetSocketId]; });
     peers[targetSocketId] = p; return p;
 }
-socket.on('voice_user_joined', (data) => { const id = data.id || data; if (id === socket.id) return; initVoiceAndExecute(() => setTimeout(() => createPeer(id, false), 500)); });
-socket.on('voice_initiate_peer', (data) => { if (data.target === socket.id) return; initVoiceAndExecute(() => setTimeout(() => createPeer(data.target, true), 1000)); });
-socket.on('voice_signal', (data) => { if (peers[data.sender]) peers[data.sender].signal(data.signal); });
-socket.on('voice_user_left', (data) => { const id = data.id || data; if (peers[id]) { try { peers[id].destroy(); } catch(e){} delete peers[id]; } const el = document.getElementById(`audio_${id}`); if(el) el.remove(); });
+
+socket.on('voice_user_joined', (data) => {
+    const userSocketId = typeof data === 'object' ? data.id : data; if (userSocketId === socket.id) return;
+    initVoiceAndExecute(() => { setTimeout(() => { createPeer(userSocketId, false); }, 500); });
+});
+
+socket.on('voice_initiate_peer', (data) => {
+    const targetSocketId = data.target; if (targetSocketId === socket.id) return;
+    initVoiceAndExecute(() => { setTimeout(() => { createPeer(targetSocketId, true); }, 1000); });
+});
+
+socket.on('voice_signal', (data) => { if (peers[data.sender]) { peers[data.sender].signal(data.signal); } });
+socket.on('voice_user_left', (data) => {
+    const userSocketId = typeof data === 'object' ? data.id : data;
+    if (peers[userSocketId]) { try { peers[userSocketId].destroy(); } catch(e){} delete peers[userSocketId]; }
+    const el = document.getElementById(`audio_${userSocketId}`); if(el) el.remove();
+});
+
+socket.on('connect', () => {
+    closeAllVoiceConnections(); const wasMicEnabled = localStorage.getItem('mic_enabled') !== 'false';
+    if (wasMicEnabled) { initVoiceAndExecute(() => {}); }
+});
 </script>
 </body>
 </html>
