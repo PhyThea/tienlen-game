@@ -60,7 +60,24 @@
         const room = ktRooms[roomId]; if (!room) return;
         let player = room.players[room.currentTurnIndex]; if (player.id !== socket.id) return;
 
-        // 🛠️ ជួសជុល Bug: ដកសន្លឹកបៀរចេញពីដៃរបស់អ្នកលេងភ្លាមៗឱ្យសល់ ៥សន្លឹក, ៤សន្លឹក...
+        // 🛠️ ពិនិត្យលក្ខខណ្ឌ៖ បើជុំទី ១ ដល់ ៤ ហើយចុច 'play' (ស៊ីបៀរ) ប៉ុន្តែមិនមែនជាអ្នកចេញបៀរដំបូង
+        if (room.currentRound <= 4 && action === 'play' && room.tableCards.length > 0) {
+            // ទឹកបៀរដំបូងដែលត្រូវដេញតាម
+            if (card.suit !== room.roundSuit) {
+                return socket.emit('errorMsg', 'ទឹកបៀរមិនត្រឹមត្រូវ! ត្រូវតែលេងទឹក ' + room.roundSuit + ' ឬជ្រើសរើសផ្កាប់បៀរ (ធីប)។');
+            }
+            // ពិនិត្យមើលបៀរដែលធំជាងគេនៅលើតុបច្ចុប្បន្នដែលមានទឹកដូចគ្នា
+            const sameSuitCards = room.tableCards.filter(m => m.card.suit === room.roundSuit && (m.action === 'ស៊ីបៀរ' || m.action === 'គប់ទេ'));
+            if (sameSuitCards.length > 0) {
+                sameSuitCards.sort((a,b) => ktModule.getKatePower(b.card) - ktModule.getKatePower(a.card));
+                const highestCardOnTable = sameSuitCards[0].card;
+                if (ktModule.getKatePower(card) <= ktModule.getKatePower(highestCardOnTable)) {
+                    return socket.emit('errorMsg', 'បៀររបស់អ្នកតូចជាងបៀរនៅលើតុ! មិនអាចស៊ីបានទេ ត្រូវតែជ្រើសរើសផ្កាប់បៀរ (ធីប)។');
+                }
+            }
+        }
+
+        // ដកសន្លឹកបៀរចេញពីដៃរបស់អ្នកលេងភ្លាមៗ
         const cardIdx = player.hand.findIndex(c => c.value === card.value && c.suit === card.suit);
         if (cardIdx !== -1) {
             player.hand.splice(cardIdx, 1);
@@ -72,7 +89,7 @@
                 if (room.tableCards.length === 0) room.roundSuit = card.suit;
                 room.tableCards.push({ playerId: player.id, name: player.name, card, action: 'ស៊ីបៀរ' });
             } else {
-                room.tableCards.push({ playerId: player.id, name: player.name, card, action: 'ផ្កាប់បៀរ' });
+                room.tableCards.push({ playerId: player.id, name: player.name, card, action: 'ធីបហើយ' }); // ប្តូរពី ផ្កាប់បៀរ ទៅ ធីបហើយ
             }
         } 
         else if (room.currentRound === 5) {
@@ -90,11 +107,11 @@
             room.tableCards.push({ playerId: player.id, name: player.name, card, action: 'លទ្ធផលចុងក្រោយ' });
         }
 
-        // ផ្ញើទិន្នន័យបៀរដែលបានចុះទៅកាន់គ្រប់គ្នា (រួមទាំងចំនួនបៀរដែលនៅសល់ក្នុងដៃ)
+        // ផ្ញើទិន្នន័យបៀរដែលបានចុះទៅកាន់គ្រប់គ្នា
         io.to('kt_' + roomId).emit('moveRecorded', { by: player.name, action, card, tableCards: room.tableCards, round: room.currentRound });
-        io.to(player.id).emit('dealCards', { hand: player.hand }); // បច្ចុប្បន្នភាពបៀរក្នុងដៃម្ចាស់វេន
+        io.to(player.id).emit('dealCards', { hand: player.hand });
 
-        // គណនាវេនបន្ទាប់ (រំលងអ្នកមើល ឬអ្នកដែលងាប់)
+        // គណនាវេនបន្ទាប់
         let nextTurn = (room.currentTurnIndex + 1) % room.players.length;
         let attempts = 0;
         while (room.players[nextTurn].isSpectator && attempts < room.players.length) {
@@ -105,13 +122,12 @@
 
         const activePlayers = room.players.filter(p => !p.isSpectator);
         
-        // ពេលគ្រប់គ្នាទម្លាក់បៀរអស់ក្នុងជុំនីមួយៗ
         if (room.tableCards.length === activePlayers.length) {
             setTimeout(() => {
                 let winMove = null;
                 
                 if (room.currentRound <= 4) {
-                    const validMoves = room.tableCards.filter(m => m.action === 'ស៊ីបៀរ' || m.action === 'គប់ទេ');
+                    const validMoves = room.tableCards.filter(m => m.action === 'ស៊ីបៀរ');
                     const matchSuit = validMoves.filter(m => m.card.suit === room.roundSuit);
                     if (matchSuit.length > 0) {
                         matchSuit.sort((a,b) => ktModule.getKatePower(b.card) - ktModule.getKatePower(a.card));
@@ -120,13 +136,12 @@
                         winMove = validMoves[0];
                     }
                 } else if (room.currentRound === 5) {
-                    // ជុំទី៥: រកអ្នកឈ្នះដែលបាន "គប់ហើយ" ធំជាងគេ ឬបើគ្មានទេគឺអ្នកចេញ "គប់ទេ" ជាអ្នកស៊ី
                     const cutters = room.tableCards.filter(m => m.action === 'គប់ហើយ');
                     if (cutters.length > 0) {
                         cutters.sort((a,b) => ktModule.getKatePower(b.card) - ktModule.getKatePower(a.card));
                         winMove = cutters[0];
                     } else {
-                        winMove = room.tableCards[0]; // អ្នកផ្ដើម "គប់ទេ"
+                        winMove = room.tableCards[0];
                     }
                 } else {
                     winMove = room.tableCards[0];
@@ -143,7 +158,6 @@
                     }
                 }
 
-                // ចប់ជុំទី៤៖ អ្នកណាដែលមិនធ្លាប់ស៊ីសោះ (hasCat === false) ត្រូវកាត់ថាលង់/ងាប់ (Spectator)
                 if (room.currentRound === 4) {
                     room.players.forEach(p => {
                         if (!p.isSpectator && !p.hasCat) p.isSpectator = true; 
