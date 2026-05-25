@@ -17,7 +17,7 @@ app.use(express.static(__dirname));
 
 // 🛠️ កែសម្រួលការកំណត់ផ្លូវ (Express Routing) ដើម្បីបាត់ Error 404
 app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'main.html')); });
-app.get('/tienlen', (req, res) => { res.sendFile(path.join(__dirname, 'index.html')); });
+app.get('/tienlen', (req, res) => { res.sendFile(path.join(__dirname, 'index_tienlen.html')); });
 app.get('/kate', (req, res) => { res.sendFile(path.join(__dirname, 'index_kate.html')); });
 
 const tlRooms = {}; // សម្រាប់ ទៀនឡេន
