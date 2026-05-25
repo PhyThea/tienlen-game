@@ -183,13 +183,11 @@ function comparePlay(newCards, oldCards) {
 
     return false;
 }
-
-// នាំមុខងារទាំងអស់ចេញទៅប្រើប្រាស់ក្នុងឯកសារ server.js រួម
 module.exports = {
     CARD_ORDER,
     SUIT_ORDER,
     createDeck,
-    shuffleDeck,
+    shuffleDeck, // 🛠️ ថែមមុខងារនេះចូល ដើម្បីកុំឱ្យហ្គេមកាតេ Crash ពេលចាប់ផ្ដើម
     getCardPower,
     sortCards,
     getComboType,
