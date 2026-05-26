@@ -204,7 +204,7 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
         <div id="resultList"></div>
         <br>
         <button id="hostPlayAgainBtn" class="btn-green" onclick="startGame()" style="display: none;">🔄 ចាប់ផ្ដើមវគ្គថ្មី (Start Next Round)</button>
-        <div id="waitHostText" style="color: #94a3b8; margin-top: 15px;">សូមរង់ចាំអ្នកឈ្នះចាប់ផ្ដើមវគ្គថ្មី...</div>
+        <div id="waitHostText" style="color: #94a3b8; margin-top: 15px;">...</div>
         <button class="btn-red" onclick="leaveRoom()">🚪 ចាកចេញទៅទំព័រដើម</button>
     </div>
 </div>
@@ -343,8 +343,10 @@ function updateControlsState() {
             playBtn.disabled = false; 
             if (currentRound === 5) {
                 foldBtn.disabled = true;
+                playBtn.innerText = "🎯 គប់បៀរ (សន្លឹកទី៥)";
             } else {
                 foldBtn.disabled = false;
+                playBtn.innerText = "🎯 ស៊ីបៀរ";
             }
         } else { 
             playBtn.disabled = true; 
@@ -431,17 +433,12 @@ function submitMove(action) {
     selectedCard = null;
     renderHand(); 
 
+    // 🛠️ ជួសជុល Logic បញ្ជូនទៅកាន់ Server ៖ ជុំទី៥ មិនត្រូវផ្ញើ 'eat' ឡើយ គឺទុកឱ្យ Server ចាត់ចែងតាមសកម្មភាពដើម 'play'
     let finalAction = action;
-
     if (currentRound <= 4) {
-        if (action === 'play') {
-            finalAction = 'eat'; 
-        } else {
-            finalAction = 'fold'; 
-        }
-    } 
-    else if (currentRound === 5) {
-        finalAction = 'eat'; 
+        finalAction = (action === 'play') ? 'eat' : 'fold';
+    } else if (currentRound === 5) {
+        finalAction = 'play'; 
     }
 
     socket.emit('kt_playMove', { roomId: currentRoom, action: finalAction, card: cardToSend });
@@ -499,7 +496,6 @@ socket.on('nextRoundStarted', (data) => {
     updateControlsState();
 });
 
-// 🛠️ បន្ថែមមុខងារទទួលព្រឹត្តិការណ៍រាប់ថយក្រោយពី Server
 socket.on('gameCountdown', ({ seconds }) => {
     const overlay = document.getElementById('countdownOverlay');
     const numDiv = document.getElementById('countdownNum');
@@ -510,7 +506,6 @@ socket.on('gameCountdown', ({ seconds }) => {
 });
 
 socket.on('gameWon', (data) => {
-    // 🛠️ បិទផ្ទាំងរាប់ថយក្រោយពេលបង្ហាញលទ្ធផល
     document.getElementById('countdownOverlay').style.display = 'none';
 
     lastRoundWinnerId = data.winnerId;
