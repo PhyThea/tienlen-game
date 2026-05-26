@@ -496,6 +496,47 @@ socket.on('nextRoundStarted', (data) => {
     updateControlsState();
 });
 
+// 🎯 ព្រឹត្តិការណ៍បង្ហាញសន្លឹកបៀរគូទទី៦ នៅលើតុមុនពេលរាប់ថយក្រោយ
+socket.on('kt_showKoutCard', (data) => {
+    if (!data.card) return;
+
+    const badgeDiv = document.getElementById('centerBadges');
+    const cardsRow = document.getElementById('tableCardsRow');
+    
+    // បង្កើត Badge បញ្ជាក់ពីប្រភេទបៀរគូទ
+    const badge = document.createElement('div');
+    badge.className = 'action-badge';
+    badge.style.background = data.isSongKout ? '#eab308' : '#3b82f6'; 
+    badge.style.color = data.isSongKout ? 'black' : 'white';
+    badge.innerText = data.isSongKout ? `🎯 គូទអ្នកចាក់ស៊ី (${data.ownerName})` : `👑 បៀរគូទរបស់មេ (${data.ownerName})`;
+    badgeDiv.appendChild(badge);
+
+    // បង្កើត Box បង្ហាញរូបសន្លឹកបៀរគូទនៅលើតុ
+    const box = document.createElement('div');
+    box.className = 'player-card-box';
+    box.style.transform = 'scale(1.15)'; 
+    box.style.border = '2px solid #f59e0b';
+    box.style.borderRadius = '5px';
+    box.style.padding = '2px';
+    box.style.background = 'rgba(245, 158, 11, 0.2)';
+
+    const cardEl = document.createElement('img');
+    cardEl.style.width = '50px';
+    cardEl.style.borderRadius = '4px';
+    cardEl.src = getCardFileName(data.card);
+    
+    const label = document.createElement('small');
+    label.style.fontSize = '8px';
+    label.style.color = '#f59e0b';
+    label.style.fontWeight = 'bold';
+    label.style.marginTop = '2px';
+    label.innerText = 'សន្លឹកទី៦';
+
+    box.appendChild(cardEl);
+    box.appendChild(label);
+    cardsRow.appendChild(box);
+});
+
 socket.on('gameCountdown', ({ seconds }) => {
     const overlay = document.getElementById('countdownOverlay');
     const numDiv = document.getElementById('countdownNum');
