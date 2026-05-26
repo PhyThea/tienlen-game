@@ -118,9 +118,30 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 #resultArea { display: none; text-align: center; overflow-y: auto; max-height: 90vh; }
 .result-player { background: #1c2541; padding: 10px; border-radius: 10px; margin-top: 10px; text-align: left; }
 .result-cards { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; align-items: center; min-height: 40px; }
+
+/* រចនាប័ទ្មសម្រាប់ផ្ទាំងរាប់ថយក្រោយ */
+.countdown-overlay {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(11, 19, 41, 0.9); z-index: 9999;
+    display: none; flex-direction: column; justify-content: center; align-items: center;
+}
+.countdown-number {
+    font-size: 80px; font-weight: bold; color: #f59e0b;
+    animation: pulse 1s infinite;
+}
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
 </style>
 </head>
 <body>
+
+<div id="countdownOverlay" class="countdown-overlay">
+    <h2 style="color: #22c55e; margin-bottom: 20px; font-size: 24px;">🎮 ហ្គេមបានបញ្ចប់! កំពុងគណនាលទ្ធផល...</h2>
+    <div id="countdownNum" class="countdown-number">5</div>
+</div>
 
 <div class="container">
     <div id="loginArea" class="panel">
@@ -257,6 +278,7 @@ function showLobby(roomId) {
     document.getElementById('gameArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'none';
     document.getElementById('showRoom').innerText = roomId;
+    document.getElementById('countdownOverlay').style.display = 'none';
 }
 
 socket.on('updatePlayers', (players) => {
@@ -278,6 +300,7 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn, currentRound, lastR
     document.getElementById('actionControls').style.display = amISpectator ? 'none' : 'flex';
     document.getElementById('centerBadges').innerHTML = '';
     document.getElementById('tableCardsRow').innerHTML = `<div style="color: #a7f3d0; font-size: 12px;">ចាប់ផ្ដើមចែកបៀរ!</div>`;
+    document.getElementById('countdownOverlay').style.display = 'none';
     
     renderPlayers(players); 
     renderHand(); 
@@ -476,7 +499,20 @@ socket.on('nextRoundStarted', (data) => {
     updateControlsState();
 });
 
+// 🛠️ បន្ថែមមុខងារទទួលព្រឹត្តិការណ៍រាប់ថយក្រោយពី Server
+socket.on('gameCountdown', ({ seconds }) => {
+    const overlay = document.getElementById('countdownOverlay');
+    const numDiv = document.getElementById('countdownNum');
+    if (overlay && numDiv) {
+        overlay.style.display = 'flex';
+        numDiv.innerText = seconds;
+    }
+});
+
 socket.on('gameWon', (data) => {
+    // 🛠️ បិទផ្ទាំងរាប់ថយក្រោយពេលបង្ហាញលទ្ធផល
+    document.getElementById('countdownOverlay').style.display = 'none';
+
     lastRoundWinnerId = data.winnerId;
     document.body.classList.remove('in-game'); 
     document.body.classList.add('round-over');
