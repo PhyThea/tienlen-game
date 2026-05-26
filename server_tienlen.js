@@ -85,6 +85,7 @@ function getComboType(cards) {
         if (sorted[i].value === '2' || sorted[i-1].value === '2') isStr = false; 
     }
 
+    // 🚨 កែសម្រួល៖ ឲ្យប្រព័ន្ធស្គាល់ថា 'straight_flush' (រៀងប៉ូលីស) ក៏ជា 'straight' (រៀង) មួយប្រភេទដែរ
     if (isStr && len >= 3) {
         const sameSuit = cards.every(c => c.suit === cards[0].suit);
         if (sameSuit) return 'straight_flush'; 
@@ -138,10 +139,15 @@ function checkInstantWin(hand) {
 function comparePlay(newCards, oldCards) {
     if (!oldCards || oldCards.length === 0) return true;
     
-    const newType = getComboType(newCards);
-    const oldType = getComboType(oldCards);
+    let newType = getComboType(newCards);
+    let oldType = getComboType(oldCards);
 
     if (!newType) return false; 
+
+    // 🚨 ជួសជុល៖ បើបៀរនៅលើតុ ឬបៀរចុះថ្មីជា "រៀងប៉ូលីស" (straight_flush) 
+    // គឺយើងចាត់ទុកវាជាប្រភេទ "រៀង" (straight) ដូចគ្នា ដើម្បីអាចឱ្យវាយវាស់កម្លាំងគ្នាបានធម្មតា
+    if (newType === 'straight_flush') newType = 'straight';
+    if (oldType === 'straight_flush') oldType = 'straight';
 
     const sortedNew = sortCards([...newCards]);
     const sortedOld = sortCards([...oldCards]);
@@ -176,7 +182,7 @@ function comparePlay(newCards, oldCards) {
         if (newType === 'quad_pair' && newMax > oldMax) return true;
     }
 
-    // ករណីប្រភេទ Combo ដូចគ្នា និងចំនួនសន្លឹកស្មើគ្នា គឺវាស់កម្លាំងសន្លឹកធំបំផុត
+    // ករណីប្រភេទ Combo ដូចគ្នា (រួមទាំង រៀង ផ្ដួល រៀងប៉ូលីស) និងចំនួនសន្លឹកស្មើគ្នា គឺវាស់កម្លាំងសន្លឹកធំបំផុត
     if (newType === oldType && newCards.length === oldCards.length) {
         return newMax > oldMax;
     }
