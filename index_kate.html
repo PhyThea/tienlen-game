@@ -278,7 +278,10 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn, currentRound, lastR
     document.getElementById('actionControls').style.display = amISpectator ? 'none' : 'flex';
     document.getElementById('centerBadges').innerHTML = '';
     document.getElementById('tableCardsRow').innerHTML = `<div style="color: #a7f3d0; font-size: 12px;">ចាប់ផ្ដើមចែកបៀរ!</div>`;
-    renderPlayers(players); updateControlsState();
+    
+    renderPlayers(players); 
+    renderHand(); 
+    updateControlsState();
 });
 
 socket.on('winnerTransferred', (data) => { lastRoundWinnerId = data.newWinnerId; updateRoomUI(data); });
@@ -315,7 +318,6 @@ function updateControlsState() {
 
         if (isMyTurn() && !amITiv) { 
             playBtn.disabled = false; 
-            // 🛠️ កែប្រែ៖ បើជាជុំទី៥ គឺមិនអនុញ្ញាតឱ្យចុចប៊ូតុង ធីប (Fold) ដាច់ខាត
             if (currentRound === 5) {
                 foldBtn.disabled = true;
             } else {
@@ -369,7 +371,11 @@ function renderHand() {
         container.innerHTML = '<div style="color: #94a3b8; font-style: italic;">អ្នកកំពុងមើលការប្រកួត...</div>'; 
         return; 
     }
-    if (amITiv) {
+    
+    const statusText = document.getElementById('status').innerText;
+    const currentRound = parseInt(statusText.replace(/[^0-9]/g, '')) || 1;
+    
+    if (amITiv && currentRound > 1) {
         container.innerHTML = '<div style="color: #f87171; font-style: italic; font-weight: bold; font-size: 14px;">🖐️ អ្នកបាន "ទីវហើយ" (រង់ចាំមើលគេគប់ជុំទី ៥)</div>';
         return;
     }
@@ -378,7 +384,7 @@ function renderHand() {
         const el = document.createElement('div'); el.className = 'card'; el.style.backgroundImage = `url('${getCardFileName(card)}')`;
         if (selectedCard && selectedCard.value === card.value && selectedCard.suit === card.suit) el.classList.add('selected');
         
-        el.onclick = () => { if (isMyTurn() && !amITiv) { selectedCard = card; renderHand(); } };
+        el.onclick = () => { if (isMyTurn() && (!amITiv || currentRound === 1)) { selectedCard = card; renderHand(); } };
         container.appendChild(el);
     });
 }
@@ -387,14 +393,13 @@ function submitMove(action) {
     if (!isMyTurn()) return alert("មិនទាន់ដល់វេនឡើយ!");
     
     const me = playersData.find(p => p.id === myId);
-    if (me && me.isTiv) return alert("អ្នកបាន 'ទីវ' ហើយ មិនអាចលេងបានទេ!");
+    const statusText = document.getElementById('status').innerText;
+    const currentRound = parseInt(statusText.replace(/[^0-9]/g, '')) || 1;
+    
+    if (me && me.isTiv && currentRound > 1) return alert("អ្នកបាន 'ទីវ' ហើយ មិនអាចលេងបានទេ!");
     
     if (!selectedCard) return alert("សូមជ្រើសរើសសន្លឹកបៀរមួយសន្លឹកសិន!");
 
-    const statusText = document.getElementById('status').innerText;
-    const currentRound = parseInt(statusText.replace(/[^0-9]/g, '')) || 1;
-
-    // 🛠️ កែប្រែ៖ ហាមឃាត់ការធីបនៅជុំទី៥
     if (currentRound === 5 && action === 'fold') {
         return alert("ជុំទី៥ ជាវគ្គបង្ហាញគប់បៀរ មិនអនុញ្ញាតឱ្យចុចផ្កាប់បៀរ (ធីប) ឡើយ!");
     }
@@ -413,7 +418,7 @@ function submitMove(action) {
         }
     } 
     else if (currentRound === 5) {
-        finalAction = 'eat'; // ទោះចុច Play ក៏ផ្ញើទៅជា Eat ដើម្បីឱ្យប្រព័ន្ធគណនាជាការបង្ហាញបៀរ
+        finalAction = 'eat'; 
     }
 
     socket.emit('kt_playMove', { roomId: currentRoom, action: finalAction, card: cardToSend });
@@ -438,7 +443,6 @@ socket.on('moveRecorded', (data) => {
         badgeDiv.appendChild(badge);
 
         const box = document.createElement('div'); box.className = 'player-card-box';
-        // 🛠️ ជួសជុល៖ ផ្កាប់បៀរចោលទាំង ធីបហើយ (ជុំទី១-៤) និង អត់គប់ទេ (ជុំទី៥) ដើម្បីលាក់បៀរគូទកុំឱ្យគេលួចមើលឃើញមុនចប់ហ្គេម!
         const isFoldedMove = (m.action === 'ធីបហើយ' || m.action === 'អត់គប់ទេ'); 
 
         if (isFoldedMove) {
