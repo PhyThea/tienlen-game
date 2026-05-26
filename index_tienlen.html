@@ -487,26 +487,22 @@ socket.on('voice_user_left', (data) => {
 });
 
 socket.on('connect', () => {
-    closeAllVoiceConnections(); const wasMicEnabled = localStorage.getItem('mic_enabled') !== 'false';
-    if (wasMicEnabled) { initVoiceAndExecute(() => {}); }
-});
-// 🚀 ស្ទាក់ចាប់ការចូលរួម Direct ស្វ័យប្រវត្តពីទំព័រដើម
-window.addEventListener('DOMContentLoaded', () => {
-    const autoRoomId = localStorage.getItem('auto_join_room_id');
-    const autoPassword = localStorage.getItem('auto_join_password');
-    const playerName = localStorage.getItem('tienlen_name');
+    console.log("🔄 បានតភ្ជាប់ឡើងវិញ! កំពុង Rejoin បន្ទប់ចាស់...");
+    
+    const savedRoomId = localStorage.getItem('last_room_id');
+    const playerName = localStorage.getItem('player_name');
+    if (savedRoomId && playerName) {
+        // ប្រើប្រាស់ព្រឹត្តិការណ៍ចាស់ដើម្បីទាញបន្ទប់មកវិញភ្លាមៗ
+        socket.emit('joinRoom', { roomId: savedRoomId, playerName: playerName });
+    }
 
-    if (autoRoomId && playerName) {
-        localStorage.removeItem('auto_join_room_id');
-        localStorage.removeItem('auto_join_password');
-
-        document.getElementById('playerName').value = playerName;
-        document.getElementById('roomInput').value = autoRoomId;
-        document.getElementById('roomPass').value = autoPassword || "";
-
-        setTimeout(() => {
-            joinRoom();
-        }, 300);
+    closeAllVoiceConnections(); 
+    
+    const wasMicEnabled = localStorage.getItem('mic_enabled') !== 'false';
+    if (wasMicEnabled) {
+        initVoiceAndExecute(() => {
+            console.log("Voice Chat ដំណើរការឡើងវិញរួចរាល់។");
+        });
     }
 });
 </script>
