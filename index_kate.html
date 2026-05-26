@@ -592,11 +592,8 @@ socket.on('gameWon', (data) => {
     const playAgainBtn = document.getElementById('hostPlayAgainBtn');
     const waitText = document.getElementById('waitHostText');
     
-    if (playersData.length > 0 && playersData[0].id === myId) {
-        isCreator = true;
-    }
-
-    if (isCreator || myId === data.winnerId) {
+    // សម្រេចផ្តល់សិទ្ធិឱ្យតែអ្នកឈ្នះវគ្គមុនពិតប្រាកដ (ទោះជាមេបន្ទប់ក៏ដោយ បើមិនឈ្នះគឺអត់សិទ្ធិ)
+    if (myId === data.winnerId) {
         playAgainBtn.style.display = 'block'; 
         waitText.style.display = 'none';
         playAgainBtn.onclick = () => { 
@@ -608,11 +605,8 @@ socket.on('gameWon', (data) => {
         playAgainBtn.style.display = 'none'; 
         waitText.style.display = 'block';
         
-        let managerName = 'ម្ចាស់បន្ទប់';
-        const hostPlayer = playersData[0]; 
-        if (hostPlayer) managerName = hostPlayer.name;
-        
-        waitText.innerText = `សូមរង់ចាំមេបន្ទប់ (${managerName}) ចាប់ផ្ដើមវគ្គថ្មី...`;
+        // បង្ហាញឈ្មោះអ្នកឈ្នះដើម្បីឱ្យអ្នកផ្សេងដឹងថាត្រូវរង់ចាំនរណា
+        waitText.innerText = `សូមរង់ចាំអ្នកឈ្នះ (${data.winner}) ចាប់ផ្ដើមវគ្គថ្មី...`;
     }
 });
 
