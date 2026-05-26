@@ -226,15 +226,15 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                         }
                     } 
                     // ==========================================
-                    // 🏆 គណនាលទ្ធផលចុងក្រោយនៅបញ្ចប់ជុំទី ៦
+                    // 🏆 គណនាលទ្ធផលចុងក្រោយនៅបញ្ចប់ជុំទី ៦ (កែសម្រួលថ្មី)
                     // ==========================================
                     else { 
                         room.status = 'waiting';
                         
-                        const headKoutMove = room.tableCards[0]; // បៀរគូទរបស់មេ
+                        const headKoutMove = room.tableCards[0]; // បៀរគូទសន្លឹកទី៦ របស់មេ
                         let songKoutPlayerMove = null;
                         
-                        // ស្វែងរកអ្នកដែលបាន "ចាក់គូទ" ធំជាងគេបង្អស់
+                        // ស្វែងរកអ្នកដែលបាន "ចាក់គូទ" ធំជាងមេ និងធំជាងគេបង្អស់
                         const validKoutMoves = room.tableCards.filter(m => m.action === 'ចាក់គូទ');
                         if (validKoutMoves.length > 0) {
                             validKoutMoves.sort((a,b) => ktModule.getKatePower(b.card) - ktModule.getKatePower(a.card));
@@ -245,25 +245,30 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                         let resultStatusMap = {};
 
                         if (songKoutPlayerMove) {
+                            // ករណីមានអ្នកចាក់គូទមេដាច់
                             finalWinnerPlayer = room.players.find(p => p.id === songKoutPlayerMove.playerId);
                             room.lastWinnerId = songKoutPlayerMove.playerId;
                             resultStatusMap[songKoutPlayerMove.playerId] = "👑 ឈ្នះ (ចាក់គូទត្រូវហើយ)";
                             resultStatusMap[headKoutMove.playerId] = "💔 ចាញ់ (ត្រូវគេចាក់គូទស៊ី)";
                         } else {
+                            // ករណីគ្មានអ្នកចាក់គូទមេដាច់ទេ (មេឈ្នះ)
                             finalWinnerPlayer = room.players.find(p => p.id === headKoutMove.playerId);
                             room.lastWinnerId = headKoutMove.playerId;
                             
-                            // ពិនិត្យមើលករណី "ឡងសងគូទ" គឺអ្នកដែលបានចុចគប់ជុំទី៥ តែមកផ្កាប់គូទតូចជាងមេនៅជុំទី៦
+                            // ពិនិត្យមើលលក្ខខណ្ឌ ឡងសងគូទ៖
                             room.players.forEach(p => {
                                 if (!p.isSpectator && p.id !== headKoutMove.playerId) {
                                     const pMove6 = room.tableCards.find(m => m.playerId === p.id);
+                                    
                                     if (pMove6 && pMove6.action === 'ផ្កាប់គូទ' && pMove6.card.suit === headKoutMove.card.suit) {
-                                        resultStatusMap[p.id] = "💔 ឡងសងគូទ (ចាញ់មេ)";
+                                        // 🚨 ផ្លាស់ប្ដូរពាក្យលទ្ធផលចាញ់ឱ្យលោតចំៗតាមការចង់បានរបស់អ្នក
+                                        resultStatusMap[p.id] = "💔 ( ឡងសងគូទហើយ )";
                                     }
                                 }
                             });
                             
-                            if (Object.values(resultStatusMap).includes("💔 ឡងសងគូទ (ចាញ់មេ)")) {
+                            // កំណត់ UI បង្ហាញលទ្ធផលជូនមេវិញ
+                            if (Object.values(resultStatusMap).includes("💔 ( ឡងសងគូទហើយ )")) {
                                 resultStatusMap[headKoutMove.playerId] = "👑 ឈ្នះ (ឡងសងគូទពេញលេញ)";
                             } else {
                                 resultStatusMap[headKoutMove.playerId] = "👑 ឈ្នះ (ស៊ីឡងពេញលេញ)";
@@ -272,7 +277,7 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
 
                         if (finalWinnerPlayer) finalWinnerPlayer.finalWinner = true;
 
-                        // រៀបចំទិន្នន័យផ្ញើទៅ Client
+                        // រៀបចំទិន្នន័យផ្ញើទៅកាន់ Client ទាំងអស់
                         const finalHandsResult = room.players.map(p => {
                             let pStatus = resultStatusMap[p.id];
                             if (!pStatus) {
