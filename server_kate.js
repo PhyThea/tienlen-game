@@ -1,5 +1,5 @@
 // =================================================================
-// server_kate.js (កូដពេញលេញ ១០០% - ជួសជុលប្រព័ន្ធគណនាគូទ ទីវភ្លាមៗ និងហាមឃាត់ការធីបជុំទី៥)
+// server_kate.js (កូដពេញលេញ ១០០% - ជួសជុលប្រព័ន្ធគណនាគូទ និង Reset ស្ថានភាពទីវជុំថ្មី)
 // =================================================================
 
 module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
@@ -49,7 +49,7 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
             
             // 🛠️ ជួសជុល៖ Reset ស្ថានភាពទូទៅរបស់អ្នកលេងទាំងអស់ក្នុងបន្ទប់ឡើងវិញមុនចែកបៀរ
             room.players.forEach((p, idx) => {
-                p.isTiv = false;       // <--- ថែមត្រង់នេះ ដើម្បីសម្អាតស្ថានភាពទីវវគ្គចាស់ចោលដាច់ខាត!
+                p.isTiv = false;       // <--- ធានាសម្អាតស្ថានភាពទីវវគ្គចាស់ចោលដាច់ខាត!
                 p.winRounds = 0;       // <--- Reset ចំនួនជុំដែលធ្លាប់ស៊ី
                 p.hasCat = false;      // <--- Reset ស្ថានភាពមានកាតេដេញទឹក
                 p.finalWinner = false; // <--- Reset ម្ចាស់ពានវគ្គមុន
@@ -240,7 +240,9 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                             room.lastWinnerId = survivors[0].id;
                             
                             const finalHandsResult = room.players.map(p => ({
-                                id: p.id, name: p.name, initialHandCopy: p.initialHandCopy, winRounds: p.winRounds, finalWinner: p.id === survivors[0].id, isSpectator: p.isSpectator, lastCard: p.hand[0] || null, gameStatus: p.id === survivors[0].id ? '👑 ឈ្នះផ្ដាច់ (ស៊ីដាច់តុ)' : (p.isTiv ? '🖐️ ទីវហើយ (ចាញ់)' : '❌ ចាញ់')
+                                id: p.id, name: p.name, initialHandCopy: p.initialHandCopy, winRounds: p.winRounds, finalWinner: p.id === survivors[0].id, isSpectator: p.isSpectator, 
+                                lastCard: p.hand.length > 0 ? p.hand[p.hand.length - 1] : null, // 🛠️ ជួសជុល៖ ចាប់យកសន្លឹកចុងក្រោយបង្អស់ (សន្លឹកទី៦)
+                                gameStatus: p.id === survivors[0].id ? '👑 ឈ្នះផ្ដាច់ (ស៊ីដាច់តុ)' : (p.isTiv ? '🖐️ ទីវហើយ (ចាញ់)' : '❌ ចាញ់')
                             }));
                             io.to('kt_' + roomId).emit('gameWon', { winner: survivors[0].name, winnerId: survivors[0].id, allHands: finalHandsResult });
                         } else { 
@@ -265,7 +267,8 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                         
                         const headPlayerId = headMove.playerId;
                         const headPlayer = room.players.find(p => p.id === headPlayerId);
-                        const headLastCard = headPlayer && headPlayer.hand[0] ? headPlayer.hand[0] : null; // បៀរគូទរបស់មេ
+                        // 🛠️ ជួសជុល៖ ចាប់យកសន្លឹកចុងក្រោយបង្អស់ក្នុងដៃធ្វើជាបៀរគូទទី៦ ពិតប្រាកដ
+                        const headLastCard = headPlayer && headPlayer.hand.length > 0 ? headPlayer.hand[headPlayer.hand.length - 1] : null; 
 
                         let songKoutPlayer = null;
                         let maxLastCardPower = -1;
@@ -277,7 +280,8 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                             
                             room.players.forEach(p => {
                                 if (!p.isSpectator && p.id !== headPlayerId && p.hand.length > 0) {
-                                    const lastCard = p.hand[0];
+                                    // 🛠️ ជួសជុល៖ ចាប់យកសន្លឹកចុងក្រោយបង្អស់ក្នុងដៃធ្វើជាបៀរគូទ (សន្លឹកទី៦)
+                                    const lastCard = p.hand[p.hand.length - 1];
                                     if (lastCard.suit === finalSuit) {
                                         const power = ktModule.getKatePower(lastCard);
                                         
@@ -303,7 +307,8 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                             // បើមេគ្មានបៀរគូទត្រូវទឹកទេ គឺរកគូទនរណាដែលត្រូវទឹកធំជាងគេធម្មតា
                             room.players.forEach(p => {
                                 if (!p.isSpectator && p.hand.length > 0) {
-                                    const lastCard = p.hand[0];
+                                    // 🛠️ ជួសជុល៖ ចាប់យកសន្លឹកចុងក្រោយបង្អស់ក្នុងដៃធ្វើជាបៀរគូទ (សន្លឹកទី៦)
+                                    const lastCard = p.hand[p.hand.length - 1];
                                     if (lastCard.suit === finalSuit) {
                                         const power = ktModule.getKatePower(lastCard);
                                         if (power > maxLastCardPower) {
@@ -345,9 +350,11 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                             if (isLangSongKout) {
                                 resultStatusMap[round5Winner.id] = "👑 ឈ្នះ (ឡងសងគូទពេញលេញ)";
                                 room.players.forEach(p => {
+                                    // 🛠️ ជួសជុល៖ ចាប់យកសន្លឹកចុងក្រោយបង្អស់ក្នុងដៃធ្វើជាបៀរគូទ (សន្លឹកទី៦)
+                                    const pLastCard = p.hand.length > 0 ? p.hand[p.hand.length - 1] : null;
                                     if(!p.isSpectator && p.id !== round5Winner.id) {
                                         const pm = room.tableCards.find(m => m.playerId === p.id);
-                                        if(pm && pm.action === 'គប់ហើយ' && p.hand[0] && p.hand[0].suit === finalSuit) {
+                                        if(pm && pm.action === 'គប់ហើយ' && pLastCard && pLastCard.suit === finalSuit) {
                                             resultStatusMap[p.id] = "💔 ឡងសងគូទ (ចាញ់មេ)";
                                         }
                                     }
@@ -378,7 +385,8 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                                 finalWinner: p.id === room.lastWinnerId,
                                 isSpectator: p.isSpectator,
                                 isTiv: p.isTiv,
-                                lastCard: p.hand[0] || null, 
+                                // 🛠️ ជួសជុល៖ បញ្ជូនសន្លឹកបៀរគូទពិតប្រាកដ (សន្លឹកទី៦) ទៅឱ្យ Client
+                                lastCard: p.hand.length > 0 ? p.hand[p.hand.length - 1] : null, 
                                 gameStatus: pStatus
                             };
                         });
