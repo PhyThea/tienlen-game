@@ -47,10 +47,15 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
         socket.on('kt_startGame', (roomId) => {
             const room = ktRooms[roomId]; if (!room) return;
             
+            // 🛠️ ជួសជុល៖ Reset ស្ថានភាពទូទៅរបស់អ្នកលេងទាំងអស់ក្នុងបន្ទប់ឡើងវិញមុនចែកបៀរ
             room.players.forEach((p, idx) => {
+                p.isTiv = false;       // <--- ថែមត្រង់នេះ ដើម្បីសម្អាតស្ថានភាពទីវវគ្គចាស់ចោលដាច់ខាត!
+                p.winRounds = 0;       // <--- Reset ចំនួនជុំដែលធ្លាប់ស៊ី
+                p.hasCat = false;      // <--- Reset ស្ថានភាពមានកាតេដេញទឹក
+                p.finalWinner = false; // <--- Reset ម្ចាស់ពានវគ្គមុន
+                
                 if (idx < 6) {
                     p.isSpectator = false;
-                    p.isTiv = false;
                 } else {
                     p.isSpectator = true; 
                 }
@@ -65,7 +70,10 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
             activePlayers.forEach((p, i) => {
                 p.hand = ktModule.sortKateCards(deck.slice(i * 6, (i + 1) * 6));
                 p.initialHandCopy = [...p.hand]; 
-                p.hasCat = false; p.winRounds = 0; p.finalWinner = false; p.isTiv = false;
+                p.hasCat = false; 
+                p.winRounds = 0; 
+                p.finalWinner = false; 
+                p.isTiv = false;       // <--- ធានាថាត្រូវបាន Reset ស្អាតពេលទទួលបៀរថ្មី
             });
 
             room.players.forEach(p => { 
