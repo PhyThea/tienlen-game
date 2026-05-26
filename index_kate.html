@@ -273,7 +273,6 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn, currentRound, lastR
     lastRoundWinnerId = serverWinner;
     selectedCard = null; 
     
-    // 🛠️ ដំណោះស្រាយ៖ ត្រូវ Reset ស្ថានភាពកម្រិត Client ទាំងអស់ឱ្យស្អាត មិនឱ្យជាប់ទិន្នន័យវគ្គមុនឡើយ
     playersData.forEach(p => {
         p.isTiv = false;
         p.hasCat = false;
@@ -319,7 +318,6 @@ function updateRoomUI(data) {
 }
 
 socket.on('dealCards', ({ hand }) => { 
-    // 🛠️ Reset ទិន្នន័យខ្លួនឯងបន្ថែមពេលទទួលបានបៀរ ដើម្បីកុំឱ្យគាំង interface
     const me = playersData.find(p => p.id === myId);
     if (me) {
         me.isTiv = false;
@@ -426,15 +424,22 @@ function submitMove(action) {
 
     let finalAction = action;
 
+    // =========================================================
+    // 🛠️ ផ្នែកកែសម្រួល៖ បំបែក Action អោយត្រូវតាមការគណនារបស់ Server
+    // =========================================================
     if (currentRound <= 4) {
         if (action === 'play') {
-            finalAction = 'eat'; 
+            finalAction = 'eat';   // ស៊ីបៀរ
         } else {
-            finalAction = 'fold'; 
+            finalAction = 'fold';  // ធីបហើយ
         }
     } 
     else if (currentRound === 5) {
-        finalAction = 'play'; 
+        if (action === 'play') {
+            finalAction = 'eat';   // ចុចគប់បៀរ
+        } else {
+            finalAction = 'fold';  // ចុចធីបចោលមិនគប់
+        }
     }
 
     socket.emit('kt_playMove', { roomId: currentRoom, action: finalAction, card: cardToSend });
@@ -592,7 +597,6 @@ socket.on('gameWon', (data) => {
     const playAgainBtn = document.getElementById('hostPlayAgainBtn');
     const waitText = document.getElementById('waitHostText');
     
-    // សម្រេចផ្តល់សិទ្ធិឱ្យតែអ្នកឈ្នះវគ្គមុនពិតប្រាកដ (ទោះជាមេបន្ទប់ក៏ដោយ បើមិនឈ្នះគឺអត់សិទ្ធិ)
     if (myId === data.winnerId) {
         playAgainBtn.style.display = 'block'; 
         waitText.style.display = 'none';
@@ -604,8 +608,6 @@ socket.on('gameWon', (data) => {
     } else {
         playAgainBtn.style.display = 'none'; 
         waitText.style.display = 'block';
-        
-        // បង្ហាញឈ្មោះអ្នកឈ្នះដើម្បីឱ្យអ្នកផ្សេងដឹងថាត្រូវរង់ចាំនរណា
         waitText.innerText = `សូមរង់ចាំអ្នកឈ្នះ (${data.winner}) ចាប់ផ្ដើមវគ្គថ្មី...`;
     }
 });
