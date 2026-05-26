@@ -344,6 +344,9 @@ function updateControlsState() {
             if (currentRound === 5) {
                 foldBtn.disabled = true;
                 playBtn.innerText = "🎯 គប់បៀរ (សន្លឹកទី៥)";
+            } else if (currentRound === 6) {
+                foldBtn.disabled = true;
+                playBtn.innerText = "👑 ទម្លាក់បៀរគូទ (សន្លឹកទី៦)";
             } else {
                 foldBtn.disabled = false;
                 playBtn.innerText = "🎯 ស៊ីបៀរ";
@@ -363,18 +366,25 @@ function renderPlayers(players) {
         
         if (currentTurnIndex === index && !p.isSpectator && !p.isTiv) el.classList.add('active-turn');
         
-        if ((p.isSpectator || p.isTiv) && document.body.classList.contains('in-game')) {
+        const statusText = document.getElementById('status').innerText;
+        const currentRound = parseInt(statusText.replace(/[^0-9]/g, '')) || 1;
+        
+        if (p.isSpectator && document.body.classList.contains('in-game')) {
+            el.classList.add('player-dead');
+        } else if (p.isTiv && currentRound < 6 && document.body.classList.contains('in-game')) {
             el.classList.add('player-dead');
         }
         
         let roleText = `<div class="card-counter">🏆 ស៊ីបាន៖ ${p.winRounds || 0}</div>`;
         if (p.isSpectator) {
             roleText = '<span style="color: #ef4444; font-weight: bold;">(លង់/អ្នកមើល)</span>';
-        } else if (p.isTiv) {
+        } else if (p.isTiv && currentRound < 6) {
             roleText = '<span style="color: #f87171; font-weight: bold;">🖐️ ទីវហើយ</span>';
+        } else if (p.isTiv && currentRound === 6) {
+            roleText = '<span style="color: #f87171; font-weight: bold;">🖐️ ផ្កាប់គូទអូតូ</span>';
         }
         
-        let turnBadge = (currentTurnIndex === index && !p.isSpectator && !p.isTiv) ? `<div class="turn-badge">🎯 វេន</div>` : '';
+        let turnBadge = (currentTurnIndex === index && !p.isSpectator && !(currentRound < 6 && p.isTiv)) ? `<div class="turn-badge">🎯 វេន</div>` : '';
         
         el.innerHTML = `${turnBadge}<strong>👤 ${p.name.substring(0,5)}</strong><br>${roleText}`;
         div.appendChild(el);
@@ -400,8 +410,8 @@ function renderHand() {
     const statusText = document.getElementById('status').innerText;
     const currentRound = parseInt(statusText.replace(/[^0-9]/g, '')) || 1;
     
-    if (amITiv && currentRound > 1) {
-        container.innerHTML = '<div style="color: #f87171; font-style: italic; font-weight: bold; font-size: 14px;">🖐️ អ្នកបាន "ទីវហើយ" (រង់ចាំមើលគេគប់ជុំទី ៥)</div>';
+    if (amITiv && currentRound < 6) {
+        container.innerHTML = '<div style="color: #f87171; font-style: italic; font-weight: bold; font-size: 14px;">🖐️ អ្នកបាន "ទីវហើយ" (រង់ចាំមើលគេលេងដល់ជុំទី ៦)</div>';
         return;
     }
 
@@ -409,7 +419,7 @@ function renderHand() {
         const el = document.createElement('div'); el.className = 'card'; el.style.backgroundImage = `url('${getCardFileName(card)}')`;
         if (selectedCard && selectedCard.value === card.value && selectedCard.suit === card.suit) el.classList.add('selected');
         
-        el.onclick = () => { if (isMyTurn() && (!amITiv || currentRound === 1)) { selectedCard = card; renderHand(); } };
+        el.onclick = () => { if (isMyTurn() && (!amITiv || currentRound === 1 || currentRound === 6)) { selectedCard = card; renderHand(); } };
         container.appendChild(el);
     });
 }
@@ -421,23 +431,22 @@ function submitMove(action) {
     const statusText = document.getElementById('status').innerText;
     const currentRound = parseInt(statusText.replace(/[^0-9]/g, '')) || 1;
     
-    if (me && me.isTiv && currentRound > 1) return alert("អ្នកបាន 'ទីវ' ហើយ មិនអាចលេងបានទេ!");
+    if (me && me.isTiv && currentRound < 6) return alert("អ្នកបាន 'ទីវ' ហើយ មិនអាចលេងបានទេ!");
     
     if (!selectedCard) return alert("សូមជ្រើសរើសសន្លឹកបៀរមួយសន្លឹកសិន!");
 
-    if (currentRound === 5 && action === 'fold') {
-        return alert("ជុំទី៥ ជាវគ្គបង្ហាញគប់បៀរ មិនអនុញ្ញាតឱ្យចុចផ្កាប់បៀរ (ធីប) ឡើយ!");
+    if ((currentRound === 5 || currentRound === 6) && action === 'fold') {
+        return alert("ជុំនេះមិនអនុញ្ញាតឱ្យចុចផ្កាប់បៀរ (ធីប) ឡើយ ត្រូវតែទម្លាក់បៀរ!");
     }
 
     const cardToSend = selectedCard;
     selectedCard = null;
     renderHand(); 
 
-    // 🛠️ ជួសជុល Logic បញ្ជូនទៅកាន់ Server ៖ ជុំទី៥ មិនត្រូវផ្ញើ 'eat' ឡើយ គឺទុកឱ្យ Server ចាត់ចែងតាមសកម្មភាពដើម 'play'
     let finalAction = action;
     if (currentRound <= 4) {
         finalAction = (action === 'play') ? 'eat' : 'fold';
-    } else if (currentRound === 5) {
+    } else {
         finalAction = 'play'; 
     }
 
@@ -452,18 +461,18 @@ socket.on('moveRecorded', (data) => {
     data.tableCards.forEach(m => {
         const badge = document.createElement('div'); 
         badge.className = 'action-badge';
-        if (m.action === 'គប់ហើយ' || m.action === 'ស៊ីបៀរ') {
+        if (m.action === 'គប់ហើយ' || m.action === 'ស៊ីបៀរ' || m.action === 'ចាក់គូទ') {
             badge.style.background = '#22c55e'; badge.style.color = 'white';
-        } else if (m.action === 'អត់គប់ទេ' || m.action === 'ធីបហើយ') {
+        } else if (m.action === 'អត់គប់ទេ' || m.action === 'ធីបហើយ' || m.action === 'ផ្កាប់គូទ') {
             badge.style.background = '#ef4444'; badge.style.color = 'white';
-        } else if (m.action === 'គប់ទេ') {
+        } else if (m.action === 'គប់ទេ' || m.action === 'ចេញគូទមេ') {
             badge.style.background = '#3b82f6'; badge.style.color = 'white';
         }
         badge.innerText = `${m.name.substring(0,5)}: ${m.action}`;
         badgeDiv.appendChild(badge);
 
         const box = document.createElement('div'); box.className = 'player-card-box';
-        const isFoldedMove = (m.action === 'ធីបហើយ' || m.action === 'អត់គប់ទេ'); 
+        const isFoldedMove = (m.action === 'ធីបហើយ' || m.action === 'អត់គប់ទេ' || m.action === 'ផ្កាប់គូទ'); 
 
         if (isFoldedMove) {
             const cardBackEl = document.createElement('div');
@@ -480,7 +489,11 @@ socket.on('moveRecorded', (data) => {
     });
 });
 
-socket.on('turnChanged', ({ currentTurnIndex: turn }) => { currentTurnIndex = turn; renderPlayers(playersData); updateControlsState(); });
+socket.on('turnChanged', ({ currentTurnIndex: turn }) => { 
+    currentTurnIndex = turn; 
+    renderPlayers(playersData); 
+    updateControlsState(); 
+});
 
 socket.on('nextRoundStarted', (data) => {
     document.getElementById('status').innerText = `ជុំទី៖ ${data.currentRound}`;
@@ -494,47 +507,6 @@ socket.on('nextRoundStarted', (data) => {
     renderPlayers(playersData); 
     renderHand(); 
     updateControlsState();
-});
-
-// 🎯 ព្រឹត្តិការណ៍បង្ហាញសន្លឹកបៀរគូទទី៦ នៅលើតុមុនពេលរាប់ថយក្រោយ
-socket.on('kt_showKoutCard', (data) => {
-    if (!data.card) return;
-
-    const badgeDiv = document.getElementById('centerBadges');
-    const cardsRow = document.getElementById('tableCardsRow');
-    
-    // បង្កើត Badge បញ្ជាក់ពីប្រភេទបៀរគូទ
-    const badge = document.createElement('div');
-    badge.className = 'action-badge';
-    badge.style.background = data.isSongKout ? '#eab308' : '#3b82f6'; 
-    badge.style.color = data.isSongKout ? 'black' : 'white';
-    badge.innerText = data.isSongKout ? `🎯 គូទអ្នកចាក់ស៊ី (${data.ownerName})` : `👑 បៀរគូទរបស់មេ (${data.ownerName})`;
-    badgeDiv.appendChild(badge);
-
-    // បង្កើត Box បង្ហាញរូបសន្លឹកបៀរគូទនៅលើតុ
-    const box = document.createElement('div');
-    box.className = 'player-card-box';
-    box.style.transform = 'scale(1.15)'; 
-    box.style.border = '2px solid #f59e0b';
-    box.style.borderRadius = '5px';
-    box.style.padding = '2px';
-    box.style.background = 'rgba(245, 158, 11, 0.2)';
-
-    const cardEl = document.createElement('img');
-    cardEl.style.width = '50px';
-    cardEl.style.borderRadius = '4px';
-    cardEl.src = getCardFileName(data.card);
-    
-    const label = document.createElement('small');
-    label.style.fontSize = '8px';
-    label.style.color = '#f59e0b';
-    label.style.fontWeight = 'bold';
-    label.style.marginTop = '2px';
-    label.innerText = 'សន្លឹកទី៦';
-
-    box.appendChild(cardEl);
-    box.appendChild(label);
-    cardsRow.appendChild(box);
 });
 
 socket.on('gameCountdown', ({ seconds }) => {
