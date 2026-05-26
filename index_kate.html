@@ -461,18 +461,20 @@ socket.on('moveRecorded', (data) => {
     data.tableCards.forEach(m => {
         const badge = document.createElement('div'); 
         badge.className = 'action-badge';
-        if (m.action === 'គប់ហើយ' || m.action === 'ស៊ីបៀរ' || m.action === 'ចាក់គូទ') {
+        if (m.action === 'គប់ហើយ' || m.action === 'ស៊ីបៀរ' || m.action === 'ចាក់គូទ' || m.action === 'ចេញគូទមេ') {
             badge.style.background = '#22c55e'; badge.style.color = 'white';
         } else if (m.action === 'អត់គប់ទេ' || m.action === 'ធីបហើយ' || m.action === 'ផ្កាប់គូទ') {
             badge.style.background = '#ef4444'; badge.style.color = 'white';
-        } else if (m.action === 'គប់ទេ' || m.action === 'ចេញគូទមេ') {
+        } else if (m.action === 'គប់ទេ') {
             badge.style.background = '#3b82f6'; badge.style.color = 'white';
         }
         badge.innerText = `${m.name.substring(0,5)}: ${m.action}`;
         badgeDiv.appendChild(badge);
 
         const box = document.createElement('div'); box.className = 'player-card-box';
-        const isFoldedMove = (m.action === 'ធីបហើយ' || m.action === 'អត់គប់ទេ' || m.action === 'ផ្កាប់គូទ'); 
+        
+        // 🚨 កែសម្រួល៖ ជុំទី៥ និងជុំទី៦ មិនផ្កាប់បៀរពណ៌ក្រហមទេ គឺផ្ងារបង្ហាញរូបបៀរលើតុទាំងអស់ដើម្បីឱ្យដឹងថាបៀអ្វី
+        const isFoldedMove = (m.action === 'ធីបហើយ'); 
 
         if (isFoldedMove) {
             const cardBackEl = document.createElement('div');
@@ -541,7 +543,7 @@ socket.on('gameWon', (data) => {
         } else if (p.gameStatus && p.gameStatus.includes('ងើយហើយ')) {
             pDiv.style.border = '2px solid #f59e0b';
             pDiv.style.background = '#3f2b0f';
-        } else if (p.gameStatus && (p.gameStatus.includes('ឡងសងគូទ') || p.gameStatus.includes('ទីវហើយ'))) {
+        } else if (p.gameStatus && (p.gameStatus.includes('ឡងសងគូទហើយ') || p.gameStatus.includes('ទីវហើយ'))) {
             pDiv.style.border = '2px solid #ef4444';
             pDiv.style.background = '#2d1717';
         }
@@ -585,7 +587,6 @@ socket.on('gameWon', (data) => {
     }
 });
 
-socket.on('errorMsg', msg => alert(msg));
 function leaveRoom() { if (confirm("តើអ្នកចង់ចាកចេញមែនទេ?")) { socket.emit('kt_leaveRoom', currentRoom); closeAllVoiceConnections(); } }
 socket.on('leftRoom', () => { location.href = "/"; });
 
