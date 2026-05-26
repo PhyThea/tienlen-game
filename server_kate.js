@@ -1,5 +1,5 @@
 // =================================================================
-// server_kate.js (កូដពេញលេញ ១០០% - ជួសជុលប្រព័ន្ធគណនាគូទទី៦ និងរក្សាមុខងារទាំងអស់)
+// server_kate.js (កូដពេញលេញ ១០០% - ជួសជុលប្រព័ន្ធគណនាគូទទី៦ និងបង្ហាញបៀរលើតុមុនរាប់ថយក្រោយ)
 // =================================================================
 
 module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
@@ -22,7 +22,7 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
             broadcastRoomLists();
         });
 
-        // 🔄 ព្រឹត្តិការណ៍ចូលរួមបន្ទប់ កំហិត ៦ នាក់ដាច់ណាត់
+        // 🔄 ព្រឹត្តិការណ៍ចូលរួមបន្ទប់ កំហិត ៦ នាក់ដាត់ណាត់
         socket.on('kt_joinRoom', ({ roomId, password, playerName }) => {
             const room = ktRooms[roomId];
             if (!room) return socket.emit('errorMsg', 'រកមិនឃើញបន្ទប់!');
@@ -284,6 +284,10 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                         let maxLastCardPower = -1;
                         let isLangSongKout = false;
 
+                        // 🎯 រក្សាទុកទិន្នន័យសន្លឹកបៀរគូទដែលត្រូវបង្ហាញនៅលើតុមុនរាប់ថយក្រោយ
+                        let cardToShowOnTable = headLastCard; 
+                        let cardOwnerName = headPlayer ? headPlayer.name : "មេ";
+
                         // 🛠️ ពិនិត្យទឹកបៀរគូទ (សន្លឹកទី៦) របស់មេ ដើម្បីរកអ្នកចាក់គូទស៊ី
                         if (headLastCard) {
                             const koutSuit = headLastCard.suit; // ទឹកបៀរគូទពិតប្រាកដរបស់មេ (ឧទាហរណ៍៖ ទឹកការ៉ូ ♢)
@@ -303,6 +307,10 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                                                 maxLastCardPower = power;
                                                 songKoutPlayer = p;
                                                 isLangSongKout = false;
+
+                                                // 🎯 បើមានអ្នកចាក់គូទត្រូវ និងធំជាងមេ ត្រូវបង្ហាញបៀរគូទរបស់អ្នកចាក់គូទនោះវិញ
+                                                cardToShowOnTable = lastCard;
+                                                cardOwnerName = p.name;
                                             }
                                         } 
                                         // ក្បួនទី២៖ បើធ្លាប់ចុចគប់ជុំទី៥ (គប់ហើយ) តែគូទតូចជាងគូទមេ ហៅថា (ឡងសងគូទ) មេឈ្នះ
@@ -389,21 +397,30 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                             };
                         });
 
-                        // 🛠️ ហៅមុខងាររាប់ថយក្រោយ ៥ វិនាទី មុនប្រកាសលទ្ធផលផ្លូវការ (ករណីចប់ជុំទី៥)
-                        let count = 5;
-                        const countdownInterval = setInterval(() => {
-                            io.to('kt_' + roomId).emit('gameCountdown', { seconds: count });
-                            count--;
-                            if (count < 0) {
-                                clearInterval(countdownInterval);
-                                io.to('kt_' + roomId).emit('gameWon', { 
-                                    winner: finalWinnerPlayer ? finalWinnerPlayer.name : 'គ្មានអ្នកឈ្នះ', 
-                                    winnerId: room.lastWinnerId, 
-                                    allHands: finalHandsResult 
-                                });
-                                broadcastRoomLists();
-                            }
-                        }, 1000);
+                        // 🎯 ផ្ញើព្រឹត្តិការណ៍បង្ហាញសន្លឹកបៀរគូទទី៦ ទៅកាន់ Client ទាំងអស់គ្នាមុនពេលចាប់ផ្តើមរាប់ថយក្រោយ
+                        io.to('kt_' + roomId).emit('kt_showKoutCard', { 
+                            card: cardToShowOnTable, 
+                            ownerName: cardOwnerName,
+                            isSongKout: !!songKoutPlayer 
+                        });
+
+                        // 🛠️ ទុកពេល ២.៥ វិនាទីឱ្យអ្នកលេងមើលបៀរគូទផ្ទៀងផ្ទាត់សិន រួចទើបហៅមុខងាររាប់ថយក្រោយ ៥ វិនាទី
+                        setTimeout(() => {
+                            let count = 5;
+                            const countdownInterval = setInterval(() => {
+                                io.to('kt_' + roomId).emit('gameCountdown', { seconds: count });
+                                count--;
+                                if (count < 0) {
+                                    clearInterval(countdownInterval);
+                                    io.to('kt_' + roomId).emit('gameWon', { 
+                                        winner: finalWinnerPlayer ? finalWinnerPlayer.name : 'គ្មានអ្នកឈ្នះ', 
+                                        winnerId: room.lastWinnerId, 
+                                        allHands: finalHandsResult 
+                                    });
+                                    broadcastRoomLists();
+                                }
+                            }, 1000);
+                        }, 2500); // ⏳ ពន្យារពេល ២.៥ វិនាទី
                     }
                 }, 1500);
             }
