@@ -267,13 +267,19 @@ socket.on('updatePlayers', (players) => {
 
 function startGame() { socket.emit('kt_startGame', currentRoom); }
 
-// 🛠️ ដំណោះស្រាយ៖ ធ្វើបច្ចុប្បន្នភាព និងជម្រះស្ថានភាព ទីវ ចាស់ៗរាល់ពេលចាប់ផ្តើមហ្គេមវគ្គថ្មី
 socket.on('gameStarted', ({ players, currentTurnIndex: turn, currentRound, lastRoundWinnerId: serverWinner }) => {
     currentTurnIndex = turn; 
     playersData = players; 
     lastRoundWinnerId = serverWinner;
     selectedCard = null; 
     
+    // 🛠️ ដំណោះស្រាយ៖ ត្រូវ Reset ស្ថានភាពកម្រិត Client ទាំងអស់ឱ្យស្អាត មិនឱ្យជាប់ទិន្នន័យវគ្គមុនឡើយ
+    playersData.forEach(p => {
+        p.isTiv = false;
+        p.hasCat = false;
+        p.winRounds = 0;
+    });
+
     document.body.classList.remove('round-over'); 
     document.body.classList.add('in-game');
     document.getElementById('lobbyArea').style.display = 'none';
@@ -312,7 +318,19 @@ function updateRoomUI(data) {
     }
 }
 
-socket.on('dealCards', ({ hand }) => { myHand = hand; selectedCard = null; renderHand(); updateControlsState(); });
+socket.on('dealCards', ({ hand }) => { 
+    // 🛠️ Reset ទិន្នន័យខ្លួនឯងបន្ថែមពេលទទួលបានបៀរ ដើម្បីកុំឱ្យគាំង interface
+    const me = playersData.find(p => p.id === myId);
+    if (me) {
+        me.isTiv = false;
+        me.hasCat = false;
+    }
+    myHand = hand; 
+    selectedCard = null; 
+    renderHand(); 
+    updateControlsState(); 
+});
+
 function isMyTurn() { return !amISpectator && playersData[currentTurnIndex] && playersData[currentTurnIndex].id === myId; }
 
 function updateControlsState() {
@@ -392,7 +410,6 @@ function submitMove(action) {
     const me = playersData.find(p => p.id === myId);
     if (me && me.isTiv) return alert("អ្នកបាន 'ទីវ' ហើយ មិនអាចលេងបានទេ!");
     
-    // 🛠️ បន្ថែមការត្រួតពិនិត្យការជ្រើសរើសបៀរឱ្យបានតឹងរ៉ឹង
     if (action === 'play' && !selectedCard) {
         return alert("សូមជ្រើសរើសសន្លឹកបៀរមួយសន្លឹកពីក្នុងដៃដើម្បី ចាក់ស៊ី/គប់បៀរ!");
     }
