@@ -1,5 +1,5 @@
 // =================================================================
-// server_kate.js (កូដពេញលេញ ១០០% - ជួសជុលប្រព័ន្ធគណនាគូទទី៦ និងបង្ហាញបៀរលើតុមុនរាប់ថយក្រោយ)
+// server_kate.js (កូដពេញលេញ ១០០% - កែសម្រួលការបង្ហាញបៀរគូទឱ្យត្រូវលក្ខខណ្ឌមេ និងអ្នកគប់)
 // =================================================================
 
 module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
@@ -284,36 +284,53 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                         let maxLastCardPower = -1;
                         let isLangSongKout = false;
 
-                        // 🎯 រក្សាទុកទិន្នន័យសន្លឹកបៀរគូទដែលត្រូវបង្ហាញនៅលើតុមុនរាប់ថយក្រោយ
+                        // 🛠️ ស្វែងរក "អ្នកគប់តពីមេ" ( action === 'គប់ហើយ' ) នៅក្នុងជុំទី៥
+                        // ប្រសិនបើមានច្រើននាក់ គឺយកអ្នកដែលបានគប់សន្លឹកធំជាងគេបង្អស់នៅលើតុមកបង្ហាញ
+                        let lastCutterMove = null;
+                        const cuttersInRound5 = room.tableCards.filter(m => m.action === 'គប់ហើយ');
+                        if (cuttersInRound5.length > 0) {
+                            // រៀបលំដាប់បៀរអ្នកគប់ពីធំទៅតូច
+                            cuttersInRound5.sort((a,b) => ktModule.getKatePower(b.card) - ktModule.getKatePower(a.card));
+                            lastCutterMove = cuttersInRound5[0]; // ចាប់យកអ្នកគប់ដែលធំជាងគេ
+                        }
+
+                        // 🎯 Logic ជ្រើសរើសសន្លឹកបៀរគូទបង្ហាញនៅលើតុ (Table Display) តាមសំណូមពរ៖
+                        // ជាដំបូង កំណត់លំនាំដើមបង្ហាញគូទមេជានិច្ច
                         let cardToShowOnTable = headLastCard; 
                         let cardOwnerName = headPlayer ? headPlayer.name : "មេ";
+                        let isShowingCutter = false;
 
-                        // 🛠️ ពិនិត្យទឹកបៀរគូទ (សន្លឹកទី៦) របស់មេ ដើម្បីរកអ្នកចាក់គូទស៊ី
+                        // ប៉ុន្តែបើមាន "អ្នកគប់តពីមេ" វិញ ត្រូវបង្ហាញបៀរគូទ (សន្លឹកទី៦) របស់អ្នកគប់នោះជំនួសវិញភ្លាម!
+                        if (lastCutterMove) {
+                            const cutterPlayer = room.players.find(p => p.id === lastCutterMove.playerId);
+                            if (cutterPlayer && cutterPlayer.hand.length > 0) {
+                                cardToShowOnTable = cutterPlayer.hand[cutterPlayer.hand.length - 1]; // បៀរគូទទី៦ របស់អ្នកគប់
+                                cardOwnerName = cutterPlayer.name;
+                                isShowingCutter = true;
+                            }
+                        }
+
+                        // 🛠️ [រក្សាទុកដដែល] ពិនិត្យទឹកបៀរគូទ (សន្លឹកទី៦) របស់មេ ដើម្បីកាត់សេចក្តីលទ្ធផលឈ្នះចាញ់តាមច្បាប់ដើម
                         if (headLastCard) {
-                            const koutSuit = headLastCard.suit; // ទឹកបៀរគូទពិតប្រាកដរបស់មេ (ឧទាហរណ៍៖ ទឹកការ៉ូ ♢)
+                            const koutSuit = headLastCard.suit; 
                             const headLastPower = ktModule.getKatePower(headLastCard);
                             
                             room.players.forEach(p => {
-                                // 🛠️ លក្ខខណ្ឌដាច់ខាត៖ មិនមែនអ្នកមើល មិនមែនអ្នក "ទីវហើយ" និងមិនមែនជាមេ ទើបអនុញ្ញាតឱ្យចាក់គូទទី៦
                                 if (!p.isSpectator && !p.isTiv && p.id !== headPlayerId && p.hand.length > 0) {
-                                    const lastCard = p.hand[p.hand.length - 1]; // បៀរគូទទី៦ របស់អ្នកលេងដទៃ
+                                    const lastCard = p.hand[p.hand.length - 1]; 
                                     
                                     if (lastCard.suit === koutSuit) {
                                         const power = ktModule.getKatePower(lastCard);
                                         
-                                        // ក្បួនទី១៖ បើគូទត្រូវទឹកហើយធំជាងគូទមេ គឺចាក់គូទស៊ីមេ (អ្នកលេងលេខ១ ឈ្នះលេខ៣)
+                                        // ក្បួនទី១៖ បើគូទត្រូវទឹកហើយធំជាងគូទមេ គឺចាក់គូទស៊ីមេ
                                         if (power > headLastPower) {
                                             if (power > maxLastCardPower) {
                                                 maxLastCardPower = power;
                                                 songKoutPlayer = p;
                                                 isLangSongKout = false;
-
-                                                // 🎯 បើមានអ្នកចាក់គូទត្រូវ និងធំជាងមេ ត្រូវបង្ហាញបៀរគូទរបស់អ្នកចាក់គូទនោះវិញ
-                                                cardToShowOnTable = lastCard;
-                                                cardOwnerName = p.name;
                                             }
                                         } 
-                                        // ក្បួនទី២៖ បើធ្លាប់ចុចគប់ជុំទី៥ (គប់ហើយ) តែគូទតូចជាងគូទមេ ហៅថា (ឡងសងគូទ) មេឈ្នះ
+                                        // ក្បួនទី២៖ បើធ្លាប់ចុចគប់ជុំទី៥ តែគូទតូចជាងគូទមេ (ឡងសងគូទ)
                                         else {
                                             const playedMove = room.tableCards.find(m => m.playerId === p.id);
                                             if (playedMove && playedMove.action === 'គប់ហើយ') {
@@ -372,7 +389,7 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                         if (finalWinnerPlayer) finalWinnerPlayer.finalWinner = true;
 
                         // ##########################################
-                        // រៀបចំបញ្ជូនស្ថានភាពលទ្ធផលទៅកាន់គ្រប់គ្នា
+                        // រៀបចំបញ្ជូនស្ថានភាពលទ្ធផលទៅកាន់គ្រប់គ្នា (រក្សាទុកដដែល)
                         // ##########################################
                         const finalHandsResult = room.players.map(p => {
                             let pStatus = resultStatusMap[p.id];
@@ -385,23 +402,17 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                                 pStatus = p.isSpectator ? "❌ លង់ (អ្នកមើល)" : (p.isTiv ? "🖐️ ទីវហើយ (អត់បៀរស៊ី)" : "❌ ចាញ់គប់");
                             }
                             return {
-                                id: p.id,
-                                name: p.name,
-                                initialHandCopy: p.initialHandCopy, 
-                                winRounds: p.winRounds,
-                                finalWinner: p.id === room.lastWinnerId,
-                                isSpectator: p.isSpectator,
-                                isTiv: p.isTiv,
-                                lastCard: p.hand.length > 0 ? p.hand[p.hand.length - 1] : null, 
-                                gameStatus: pStatus
+                                id: p.id, name: p.name, initialHandCopy: p.initialHandCopy, winRounds: p.winRounds,
+                                finalWinner: p.id === room.lastWinnerId, isSpectator: p.isSpectator, isTiv: p.isTiv,
+                                lastCard: p.hand.length > 0 ? p.hand[p.hand.length - 1] : null, gameStatus: pStatus
                             };
                         });
 
-                        // 🎯 ផ្ញើព្រឹត្តិការណ៍បង្ហាញសន្លឹកបៀរគូទទី៦ ទៅកាន់ Client ទាំងអស់គ្នាមុនពេលចាប់ផ្តើមរាប់ថយក្រោយ
+                        // 🎯 ផ្ញើព្រឹត្តិការណ៍បង្ហាញសន្លឹកបៀរគូទទី៦ ទៅតុ (បើមានអ្នកគប់ បង្ហាញបៀរអ្នកគប់ បើអត់ទេ បង្ហាញបៀរមេ)
                         io.to('kt_' + roomId).emit('kt_showKoutCard', { 
                             card: cardToShowOnTable, 
                             ownerName: cardOwnerName,
-                            isSongKout: !!songKoutPlayer 
+                            isSongKout: isShowingCutter // បើ True វានឹងចេញ Badge ពណ៌លឿងថាជាបៀរអ្នកគប់
                         });
 
                         // 🛠️ ទុកពេល ២.៥ វិនាទីឱ្យអ្នកលេងមើលបៀរគូទផ្ទៀងផ្ទាត់សិន រួចទើបហៅមុខងាររាប់ថយក្រោយ ៥ វិនាទី
