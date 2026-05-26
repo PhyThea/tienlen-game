@@ -1,5 +1,5 @@
 // =================================================================
-// server_kate.js (កំណែទម្រង់ពេញលេញ៖ ជួសជុល ទីវ, ងើយ និង ឡងសងគូទ)
+// server_kate.js (កំណែទម្រង់ពេញលេញ៖ ជួសជុលការ Reset ជុំថ្មី និងច្បាប់ ងើយ/ឡងសងគូទ)
 // =================================================================
 
 module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
@@ -22,7 +22,7 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
             broadcastRoomLists();
         });
 
-        // 🔄 ព្រឹត្តិការណ៍ចូលរួមបន្ទប់ កំហិត ៦ នាក់ដាត់ណាត់
+        // ព្រឹត្តិការណ៍ចូលរួមបន្ទប់ កំហិត ៦ នាក់
         socket.on('kt_joinRoom', ({ roomId, password, playerName }) => {
             const room = ktRooms[roomId];
             if (!room) return socket.emit('errorMsg', 'រកមិនឃើញបន្ទប់!');
@@ -47,11 +47,11 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
         socket.on('kt_startGame', (roomId) => {
             const room = ktRooms[roomId]; if (!room) return;
             
-            // 🛠️ ដំណោះស្រាយ៖ ត្រូវ Reset ស្ថានភាពកាតាឡុករបស់អ្នកលេងទាំងអស់ឱ្យស្អាត (សំខាន់បំផុតកុំឱ្យគាំងវេន)
+            // 🛠️ Reset ស្ថានភាពកាតាឡុករបស់អ្នកលេងទាំងអស់ឱ្យស្អាតបំផុតរាល់ពេលផ្ដើមជុំថ្មី
             room.players.forEach((p, idx) => {
                 if (idx < 6) {
                     p.isSpectator = false;
-                    p.isTiv = false; // លុបស្ថានភាព "ទីវ" ចោលទាំងអស់ដើម្បីឱ្យលេងវគ្គថ្មីបាន
+                    p.isTiv = false; 
                 } else {
                     p.isSpectator = true; 
                 }
@@ -65,6 +65,7 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
             const activePlayers = room.players.filter(p => !p.isSpectator);
             if (activePlayers.length < 2) return socket.emit('errorMsg', 'ត្រូវការអ្នកលេងយ៉ាងតិច ២ នាក់ ទើបអាចលេងបាន!');
 
+            // បង្កើតបៀរ និងក្រឡុកបៀរថ្មី
             const deck = tlModule.shuffleDeck(ktModule.createKateDeck());
             room.status = 'playing'; room.currentRound = 1; room.tableCards = []; room.roundSuit = null; room.finalSuit = null;
             
@@ -79,13 +80,19 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                 }
             });
 
-            // កំណត់វេនអ្នកលេងដំបូង
+            // កំណត់វេនអ្នកលេងដំបូង (អ្នកឈ្នះវគ្គមុនចេញមុន)
             room.currentTurnIndex = room.lastWinnerId ? room.players.findIndex(p => p.id === room.lastWinnerId) : room.players.findIndex(p => !p.isSpectator);
             if (room.currentTurnIndex === -1 || room.players[room.currentTurnIndex].isSpectator) {
                 room.currentTurnIndex = room.players.findIndex(p => !p.isSpectator);
             }
             
-            io.to('kt_' + roomId).emit('gameStarted', { players: room.players, currentTurnIndex: room.currentTurnIndex, currentRound: room.currentRound, lastRoundWinnerId: room.lastWinnerId });
+            // 🛠️ ផ្ញើទៅ Client ដើម្បីជម្រះ interface ចាស់ចោលភ្លាមៗ
+            io.to('kt_' + roomId).emit('gameStarted', { 
+                players: room.players, 
+                currentTurnIndex: room.currentTurnIndex, 
+                currentRound: room.currentRound, 
+                lastRoundWinnerId: room.lastWinnerId 
+            });
             
             broadcastRoomLists();
         });
@@ -95,7 +102,6 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
             const room = ktRooms[roomId]; if (!room) return; 
             let player = room.players[room.currentTurnIndex]; if (player.id !== socket.id) return;
 
-            // 🛠️ ពិនិត្យថាបៀរដែល Client បញ្ជូនមក ពិតជាមាននៅក្នុងដៃអ្នកលេងពិតប្រាកដមែនឬទេ
             const cardIdx = player.hand.findIndex(c => c.value === card.value && c.suit === card.suit);
             if (cardIdx === -1) return socket.emit('errorMsg', 'រកមិនឃើញសន្លឹកបៀរនេះនៅក្នុងដៃរបស់អ្នកឡើយ!');
 
@@ -128,9 +134,9 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                     }
                 }
             } 
-            // ======================================================================
-            // 🛠️ ជុំទី ៥៖ វគ្គគប់បៀរទី៥ (មេចំហរបៀរទី៥ និងលាក់បៀរគូទទី៦)
-            // ======================================================================
+            // ==========================================
+            // ជុំទី ៥៖ វគ្គគប់បៀរទី៥
+            // ==========================================
             else if (room.currentRound === 5) {
                 if (player.isTiv) return socket.emit('errorMsg', 'អ្នកបាន "ទីវ" ហើយ មិនអាចលេងក្នុងជុំនេះបានទេ!');
 
@@ -140,7 +146,6 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                     verifiedAction = 'គប់ទេ'; 
                 } else {
                     const firstMove = room.tableCards[0];
-                    // ពិនិត្យថាបៀរទី៥ ដែលទម្លាក់មកត្រូវទឹកសន្លឹកទី៥របស់មេ និងមានតម្លៃធំជាងមេដែរឬទេ
                     const isMatch = (card.suit === room.finalSuit && ktModule.getKatePower(card) > ktModule.getKatePower(firstMove.card));
                     verifiedAction = isMatch ? 'គប់ហើយ' : 'អត់គប់ទេ';
                 }
@@ -148,17 +153,14 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
 
             // បញ្ចូលទិន្នន័យបៀរទៅលើតុ
             room.tableCards.push({ playerId: player.id, name: player.name, card, action: verifiedAction });
-
-            // កាត់សន្លឹកបៀរចេញពីដៃភ្លាមៗ
             player.hand.splice(cardIdx, 1);
 
             io.to('kt_' + roomId).emit('moveRecorded', { by: player.name, action: verifiedAction, card, tableCards: room.tableCards, round: room.currentRound });
             io.to(player.id).emit('dealCards', { hand: player.hand }); 
 
-            // ចំនួនអ្នកលេងសរុបពិតប្រាកដដែលត្រូវលេងក្នុងជុំនេះ
             const requiredPlayersCount = room.players.filter(p => !p.isSpectator && !(room.currentRound === 5 && p.isTiv)).length;
 
-            // ស្វែងរកវេនបន្ទាប់ (Next Turn)
+            // ស្វែងរកវេនបន្ទាប់
             if (room.tableCards.length < requiredPlayersCount) {
                 let nextTurn = (room.currentTurnIndex + 1) % room.players.length;
                 let attempts = 0;
@@ -180,7 +182,7 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                     io.to('kt_' + roomId).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex, players: room.players }); 
                 }
             } 
-            // ជុំនីមួយៗត្រូវបានបញ្ចប់ (គ្រប់គ្នាបានលេងអស់ហើយ)
+            // គ្រប់គ្នាបានលេងអស់ក្នុងជុំនីមួយៗ
             else {
                 let delayTime = 1500; 
                 if (room.currentRound === 5) {
@@ -204,7 +206,7 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                             cutters.sort((a,b) => ktModule.getKatePower(b.card) - ktModule.getKatePower(a.card)); 
                             winMove = cutters[0]; 
                         } else { 
-                            winMove = room.tableCards[0]; // បើគ្មានអ្នកណាគប់ស៊ីទេ មេនៅតែឈ្នះជុំទី៥
+                            winMove = room.tableCards[0]; 
                         }
                     }
 
@@ -253,7 +255,7 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                         }
                     }
                     // ==============================================================
-                    // 🏆 ជុំទី ៥៖ វគ្គគណនាច្បាប់ "កាត់ឡង សងគូទ" និង "ងើយហើយ" ឱ្យត្រូវត្រូវស្តង់ដារ
+                    // 🏆 ជុំទី ៥៖ វគ្គគណនាច្បាប់ "ងើយ" និង "កាត់ឡង សងគូទ" ឱ្យត្រឹមត្រូវ ១០០%
                     // ==============================================================
                     else { 
                         room.status = 'waiting';
@@ -270,20 +272,23 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                             if (idx === 0) return; // រំលងមេ ចាប់គណនាអ្នកបន្ទាប់
 
                             const targetPlayer = room.players.find(p => p.id === m.playerId);
+                            // ប្រសិនបើអ្នកលេងនេះជាប់ "ទីវ" តាំងពីជុំទី ៤ គឺមិនបាច់យកមកគណនាច្បាប់ ងើយ ឬ ឡងសងគូទ ទេ
+                            if (targetPlayer && targetPlayer.isTiv) return;
+
                             const playerLastCard = targetPlayer ? targetPlayer.hand[0] : null; // សន្លឹកទី៦ របស់គេ
 
-                            if (playerLastCard && meLastCard) {
-                                // ករណីទី ១៖ ងើយហើយ (អត់មានបៀរគប់សន្លឹកទី៥ 'អត់គប់ទេ' តែសន្លឹកទី៦ ខុសទឹកគូទមេ តែបែរជាត្រូវទឹកសន្លឹកទី៥មេ និងធំជាង)
+                            if (meLastCard) {
+                                // 🛠️ ច្បាប់ងើយ៖ អត់បានគប់សន្លឹកទី៥ ('អត់គប់ទេ') តែសន្លឹកទី៥ ដែលខ្លួនបានទម្លាក់ចោលនោះ បែរជាទៅត្រូវទឹក (Suit) នៃសន្លឹកទី៦របស់មេ (meLastCard) ហើយមានតម្លៃធំជាងសន្លឹកទី៦របស់មេ
                                 if (m.action === 'អត់គប់ទេ') {
-                                    if (playerLastCard.suit !== meLastCard.suit && 
-                                        playerLastCard.suit === meMove.card.suit && 
-                                        ktModule.getKatePower(playerLastCard) > ktModule.getKatePower(meMove.card)) {
+                                    if (m.card.suit === meLastCard.suit && 
+                                        ktModule.getKatePower(m.card) > ktModule.getKatePower(meLastCard)) {
                                         ngeuyPlayers.push(m.playerId);
                                     }
                                 }
-                                // ករណីទី ២៖ កាត់ឡង សងគូទ (មានបៀរគប់ជុំទី៥ ធម្មតា 'គប់ហើយ' តែសន្លឹកទី៦ ត្រូវទឹកគូទមេ ហើយមានតម្លៃតូចជាងទឹកបៀរមេ)
+                                // 🛠️ ច្បាប់កាត់ឡង សងគូទ៖ បានគប់ជុំទី៥ ធម្មតា ('គប់ហើយ') តែដល់សន្លឹកទី៦ (បៀរគូទ) បែរជាត្រូវទឹកគូទមេ ហើយតម្លៃតូចជាងគូទមេ
                                 else if (m.action === 'គប់ហើយ') {
-                                    if (playerLastCard.suit === meLastCard.suit && 
+                                    if (playerLastCard && 
+                                        playerLastCard.suit === meLastCard.suit && 
                                         ktModule.getKatePower(playerLastCard) < ktModule.getKatePower(meLastCard)) {
                                         songKoutPlayers.push(m.playerId);
                                     }
@@ -295,16 +300,16 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                         const round5WinnerMove = winMove; 
                         let finalWinnerPlayer = room.players.find(p => p.id === round5WinnerMove.playerId);
 
-                        // កំណត់ Status ផ្អែកលើការគណនាខាងលើ
+                        // កំណត់ Status បង្ហាញលទ្ធផលផ្អែកលើការគណនាខាងលើ
                         room.players.forEach(p => {
                             if (p.isSpectator) {
                                 resultStatusMap[p.id] = "❌ លង់ (អ្នកមើល)";
                             } else if (p.isTiv) {
                                 resultStatusMap[p.id] = "🖐️ ទីវហើយ (អត់បៀរស៊ី)";
                             } else if (ngeuyPlayers.includes(p.id)) {
-                                resultStatusMap[p.id] = "😮 ងើយហើយ (មានទឹកឈ្នះតែចាក់ខុសជុំ)";
+                                resultStatusMap[p.id] = "😮 ងើយហើយ (បៀរត្រូវឈ្នះបែរជាចោលជុំទី៥)";
                             } else if (songKoutPlayers.includes(p.id)) {
-                                resultStatusMap[p.id] = "💔 ឡងសងគូទ (ចាញ់បៀរមេ)";
+                                resultStatusMap[p.id] = "💔 ឡងសងគូទ (ចាញ់បៀរគូទមេ)";
                             } else if (p.id === finalWinnerPlayer.id) {
                                 resultStatusMap[p.id] = "👑 ឈ្នះ (ស៊ីឡងពេញលេញ)";
                             } else {
@@ -338,6 +343,31 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                         broadcastRoomLists();
                     }
                 }, delayTime); 
+            }
+        });
+
+        // 🚪 ព្រឹត្តិការណ៍ចាកចេញពីបន្ទប់ (Leave Room)
+        socket.on('kt_leaveRoom', (roomId) => {
+            const room = ktRooms[roomId];
+            if (!room) return socket.emit('leftRoom');
+
+            const index = room.players.findIndex(p => p.id === socket.id);
+            if (index !== -1) {
+                room.players.splice(index, 1);
+                socket.leave('kt_' + roomId);
+                socket.emit('leftRoom');
+
+                io.to('kt_' + roomId).emit('voice_user_left', { id: socket.id });
+
+                if (room.players.length === 0) {
+                    delete ktRooms[roomId];
+                } else {
+                    if (room.creatorId === socket.id) {
+                        room.creatorId = room.players[0].id;
+                    }
+                    io.to('kt_' + roomId).emit('updatePlayers', room.players);
+                }
+                broadcastRoomLists();
             }
         });
 
