@@ -1,5 +1,5 @@
 // =================================================================
-// server_kate.js (កូដពេញលេញ ១០០% - ជួសជុលប្រព័ន្ធគណនាគូទ និង Reset ស្ថានភាពទីវជុំថ្មី)
+// server_kate.js (កូដពេញលេញ ១០០% - ជួសជុលប្រព័ន្ធគណនាគូទ និងត្រួតពិនិត្យអ្នកមិនទីវឱ្យមានសិទ្ធិឈ្នះ)
 // =================================================================
 
 module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
@@ -244,7 +244,18 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                                 lastCard: p.hand.length > 0 ? p.hand[p.hand.length - 1] : null, // 🛠️ ជួសជុល៖ ចាប់យកសន្លឹកចុងក្រោយបង្អស់ (សន្លឹកទី៦)
                                 gameStatus: p.id === survivors[0].id ? '👑 ឈ្នះផ្ដាច់ (ស៊ីដាច់តុ)' : (p.isTiv ? '🖐️ ទីវហើយ (ចាញ់)' : '❌ ចាញ់')
                             }));
-                            io.to('kt_' + roomId).emit('gameWon', { winner: survivors[0].name, winnerId: survivors[0].id, allHands: finalHandsResult });
+
+                            // 🛠️ កែសម្រួល៖ ហៅមុខងាររាប់ថយក្រោយ ៥ វិនាទី មុនប្រកាសលទ្ធផល (ករណីឈ្នះផ្ដាច់នៅជុំទី៤)
+                            let count = 5;
+                            const countdownInterval = setInterval(() => {
+                                io.to('kt_' + roomId).emit('gameCountdown', { seconds: count });
+                                count--;
+                                if (count < 0) {
+                                    clearInterval(countdownInterval);
+                                    io.to('kt_' + roomId).emit('gameWon', { winner: survivors[0].name, winnerId: survivors[0].id, allHands: finalHandsResult });
+                                }
+                            }, 1000);
+
                         } else { 
                             io.to('kt_' + roomId).emit('nextRoundStarted', { 
                                 currentRound: room.currentRound, 
@@ -274,13 +285,13 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                         let maxLastCardPower = -1;
                         let isLangSongKout = false;
 
-                        // រកមើលបៀរគូទ (សន្លឹកទី៦) ដែលត្រូវទឹករបស់មេ
+                        // 🛠️ ធ្វើការផ្លាស់ប្តូរ និងជួសជុលធំ៖ ត្រួតពិនិត្យគូទ (សន្លឹកទី៦) របស់អ្នកលេងទាំងអស់ដែលមិនមែនជាអ្នកទីវ (ទោះបីជាមិនបានគប់ជុំទី៥ ក៏មានសិទ្ធិចាក់ស៊ីមេដែរ)
                         if (headLastCard && headLastCard.suit === finalSuit) {
                             const headLastPower = ktModule.getKatePower(headLastCard);
                             
                             room.players.forEach(p => {
-                                if (!p.isSpectator && p.id !== headPlayerId && p.hand.length > 0) {
-                                    // 🛠️ ជួសជុល៖ ចាប់យកសន្លឹកចុងក្រោយបង្អស់ក្នុងដៃធ្វើជាបៀរគូទ (សន្លឹកទី៦)
+                                // ត្រូវតែមិនមែនជាអ្នកមើល (isSpectator) និងមិនមែនជាអ្នកទីវ (isTiv) និងមិនមែនជាមេខ្លួនឯង
+                                if (!p.isSpectator && !p.isTiv && p.id !== headPlayerId && p.hand.length > 0) {
                                     const lastCard = p.hand[p.hand.length - 1];
                                     if (lastCard.suit === finalSuit) {
                                         const power = ktModule.getKatePower(lastCard);
@@ -304,10 +315,9 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                                 }
                             });
                         } else {
-                            // បើមេគ្មានបៀរគូទត្រូវទឹកទេ គឺរកគូទនរណាដែលត្រូវទឹកធំជាងគេធម្មតា
+                            // បើមេគ្មានបៀរគូទត្រូវទឹកទេ គឺរកគូទនរណាដែលមិនមែនជាអ្នកទីវ ហើយត្រូវទឹកធំជាងគេធម្មតា
                             room.players.forEach(p => {
-                                if (!p.isSpectator && p.hand.length > 0) {
-                                    // 🛠️ ជួសជុល៖ ចាប់យកសន្លឹកចុងក្រោយបង្អស់ក្នុងដៃធ្វើជាបៀរគូទ (សន្លឹកទី៦)
+                                if (!p.isSpectator && !p.isTiv && p.hand.length > 0) {
                                     const lastCard = p.hand[p.hand.length - 1];
                                     if (lastCard.suit === finalSuit) {
                                         const power = ktModule.getKatePower(lastCard);
@@ -350,9 +360,8 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                             if (isLangSongKout) {
                                 resultStatusMap[round5Winner.id] = "👑 ឈ្នះ (ឡងសងគូទពេញលេញ)";
                                 room.players.forEach(p => {
-                                    // 🛠️ ជួសជុល៖ ចាប់យកសន្លឹកចុងក្រោយបង្អស់ក្នុងដៃធ្វើជាបៀរគូទ (សន្លឹកទី៦)
                                     const pLastCard = p.hand.length > 0 ? p.hand[p.hand.length - 1] : null;
-                                    if(!p.isSpectator && p.id !== round5Winner.id) {
+                                    if(!p.isSpectator && !p.isTiv && p.id !== round5Winner.id) {
                                         const pm = room.tableCards.find(m => m.playerId === p.id);
                                         if(pm && pm.action === 'គប់ហើយ' && pLastCard && pLastCard.suit === finalSuit) {
                                             resultStatusMap[p.id] = "💔 ឡងសងគូទ (ចាញ់មេ)";
@@ -385,19 +394,26 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                                 finalWinner: p.id === room.lastWinnerId,
                                 isSpectator: p.isSpectator,
                                 isTiv: p.isTiv,
-                                // 🛠️ ជួសជុល៖ បញ្ជូនសន្លឹកបៀរគូទពិតប្រាកដ (សន្លឹកទី៦) ទៅឱ្យ Client
                                 lastCard: p.hand.length > 0 ? p.hand[p.hand.length - 1] : null, 
                                 gameStatus: pStatus
                             };
                         });
 
-                        io.to('kt_' + roomId).emit('gameWon', { 
-                            winner: finalWinnerPlayer ? finalWinnerPlayer.name : 'គ្មានអ្នកឈ្នះ', 
-                            winnerId: room.lastWinnerId, 
-                            allHands: finalHandsResult 
-                        });
-                        
-                        broadcastRoomLists();
+                        // 🛠️ កែសម្រួល៖ ហៅមុខងាររាប់ថយក្រោយ ៥ វិនាទី មុនប្រកាសលទ្ធផលផ្លូវការ (ករណីចប់ជុំទី៥)
+                        let count = 5;
+                        const countdownInterval = setInterval(() => {
+                            io.to('kt_' + roomId).emit('gameCountdown', { seconds: count });
+                            count--;
+                            if (count < 0) {
+                                clearInterval(countdownInterval);
+                                io.to('kt_' + roomId).emit('gameWon', { 
+                                    winner: finalWinnerPlayer ? finalWinnerPlayer.name : 'គ្មានអ្នកឈ្នះ', 
+                                    winnerId: room.lastWinnerId, 
+                                    allHands: finalHandsResult 
+                                });
+                                broadcastRoomLists();
+                            }
+                        }, 1000);
                     }
                 }, 1500);
             }
