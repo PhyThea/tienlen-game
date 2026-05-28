@@ -171,21 +171,30 @@ function getPlayerName() {
     localStorage.setItem('tienlen_name', name); return name;
 }
 
+// ស្វែងរក និងកែសម្រួលអនុគមន៍ createRoom() ឱ្យទៅជា៖
 function createRoom() {
     const playerName = getPlayerName(); if (!playerName) return;
     const roomId = document.getElementById('roomInput').value.trim();
     const password = document.getElementById('roomPass').value;
     if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!");
+    
+    // 🎯 ថែម ២ បន្ទាត់នេះដើម្បីឱ្យ Host អាច Rejoin ស្វ័យប្រវត្តិពេលដាច់អ៊ីនធឺណិត
+    localStorage.setItem('last_room_id', roomId);
+    localStorage.setItem('player_name', playerName);
+
     socket.emit('createRoom', { roomId, password, playerName });
 }
 
+// ស្វែងរក និងផ្ទៀងផ្ទាត់អនុគមន៍ joinRoom() ឱ្យមាន ២បន្ទាត់នេះដូចគ្នា៖
 function joinRoom() {
     const playerName = getPlayerName(); if (!playerName) return;
     const roomId = document.getElementById('roomInput').value.trim();
     const password = document.getElementById('roomPass').value;
     if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!");
+    
     localStorage.setItem('last_room_id', roomId);
     localStorage.setItem('player_name', playerName);
+
     socket.emit('joinRoom', { roomId, password, playerName });
 }
 
@@ -411,6 +420,9 @@ socket.on('leftRoom', () => { location.href = "/"; });
 // =================================================================
 // 🛠️ ប្រព័ន្ធ VOICE CHAT LOGIC (ដកស្រង់ពីកូដចាស់បង ១០០% ធានាលឺច្បាស់)
 // =================================================================
+// =================================================================
+// 🛠️ ប្រព័ន្ធ VOICE CHAT LOGIC (កំណែទម្រង់ស្ដង់ដារខ្ពស់ - ដក Metered ចេញ)
+// =================================================================
 function toggleMic() {
     if (localStorage.getItem('has_no_mic') === 'true') {
         alert("Computer របស់អ្នកមិនមានឧបករណ៍ Mic សម្រាប់បើកឡើយ ប៉ុន្តែអ្នកអាចស្ដាប់អ្នកដទៃបានធម្មតា!");
@@ -435,8 +447,12 @@ function updateMicButtonUI() {
 }
 
 function closeAllVoiceConnections() {
-    for (let id in peers) { if (peers[id]) { try { peers[id].destroy(); } catch(e) {} } const el = document.getElementById(`audio_${id}`); if(el) el.remove(); }
-    peers = {}; if (localStream) { localStream.getTracks().forEach(track => track.stop()); localStream = null; }
+    for (let id in peers) { 
+        if (peers[id]) { try { peers[id].destroy(); } catch(e) {} } 
+        removeAudioElement(id); // 🎯 ប្រើអនុគមន៍ស្ដង់ដារដើម្បីសម្អាតឱ្យអស់
+    }
+    peers = {}; 
+    if (localStream) { localStream.getTracks().forEach(track => track.stop()); localStream = null; }
     localStorage.removeItem('has_no_mic');
 }
 
@@ -452,21 +468,82 @@ function initVoiceAndExecute(callback) {
     });
 }
 
+function removeAudioElement(id) {
+    const audio = document.getElementById(`audio_${id}`);
+    if (audio) audio.remove();
+}
+
 function createPeer(targetSocketId, initiator) {
-    if (peers[targetSocketId]) return peers[targetSocketId];
+    if (peers[targetSocketId]) {
+        console.log(`Peer សម្រាប់ ${targetSocketId} មានរួចហើយ។`);
+        return peers[targetSocketId];
+    }
+
+    console.log(`កំពុងបង្កើត Peer ទៅកាន់: ${targetSocketId} | Initiator: ${initiator}`);
+
     const p = new SimplePeer({
-        initiator: initiator, trickle: false, stream: localStream,
-        config: { iceServers: [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }, { urls: "turn:global.relay.metered.ca:80", username: "70c58d936fe4c62e38eff96c", credential: "4tMqFurEIksvhg2h" }] }
+        initiator: initiator,
+        trickle: false,
+        stream: localStream,
+        config: {
+            iceServers: [
+                // 🎯 ផ្តល់អាទិភាពខ្ពស់បំផុតដល់ STUN Servers របស់ Google ដើម្បីភ្ជាប់ត្រង់ៗពីទូរស័ព្ទទៅទូរស័ព្ទ (មិនអស់ Data គណនី)
+                { urls: "stun:stun.l.google.com:19302" },
+                { urls: "stun:stun1.l.google.com:19302" },
+                { urls: "stun:stun2.l.google.com:19302" },
+                { urls: "stun:stun3.l.google.com:19302" },
+                { urls: "stun:stun4.l.google.com:19302" },
+                
+                // 🔒 ទុក TURN របស់ Metered នេះនៅខាងក្រោមគេបង្អស់ គ្រាន់តែជាជំរើសចុងក្រោយ (Fallback) ពេលប្រព័ន្ធអ៊ីនធឺណិតរារាំងខ្លាំងប៉ុណ្ណោះ
+                { 
+                    urls: "turn:global.relay.metered.ca:80",
+                    username: "70c58d936fe4c62e38eff96c",
+                    credential: "4tMqFurEIksvhg2h"
+                }
+            ],
+            iceTransportPolicy: 'all' // 🚀 បើកឱ្យសាកល្បងគ្រប់ផ្លូវតភ្ជាប់ទាំងអស់ ប៉ុន្តែ WebRTC នឹងរើសយកផ្លូវ P2P (STUN) មុនជានិច្ច
+        }
     });
-    p.on('signal', data => socket.emit('voice_signal', { target: targetSocketId, signal: data }));
+
+    p.on('signal', data => {
+        socket.emit('voice_signal', {
+            target: targetSocketId,
+            signal: data
+        });
+    });
+
     p.on('stream', stream => {
+        console.log(`ទទួលបានខ្សែសំឡេងពី: ${targetSocketId}`);
         let audio = document.getElementById(`audio_${targetSocketId}`);
-        if (!audio) { audio = document.createElement('audio'); audio.id = `audio_${targetSocketId}`; audio.autoplay = true; audio.playsInline = true; document.body.appendChild(audio); }
+        if (!audio) {
+            audio = document.createElement('audio');
+            audio.id = `audio_${targetSocketId}`;
+            audio.autoplay = true;
+            audio.playsInline = true; 
+            document.body.appendChild(audio);
+        }
         audio.srcObject = stream;
+
+        let playPromise = audio.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(error => {
+                console.error(`ទូរស័ព្ទ Block សំឡេងពី ${targetSocketId}:`, error);
+            });
+        }
     });
-    p.on('close', () => { const el = document.getElementById(`audio_${targetSocketId}`); if(el) el.remove(); delete peers[targetSocketId]; });
-    p.on('error', () => { const el = document.getElementById(`audio_${targetSocketId}`); if(el) el.remove(); delete peers[targetSocketId]; });
-    peers[targetSocketId] = p; return p;
+
+    p.on('close', () => {
+        removeAudioElement(targetSocketId);
+        if (peers[targetSocketId]) delete peers[targetSocketId];
+    });
+    p.on('error', (err) => {
+        console.log("Peer Error:", err);
+        removeAudioElement(targetSocketId);
+        if (peers[targetSocketId]) delete peers[targetSocketId];
+    });
+
+    peers[targetSocketId] = p;
+    return p;
 }
 
 socket.on('voice_user_joined', (data) => {
@@ -480,10 +557,11 @@ socket.on('voice_initiate_peer', (data) => {
 });
 
 socket.on('voice_signal', (data) => { if (peers[data.sender]) { peers[data.sender].signal(data.signal); } });
+
 socket.on('voice_user_left', (data) => {
     const userSocketId = typeof data === 'object' ? data.id : data;
     if (peers[userSocketId]) { try { peers[userSocketId].destroy(); } catch(e){} delete peers[userSocketId]; }
-    const el = document.getElementById(`audio_${userSocketId}`); if(el) el.remove();
+    removeAudioElement(userSocketId); 
 });
 
 socket.on('connect', () => {
@@ -491,8 +569,9 @@ socket.on('connect', () => {
     
     const savedRoomId = localStorage.getItem('last_room_id');
     const playerName = localStorage.getItem('player_name');
-    if (savedRoomId && playerName) {
-        // ប្រើប្រាស់ព្រឹត្តិការណ៍ចាស់ដើម្បីទាញបន្ទប់មកវិញភ្លាមៗ
+    
+    // 🎯 ជួសជុល៖ ថែមលក្ខខណ្ឌ Class in-game ដើម្បី Rejoin តែពេលកំពុងលេងពិតប្រាកដ ការពារការហោះចូលខុសវេន
+    if (savedRoomId && playerName && document.body.classList.contains('in-game')) {
         socket.emit('joinRoom', { roomId: savedRoomId, playerName: playerName });
     }
 
@@ -503,6 +582,25 @@ socket.on('connect', () => {
         initVoiceAndExecute(() => {
             console.log("Voice Chat ដំណើរការឡើងវិញរួចរាល់។");
         });
+    }
+});
+
+window.addEventListener('DOMContentLoaded', () => {
+    const autoRoomId = localStorage.getItem('auto_join_room_id');
+    const autoPassword = localStorage.getItem('auto_join_password');
+    const playerName = localStorage.getItem('tienlen_name');
+
+    if (autoRoomId && playerName) {
+        localStorage.removeItem('auto_join_room_id');
+        localStorage.removeItem('auto_join_password');
+
+        document.getElementById('playerName').value = playerName;
+        document.getElementById('roomInput').value = autoRoomId;
+        document.getElementById('roomPass').value = autoPassword || "";
+
+        setTimeout(() => {
+            joinRoom();
+        }, 300);
     }
 });
 </script>
