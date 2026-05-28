@@ -22,11 +22,31 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
             broadcastRoomLists();
         });
 
-        // ចូលរួមបន្ទប់
+        // ចូលរួមបន្ទប់កាតេ (កំណែទម្រង់ការពារឈ្មោះស្ទួនពេល Rejoin)
         socket.on('kt_joinRoom', ({ roomId, password, playerName }) => {
             const room = ktRooms[roomId];
             if (!room) return socket.emit('errorMsg', 'រកមិនឃើញបន្ទប់!');
             if (room.password && room.password !== password) return socket.emit('errorMsg', 'លេខកូដសម្ងាត់មិនត្រឹមត្រូវ!');
+
+            // 🎯 ១. ឆែកពិនិត្យមើលថាតើឈ្មោះនេះមាននៅក្នុងបន្ទប់ស្រាប់ហើយឬនៅ (ករណីដាច់អ៊ីនធឺណិតហើយចូលវិញ)
+            const existingPlayer = room.players.find(p => p.name === playerName);
+
+            if (existingPlayer) {
+                // បើមានឈ្មោះហ្នឹងស្រាប់ គឺគ្រាន់តែបច្ចុប្បន្នភាព Socket ID ថ្មីទៅឱ្យគាត់ជាការស្រេច (មិន Push ថែមទេ)
+                existingPlayer.id = socket.id;
+                socket.join('kt_' + roomId);
+                socket.emit('roomJoined', { roomId, playerId: socket.id, isSpectator: existingPlayer.isSpectator });
+                
+                // ភ្ជាប់សំឡេងឡើងវិញ
+                socket.to('kt_' + roomId).emit('voice_user_joined', { id: socket.id });
+                room.players.forEach(p => { if(p.id !== socket.id) socket.emit('voice_initiate_peer', { target: p.id }); });
+
+                io.to('kt_' + roomId).emit('updatePlayers', room.players);
+                broadcastRoomLists();
+                return; // បញ្ឈប់ការរត់ទៅមុខទៀត
+            }
+
+            // 🎯 ២. បើជាអ្នកលេងថ្មីពិតប្រាកដ ទើបឆែកលីមីត ៦ នាក់
             if (room.players.length >= 6) return socket.emit('errorMsg', 'បន្ទប់ពេញហើយ (កាតេលីមីតត្រឹម ៦ នាក់)!');
 
             const isSpectator = (room.status === 'playing'); 
@@ -34,6 +54,7 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
             socket.to('kt_' + roomId).emit('voice_user_joined', { id: socket.id });
             room.players.forEach(p => socket.emit('voice_initiate_peer', { target: p.id }));
 
+            // បន្ថែមអ្នកលេងថ្មីចូល Array
             room.players.push({ id: socket.id, name: playerName || 'ភ្ញៀវ', hand: [], isSpectator, hasCat: false, winRounds: 0, finalWinner: false, initialHandCopy: [], isTiv: false });
             
             socket.join('kt_' + roomId);
