@@ -252,19 +252,31 @@ function getPlayerName() {
     localStorage.setItem('tienlen_name', name); return name;
 }
 
+// ១. ស្វែងរក និងកែសម្រួលអនុគមន៍ createRoom() ក្នុង index_kate.html
 function createRoom() {
     const playerName = getPlayerName(); if (!playerName) return;
     const roomId = document.getElementById('roomInput').value.trim();
     const password = document.getElementById('roomPass').value;
     if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!");
+    
+    // 👇 ថែម ២ បន្ទាត់នេះចូល៖
+    localStorage.setItem('last_kt_room_id', roomId);
+    localStorage.setItem('player_name', playerName);
+
     socket.emit('kt_createRoom', { roomId, password, playerName });
 }
 
+// ២. ស្វែងរក និងកែសម្រួលអនុគមន៍ joinRoom() ក្នុង index_kate.html
 function joinRoom() {
     const playerName = getPlayerName(); if (!playerName) return;
     const roomId = document.getElementById('roomInput').value.trim();
     const password = document.getElementById('roomPass').value;
     if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!");
+    
+    // 👇 ថែម ២ បន្ទាត់នេះចូល៖
+    localStorage.setItem('last_kt_room_id', roomId);
+    localStorage.setItem('player_name', playerName);
+
     socket.emit('kt_joinRoom', { roomId, password, playerName });
 }
 
@@ -672,7 +684,12 @@ function initVoiceAndExecute(callback) {
 }
 
 function createPeer(targetSocketId, initiator) {
-    if (peers[targetSocketId]) return peers[targetSocketId];
+    if (peers[targetSocketId]) {
+        console.log(`Peer សម្រាប់ ${targetSocketId} មានរួចហើយ។`);
+        return peers[targetSocketId];
+    }
+
+    console.log(`កំពុងបង្កើត Peer ទៅកាន់: ${targetSocketId} | Initiator: ${initiator}`);
 
     const p = new SimplePeer({
         initiator: initiator,
@@ -680,14 +697,21 @@ function createPeer(targetSocketId, initiator) {
         stream: localStream,
         config: {
             iceServers: [
+                // 🎯 ផ្តល់អាទិភាពខ្ពស់បំផុតដល់ STUN Servers របស់ Google ដើម្បីភ្ជាប់ត្រង់ៗពីទូរស័ព្ទទៅទូរស័ព្ទ (មិនអស់ Data គណនី)
                 { urls: "stun:stun.l.google.com:19302" },
                 { urls: "stun:stun1.l.google.com:19302" },
-                {
+                { urls: "stun:stun2.l.google.com:19302" },
+                { urls: "stun:stun3.l.google.com:19302" },
+                { urls: "stun:stun4.l.google.com:19302" },
+                
+                // 🔒 ទុក TURN របស់ Metered នេះនៅខាងក្រោមគេបង្អស់ គ្រាន់តែជាជំរើសចុងក្រោយ (Fallback) ពេលប្រព័ន្ធអ៊ីនធឺណិតរារាំងខ្លាំងប៉ុណ្ណោះ
+                { 
                     urls: "turn:global.relay.metered.ca:80",
                     username: "70c58d936fe4c62e38eff96c",
                     credential: "4tMqFurEIksvhg2h"
                 }
-            ]
+            ],
+            iceTransportPolicy: 'all' // 🚀 បើកឱ្យសាកល្បងគ្រប់ផ្លូវតភ្ជាប់ទាំងអស់ ប៉ុន្តែ WebRTC នឹងរើសយកផ្លូវ P2P (STUN) មុនជានិច្ច
         }
     });
 
@@ -699,6 +723,7 @@ function createPeer(targetSocketId, initiator) {
     });
 
     p.on('stream', stream => {
+        console.log(`ទទួលបានខ្សែសំឡេងពី: ${targetSocketId}`);
         let audio = document.getElementById(`audio_${targetSocketId}`);
         if (!audio) {
             audio = document.createElement('audio');
@@ -712,7 +737,7 @@ function createPeer(targetSocketId, initiator) {
         let playPromise = audio.play();
         if (playPromise !== undefined) {
             playPromise.catch(error => {
-                console.error(`Playback blocked:`, error);
+                console.error(`ទូរស័ព្ទ Block សំឡេងពី ${targetSocketId}:`, error);
             });
         }
     });
@@ -722,6 +747,7 @@ function createPeer(targetSocketId, initiator) {
         if (peers[targetSocketId]) delete peers[targetSocketId];
     });
     p.on('error', (err) => {
+        console.log("Peer Error:", err);
         removeAudioElement(targetSocketId);
         if (peers[targetSocketId]) delete peers[targetSocketId];
     });
@@ -764,11 +790,23 @@ socket.on('voice_user_left', (data) => {
     removeAudioElement(userSocketId);
 });
 
+// 👇 ជួសជុលកូដត្រង់ព្រឹត្តិការណ៍ connect ក្នុង index_kate.html ឱ្យទៅជា៖
 socket.on('connect', () => {
+    console.log("🔄 បានតភ្ជាប់ឡើងវិញ! កំពុង Rejoin បន្ទប់កាតេចាស់...");
+    
+    const savedRoomId = localStorage.getItem('last_kt_room_id');
+    const playerName = localStorage.getItem('player_name'); // 🎯 កែពី tienlen_name មកជា player_name ឱ្យត្រូវនឹងអនុគមន៍ joinRoom
+    
+    if (savedRoomId && playerName && document.body.classList.contains('in-game')) {
+        socket.emit('kt_joinRoom', { roomId: savedRoomId, playerName: playerName });
+    }
+
     closeAllVoiceConnections(); 
     const wasMicEnabled = localStorage.getItem('mic_enabled') !== 'false';
     if (wasMicEnabled) {
-        initVoiceAndExecute(() => {});
+        initVoiceAndExecute(() => {
+            console.log("Voice Chat ដំណើរការឡើងវិញរួចរាល់។");
+        });
     }
 });
 
