@@ -147,6 +147,11 @@ io.on('connection', (socket) => {
 
     socket.on('startGame', (roomId) => {
         const room = tlRooms[roomId]; if (!room) return;
+
+        // 🎯 ជួសជុល៖ បើអ្នកឈ្នះចាស់លែងនៅក្នុងបន្ទប់ (រកមិនឃើញ) គឺត្រូវប្រគល់សិទ្ធិទៅឱ្យ Host (creatorId) វិញជាដាច់ខាត
+        const isWinnerStillInRoom = room.players.some(p => p.id === room.lastWinnerId);
+        if (!isWinnerStillInRoom) { room.lastWinnerId = null; }
+
         if (!room.lastWinnerId ? room.creatorId !== socket.id : room.lastWinnerId !== socket.id) {
             return socket.emit('errorMsg', 'អ្នកគ្មានសិទ្ធិចាប់ផ្ដើមហ្គេមឡើយ!');
         }
@@ -302,18 +307,35 @@ io.on('connection', (socket) => {
                 }
             }
         }
+
         // សម្អាតបន្ទប់ Ka Te
         for (const id in ktRooms) {
             const room = ktRooms[id]; const pIdx = room.players.findIndex(p => p.id === socket.id);
             if (pIdx !== -1) {
+                const wasSpectator = room.players[pIdx].isSpectator;
                 socket.to('kt_' + id).emit('voice_user_left', { id: socket.id });
                 room.players.splice(pIdx, 1);
-                if (room.players.length === 0) delete ktRooms[id]; else io.to('kt_' + id).emit('updatePlayers', room.players);
+                
+                if (room.players.length === 0) {
+                    delete ktRooms[id]; 
+                } else {
+                    // 🎯 ថែមការគ្រប់គ្រង៖ បើ Host ដាច់ការតភ្ជាប់ ត្រូវផ្ទេរសិទ្ធិទៅឱ្យអ្នកបន្ទាប់
+                    if (room.creatorId === socket.id) room.creatorId = room.players[0].id;
+                    
+                    // បើដាច់អ៊ីនធឺណិតអំឡុងពេលលេង ហើយចំវេនគាត់ ត្រូវរំលងទៅវេនអ្នកបន្ទាប់កុំឱ្យគាំងហ្គេម
+                    if (room.status === 'playing' && !wasSpectator && room.currentTurnIndex === pIdx) {
+                        room.currentTurnIndex = room.currentTurnIndex % room.players.length;
+                        io.to('kt_' + id).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex, players: room.players });
+                    }
+                    
+                    io.to('kt_' + id).emit('updatePlayers', room.players);
+                    io.to('kt_' + id).emit('winnerTransferred', { newWinnerId: room.lastWinnerId, creatorId: room.creatorId });
+                }
             }
         }
         broadcastRoomLists();
     });
-});
+}); // 👈 ជួសជុល៖ បិទប្លុក io.on('connection') នៅត្រង់នេះ
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`👉 Server is running on port ${PORT}`));
