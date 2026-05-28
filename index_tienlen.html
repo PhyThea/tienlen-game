@@ -414,8 +414,13 @@ function showPlayAgainButton() {
     }
 }
 
-function leaveRoom() { if (confirm("តើអ្នកពិតជាចង់ចាកចេញមែនទេ?")) { socket.emit('leaveRoom'); closeAllVoiceConnections(); } }
-socket.on('leftRoom', () => { location.href = "/"; });
+function leaveRoom() { 
+    if (confirm("តើអ្នកពិតជាចង់ចាកចេញមែនទេ?")) { 
+        closeAllVoiceConnections(); 
+        // បញ្ជាឱ្យ Browser រត់ទៅកាន់ទំព័រដើមភ្លាមៗ
+        location.href = "/"; 
+    } 
+}
 
 // =================================================================
 // 🛠️ ប្រព័ន្ធ VOICE CHAT LOGIC (ដកស្រង់ពីកូដចាស់បង ១០០% ធានាលឺច្បាស់)
