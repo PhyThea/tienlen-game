@@ -149,7 +149,7 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                     if (card.suit === room.tableCards[0].card.suit && ktModule.getKatePower(card) > ktModule.getKatePower(room.tableCards[0].card)) {
                         verifiedAction = 'ចាក់គូទ';
                     } else {
-                        verifiedAction = 'ផ្កាប់គូទ';
+                        verifiedAction = 'អត់គូទស៊ីទេ';
                     }
                 }
             }
@@ -281,7 +281,7 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                                 if (!p.isSpectator && p.id !== headKoutMove.playerId) {
                                     const pMove6 = room.tableCards.find(m => m.playerId === p.id);
                                     
-                                    if (pMove6 && pMove6.action === 'ផ្កាប់គូទ' && pMove6.card.suit === headKoutMove.card.suit) {
+                                    if (pMove6 && pMove6.action === 'អត់គូទស៊ីទេ' && pMove6.card.suit === headKoutMove.card.suit) {
                                         // 🚨 ផ្លាស់ប្ដូរពាក្យលទ្ធផលចាញ់ឱ្យលោតចំៗតាមការចង់បានរបស់អ្នក
                                         resultStatusMap[p.id] = "💔 ( ឡងសងគូទហើយ )";
                                     }
