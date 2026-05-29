@@ -67,41 +67,67 @@ function moveToNextTurn(room) {
     let originalIndex = room.currentTurnIndex;
     let nextIndex = originalIndex;
     let found = false;
+    
+    // រត់ឆែកមើលអ្នកលេងម្នាក់ៗក្នុងវង់ (អតិបរមា ៤ នាក់)
     for (let i = 1; i <= room.players.length; i++) {
         let checkIndex = (originalIndex + i) % room.players.length;
         let p = room.players[checkIndex];
-        if (p && p.hand.length > 0 && !p.passed) {
-            nextIndex = checkIndex; found = true; break;
+        
+        // 🎯 លក្ខខណ្ឌ៖ ត្រូវតែមិនមែនជា Spectator, មានបៀរក្នុងដៃ និងមិនទាន់បានចុច Pass ក្នុងជុំនេះ
+        if (p && !p.isSpectator && p.hand.length > 0 && !p.passed) {
+            nextIndex = checkIndex;
+            found = true;
+            break;
         }
     }
-    if (found) room.currentTurnIndex = nextIndex;
+    if (found) {
+        room.currentTurnIndex = nextIndex;
+    }
 }
 
 function handleTurnAndRoundStatus(room) {
-    const activePlayersInRound = room.players.filter(p => p.hand.length > 0 && !p.passed);
+    // រាប់ចំនួនអ្នកលេងដែលនៅមានបៀរក្នុងដៃ និងមិនទាន់ Pass
+    const activePlayersInRound = room.players.filter(p => !p.isSpectator && p.hand.length > 0 && !p.passed);
+    
     let lastPlayerIdx = room.players.findIndex(p => p.id === room.lastPlayerId);
     const isLastPlayerOut = (lastPlayerIdx !== -1 && room.players[lastPlayerIdx].hand.length === 0);
+    
+    // 🎯 ឆែកមើលថាជុំនេះត្រូវបញ្ចប់ (ដាច់តុ) ឬនៅ
     const isRoundOver = isLastPlayerOut ? (activePlayersInRound.length === 0) : (activePlayersInRound.length <= 1);
 
     if (isRoundOver) {
+        // ១. លុបបៀរនៅលើតុចោល (ឡើងជុំថ្មី)
         room.playedCards = [];
-        room.players.forEach(p => { if (p.hand.length > 0) p.passed = false; });
+        
+        // ២. បើកសិទ្ធិឱ្យអ្នកលេងដែលនៅមានបៀរក្នុងដៃ អាចលេងជុំថ្មីបានវិញ (លុបស្ថានភាព Pass ចេញ)
+        room.players.forEach(p => { 
+            if (!p.isSpectator && p.hand.length > 0) p.passed = false; 
+        });
 
+        // ៣. កំណត់វេនអ្នកដែលត្រូវចុះមុនគេក្នុងជុំថ្មី
         if (isLastPlayerOut) {
+            // បើអ្នកស៊ីដាច់វគ្គមុន លេងអស់បៀរពីដៃបាត់ទៅហើយ ត្រូវផ្ទេរសិទ្ធិទៅឱ្យអ្នកបន្ទាប់ (តាមទ្រនិចនាឡិកា) ដែលនៅមានបៀរ
             let nextIndex = (lastPlayerIdx + 1) % room.players.length;
-            while (room.players[nextIndex].hand.length === 0) {
+            let loopCount = 0;
+            while ((room.players[nextIndex].isSpectator || room.players[nextIndex].hand.length === 0) && loopCount < room.players.length) {
                 nextIndex = (nextIndex + 1) % room.players.length;
+                loopCount++;
             }
             room.currentTurnIndex = nextIndex;
             room.lastPlayerId = room.players[nextIndex].id;
         } else {
+            // បើអ្នកស៊ីដាច់នៅមានបៀរ គឺគាត់ជាអ្នកបានសិទ្ធិឡើងជុំថ្មីមុនគេដដែល
             room.currentTurnIndex = lastPlayerIdx !== -1 ? lastPlayerIdx : room.currentTurnIndex;
         }
+        
+        // ៤. ផ្សាយដំណឹងទៅកាន់បន្ទប់ (អក្សរត្រូវស៊ីគ្នាជាមួយ Client)
         io.to('tl_' + room.roomId).emit('clearTable', { nextPlayer: room.players[room.currentTurnIndex].name });
-        io.to('tl_' + room.roomId).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex, players: room.players });
     } else {
+        // បើមិនទាន់ដាច់តុទេ គឺរំលងវេនទៅឱ្យអ្នកបន្ទាប់ដែលមិនទាន់ Pass
         moveToNextTurn(room);
     }
+    // បញ្ជូន Turn ថ្មីទៅឱ្យរាល់ Client ទាំងអស់ដឹងស្វ័យប្រវត្តិ
+    io.to('tl_' + room.roomId).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex, players: room.players });
 }
 
 // -----------------------------------------------------------------
@@ -148,7 +174,6 @@ io.on('connection', (socket) => {
     socket.on('startGame', (roomId) => {
         const room = tlRooms[roomId]; if (!room) return;
 
-        // 🎯 ជួសជុល៖ បើអ្នកឈ្នះចាស់លែងនៅក្នុងបន្ទប់ (រកមិនឃើញ) គឺត្រូវប្រគល់សិទ្ធិទៅឱ្យ Host (creatorId) វិញជាដាច់ខាត
         const isWinnerStillInRoom = room.players.some(p => p.id === room.lastWinnerId);
         if (!isWinnerStillInRoom) { room.lastWinnerId = null; }
 
@@ -156,7 +181,6 @@ io.on('connection', (socket) => {
             return socket.emit('errorMsg', 'អ្នកគ្មានសិទ្ធិចាប់ផ្ដើមហ្គេមឡើយ!');
         }
 
-        // 🚨 កែសម្រួល៖ កំណត់ស្ថានភាពអ្នកលេង ៤ នាក់ដំបូងឱ្យទៅជា Active Players និងអ្នកសល់ពីនោះជា Spectators
         room.players.forEach((p, idx) => {
             if (idx < 4) {
                 p.isSpectator = false;
@@ -171,19 +195,16 @@ io.on('connection', (socket) => {
             }
         });
 
-        // ច្រោះយកតែអ្នកលេងពិតប្រាកដ (Active Players)
         const activePlayers = room.players.filter(p => !p.isSpectator);
         if (activePlayers.length < 2) return socket.emit('errorMsg', 'ត្រូវការអ្នកលេងយ៉ាងតិច ២ នាក់!');
 
         const deck = tlModule.shuffleDeck(tlModule.createDeck());
         room.status = 'playing'; room.playedCards = []; room.lastPlayerId = null; room.nextRank = 1;
 
-        // 🚨 ជួសជុលចំណុចស្លាប់៖ រត់ឡូប (Loop) ចែកបៀរទៅតាម activePlayers វិញ ធានាលេងបាន ៤ នាក់ពេញៗមាត់
         activePlayers.forEach((p, i) => { 
             p.hand = tlModule.sortCards(deck.slice(i * 13, (i + 1) * 13)); 
         });
 
-        // ឆែកករណីឈ្នះស៊ុយដាច់ភ្លាមៗ
         let instantWinner = null; let winReason = "";
         for (let p of activePlayers) {
             const reason = tlModule.checkInstantWin(p.hand);
@@ -199,7 +220,6 @@ io.on('connection', (socket) => {
             broadcastRoomLists(); return;
         }
 
-        // បញ្ជូនសន្លឹកបៀរទៅឱ្យ Client នីមួយៗ
         room.players.forEach(p => {
             if (!p.isSpectator) io.to(p.id).emit('dealCards', { hand: p.hand });
         });
@@ -211,25 +231,33 @@ io.on('connection', (socket) => {
         broadcastRoomLists();
     });
 
-    socket.on('playCard', ({ roomId, cards }) => {
+socket.on('playCard', ({ roomId, cards }) => {
         const room = tlRooms[roomId]; if (!room) return;
         const player = room.players[room.currentTurnIndex];
         if (!player || player.id !== socket.id || player.hand.length === 0) return;
 
+        // ផ្ទៀងផ្ទាត់ប្រភេទបៀរ និងវាយកាត់បៀរនៅលើតុ
         if (tlModule.getComboType(cards) && tlModule.comparePlay(cards, room.playedCards)) {
+            // ដកបៀរចេញពីដៃអ្នកលេង
             cards.forEach(c => {
                 const idx = player.hand.findIndex(pc => pc.value === c.value && pc.suit === c.suit);
                 if (idx !== -1) player.hand.splice(idx, 1);
             });
 
-            room.playedCards = cards; room.lastPlayerId = socket.id; player.passed = false;
+            room.playedCards = cards; 
+            room.lastPlayerId = socket.id; 
+            player.passed = false; // ឱ្យតែបានចុះបៀរ គឺសម្គាល់ថាមិនបាន Pass ឡើយ
             let isDoubleWin = false;
 
+            // ឆែកមើលលក្ខខណ្ឌពេលអស់បៀរពីដៃ (ឈ្នះ)
             if (player.hand.length === 0) {
-                player.rank = room.nextRank; room.nextRank++;
+                player.rank = room.nextRank; 
+                room.nextRank++;
+                
                 if (player.rank === 1) {
                     room.lastWinnerId = player.id;
                     const opponents = room.players.filter(p => !p.isSpectator && p.id !== player.id);
+                    // ករណីឈ្នះឌុបដាច់តុ (គូប្រកួតសល់ ១៣សន្លឹកគ្រប់គ្នា)
                     if (opponents.every(p => p.hand.length === 13)) {
                         isDoubleWin = true;
                         opponents.forEach(opp => { opp.rank = room.nextRank; room.nextRank++; });
@@ -237,22 +265,35 @@ io.on('connection', (socket) => {
                 }
             }
 
-            const remainingActive = room.players.filter(p => p.hand.length > 0);
-            if (remainingActive.length <= 1 || isDoubleWin) {
-                if (remainingActive.length === 1 && !isDoubleWin) remainingActive[0].rank = room.nextRank;
+            // 🎯 ជួសជុលលក្ខខណ្ឌបញ្ចប់ហ្គេម៖ ហ្គេមនឹងបញ្ចប់លុះត្រាតែអ្នកលេងសល់ "លំដាប់ថ្នាក់អត់ទាន់មាន" តិចជាងឬស្មើ ១ នាក់ ឬឈ្នះឌុប
+            const playersWithoutRank = room.players.filter(p => !p.isSpectator && p.rank === null);
+            
+            if (playersWithoutRank.length <= 1 || isDoubleWin) {
+                // ប្រគល់ចំណាត់ថ្នាក់ចុងក្រោយជូនអ្នកដែលនៅសល់បៀរម្នាក់ឯងនោះ
+                if (playersWithoutRank.length === 1 && !isDoubleWin) {
+                    playersWithoutRank[0].rank = room.nextRank;
+                }
+                
                 room.status = 'waiting';
                 const results = room.players.map(p => ({
-                    id: p.id, name: p.name, remaining: [...p.hand], isSpectator: p.hand.length === 0 && p.rank !== null ? false : p.isSpectator, rank: p.rank, isDoubleLeaved: isDoubleWin && p.id !== player.id
+                    id: p.id, name: p.name, remaining: [...p.hand], 
+                    isSpectator: p.isSpectator, rank: p.rank, 
+                    isDoubleLeaved: isDoubleWin && p.id !== player.id
                 }));
 
+                // បញ្ជូនទិន្នន័យចុះបៀរចុងក្រោយទៅ Clients
                 io.to('tl_' + roomId).emit('cardPlayed', { by: player.name, cards, nextTurn: room.currentTurnIndex, cardCount: player.hand.length, updatedHands: room.players });
+                
+                // បង្ហាញផ្ទាំងលទ្ធផលក្រោយ ១.៥ វិនាទី
                 setTimeout(() => {
                     const finalWinner = room.players.find(p => p.rank === 1);
                     room.lastWinnerId = finalWinner ? finalWinner.id : null;
                     io.to('tl_' + roomId).emit('gameWon', { winner: finalWinner ? finalWinner.name : 'រកមិនឃើញ', winnerId: room.lastWinnerId, allHands: results, isDoubleWin });
                     broadcastRoomLists();
                 }, 1500);
+                
             } else {
+                // 🎯 បើហ្គេមមិនទាន់បញ្ចប់ទេ ទើបឱ្យប្រព័ន្ធដំណើរការផ្ទេរវេន ឬឆែកដាច់តុធម្មតា
                 handleTurnAndRoundStatus(room);
                 io.to('tl_' + roomId).emit('cardPlayed', { by: player.name, cards, nextTurn: room.currentTurnIndex, cardCount: player.hand.length, updatedHands: room.players });
             }
@@ -269,7 +310,6 @@ io.on('connection', (socket) => {
         handleTurnAndRoundStatus(room);
     });
 
-    // មុខងារដោះស្រាយពេលចាកចេញពីបន្ទប់ Tien Len
     socket.on('leaveRoom', () => {
         for (const id in tlRooms) {
             const room = tlRooms[id]; const pIdx = room.players.findIndex(p => p.id === socket.id);
@@ -288,12 +328,9 @@ io.on('connection', (socket) => {
         }
     });
 
-    // រួមបញ្ចូលប្រព័ន្ធហ្គេម Ka Te (ទាញចេញពី server_kate.js)
     require('./server_kate.js')(io, ktRooms, broadcastRoomLists, tlModule, ktModule);
 
-    // ពិនិត្យមើលការដាច់ការតភ្ជាប់ (Disconnect)
     socket.on('disconnect', () => {
-        // សម្អាតបន្ទប់ Tien Len
         for (const id in tlRooms) {
             const room = tlRooms[id]; const pIdx = room.players.findIndex(p => p.id === socket.id);
             if (pIdx !== -1) {
@@ -308,7 +345,6 @@ io.on('connection', (socket) => {
             }
         }
 
-        // សម្អាតបន្ទប់ Ka Te
         for (const id in ktRooms) {
             const room = ktRooms[id]; const pIdx = room.players.findIndex(p => p.id === socket.id);
             if (pIdx !== -1) {
@@ -319,15 +355,11 @@ io.on('connection', (socket) => {
                 if (room.players.length === 0) {
                     delete ktRooms[id]; 
                 } else {
-                    // 🎯 ថែមការគ្រប់គ្រង៖ បើ Host ដាច់ការតភ្ជាប់ ត្រូវផ្ទេរសិទ្ធិទៅឱ្យអ្នកបន្ទាប់
                     if (room.creatorId === socket.id) room.creatorId = room.players[0].id;
-                    
-                    // បើដាច់អ៊ីនធឺណិតអំឡុងពេលលេង ហើយចំវេនគាត់ ត្រូវរំលងទៅវេនអ្នកបន្ទាប់កុំឱ្យគាំងហ្គេម
                     if (room.status === 'playing' && !wasSpectator && room.currentTurnIndex === pIdx) {
                         room.currentTurnIndex = room.currentTurnIndex % room.players.length;
                         io.to('kt_' + id).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex, players: room.players });
                     }
-                    
                     io.to('kt_' + id).emit('updatePlayers', room.players);
                     io.to('kt_' + id).emit('winnerTransferred', { newWinnerId: room.lastWinnerId, creatorId: room.creatorId });
                 }
@@ -335,7 +367,7 @@ io.on('connection', (socket) => {
         }
         broadcastRoomLists();
     });
-}); // 👈 ជួសជុល៖ បិទប្លុក io.on('connection') នៅត្រង់នេះ
+});
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`👉 Server is running on port ${PORT}`));
