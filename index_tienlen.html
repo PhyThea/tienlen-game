@@ -270,14 +270,31 @@ socket.on('dealCards', ({ hand }) => { myHand = hand; selectedCards = []; update
 function isMyTurn() { return !amISpectator && playersData[currentTurnIndex] && playersData[currentTurnIndex].id === myId; }
 
 function updateControlsState() {
-    const playBtn = document.getElementById('playBtn'), passBtn = document.getElementById('passBtn');
+    const playBtn = document.getElementById('playBtn');
+    const passBtn = document.getElementById('passBtn');
+    
     if (playBtn && passBtn) {
         if (isMyTurn()) {
             playBtn.disabled = false;
+            
             const tableDiv = document.getElementById('table');
-            const isNewRound = tableDiv && (tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត!'));
-            passBtn.disabled = isNewRound;
-        } else { playBtn.disabled = true; passBtn.disabled = true; }
+            
+            // 🎯 ជួសជុល៖ ថែមពាក្យ " ជុំថ្មី..." ឱ្យដូចគ្នាទៅនឹង innerHTML ពេល Clear Table
+            const isNewRound = tableDiv && (
+                tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || 
+                tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || 
+                tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត! ជុំថ្មី...')
+            );
+            
+            if (isNewRound) {
+                passBtn.disabled = true; // ជុំថ្មីទំនេរស្អាត មិនឱ្យ Pass ដាច់ខាត
+            } else {
+                passBtn.disabled = false; // មានបៀរគេ ទើបអនុញ្ញាតឱ្យ Pass
+            }
+        } else {
+            playBtn.disabled = true;
+            passBtn.disabled = true;
+        }
     }
 }
 
@@ -307,7 +324,13 @@ function renderMyCards() {
     if (amISpectator) { div.innerHTML = '<div style="color: #94a3b8; font-style: italic; font-size:13px;">អ្នកកំពុងចូលរួមមើលការប្រកួត...</div>'; return; }
     const myTurn = isMyTurn();
     const tableDiv = document.getElementById('table');
-    const isNewRound = tableDiv && (tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត!'));
+    
+    // 🎯 ជួសជុល៖ កែប្រែលក្ខខណ្ឌអក្សរត្រង់នេះដូចគ្នា ដើម្បីឱ្យប្រព័ន្ធស្គាល់ការដាច់តុបានត្រឹមត្រូវ
+    const isNewRound = tableDiv && (
+        tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || 
+        tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || 
+        tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត! ជុំថ្មី...')
+    );
 
     myHand.forEach((card, index) => {
         const el = document.createElement('div'); el.className = 'card'; el.style.backgroundImage = `url('${getCardFileName(card)}')`; el.style.zIndex = index + 1;
@@ -404,11 +427,15 @@ function renderFinalResults(allHands, isDoubleWin) {
 
 function showPlayAgainButton() {
     const playAgainBtn = document.getElementById('hostPlayAgainBtn'), waitText = document.getElementById('waitHostText');
-    if (socket.id === lastRoundWinnerId) {
-        playAgainBtn.style.display = 'block'; waitText.style.display = 'none';
+    
+    // 🎯 ឆែកមើលបើខ្លួនយើងជាម្ចាស់ទឹក (អ្នកឈ្នះវគ្គមុន) ឬយើងជា Host បន្ទប់ ទើបបង្ហាញប៊ូតុង Start ជុំថ្មី
+    if (myId === lastRoundWinnerId || (lastRoundWinnerId === null && isCreator)) {
+        playAgainBtn.style.display = 'block'; 
+        waitText.style.display = 'none';
         playAgainBtn.onclick = () => { if(currentRoom) socket.emit('startGame', currentRoom); };
     } else {
-        playAgainBtn.style.display = 'none'; waitText.style.display = 'block';
+        playAgainBtn.style.display = 'none'; 
+        waitText.style.display = 'block';
         const winPlayer = playersData.find(p => p.id === lastRoundWinnerId);
         waitText.innerText = `សូមរង់ចាំអ្នកឈ្នះ (${winPlayer ? winPlayer.name : 'Host'}) ចាប់ផ្ដើមវគ្គថ្មី...`;
     }
