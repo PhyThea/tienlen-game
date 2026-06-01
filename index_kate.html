@@ -35,6 +35,7 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
     width: 100%;
     min-height: 240px;
     margin: 5px 0;
+    z-index: 1; /* 🎯 កំណត់ឱ្យតុស្ថិតនៅជួរក្រោម */
 }
 
 .poker-table {
@@ -123,9 +124,9 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 /* កំណត់កូអរដោនេសម្រាប់ ៦ នាក់ឱ្យដើរជាវង់ (កែសម្រួលទីតាំង ២, ៣, ៤, ៥ ឡើងលើ) */
 .player-pos-0 { bottom: 2px; left: 50%; transform: translateX(-50%); } 
 .player-pos-1 { left: 2px; top: 60%; transform: translateY(-50%); } 
-.player-pos-2 { left: 35px; top: 12%; transform: translateY(-50%); }  /* 🎯 លេខ ៣ ចាស់ រំកិលទៅជ្រុងលើឆ្វេងដែលបានគូសរង្វង់ */
+.player-pos-2 { left: 35px; top: 12%; transform: translateY(-50%); }  
 .player-pos-3 { top: 2px; left: 50%; transform: translateX(-50%); } 
-.player-pos-4 { right: 35px; top: 12%; transform: translateY(-50%); } /* 🎯 លេខ ៥ ចាស់ រំកិលទៅជ្រុងលើស្តាំដែលបានគូសរង្វង់ */
+.player-pos-4 { right: 35px; top: 12%; transform: translateY(-50%); } 
 .player-pos-5 { right: 2px; top: 60%; transform: translateY(-50%); } 
 
 .player.active-turn { border: 2px solid #22c55e !important; box-shadow: 0 0 8px rgba(34, 197, 94, 0.7) !important; }
@@ -141,7 +142,7 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
     height: 140px;
     background: transparent; 
     flex-shrink: 0; 
-    z-index: 10; 
+    z-index: 99; /* 🎯 ដំឡើង z-index ឱ្យខ្ពស់ជាងគេដើម្បីកុំឱ្យផ្ទៃតុបាំងបៀរក្នុងដៃ */
     align-items: center;    
     justify-content: center;
     margin-bottom: 15px;    
@@ -149,7 +150,7 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 .card-container { display: flex; justify-content: center; flex-wrap: nowrap; overflow-x: auto; padding: 2px 0; height: 110px; width: 80%; align-items: flex-end; }
 .card { width: 65px; height: 95px; background-size: cover; background-position: center; border-radius: 6px; cursor: pointer; user-select: none; box-shadow: -2px 2px 4px rgba(0,0,0,0.4); flex-shrink: 0; margin-right: -25px; transition: transform 0.1s; }
 .card:last-child { margin-right: 0; }
-.card.selected { transform: translateY(-20px) !important; border: 2px solid #3b82f6; box-shadow: 0 5px 10px rgba(59, 130, 246, 0.6) !important; }
+.card.selected { transform: translateY(-20px) !important; border: 2px solid #3b82f6; box-shadow: 0 5px 10px rgba(59, 130, 246, 0.6) !important; z-index: 999 !important; }
 
 /* 🎛️ ប៊ូតុងបញ្ជាអណ្ដែតពីលើកាត (ទម្រង់ដូច ទៀនឡេន) */
 .controls { 
@@ -161,6 +162,7 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
     justify-content: space-between;
     pointer-events: none; 
     padding: 0 20px;
+    z-index: 100;
 }
 .controls button { 
     margin-top: 0; 
@@ -214,7 +216,7 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 /* 📱 លក្ខខណ្ឌពិសេសពេលទូរស័ព្ទស្ថិតក្នុងទម្រង់ Landscape (ដេក) */
 @media screen and (max-width: 932px) {
     body.in-game .card { width: 55px !important; height: 80px !important; margin-right: -25px !important; }
-    body.in-game .hand-and-controls { height: 80px !important; margin-bottom: 5px !important; }
+    body.in-game .hand-and-controls { height: 80px !important; margin-bottom: 5px !important; z-index: 99 !important; }
     body.in-game .controls { top: -35px !important; padding: 0 5px !important; }
     body.in-game .controls button { height: 34px !important; width: 110px !important; font-size: 11px !important; }
 }
