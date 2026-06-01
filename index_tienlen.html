@@ -114,7 +114,7 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
     display: flex; 
     position: relative;
     width: 100%;
-    height: 150px; /* 🔄 បង្កើនកម្ពស់បន្តិចដើម្បីទ្រសន្លឹកបៀរធំ */         
+    height: 150px; /* បង្កើនកម្ពស់បន្តិចដើម្បីទ្រសន្លឹកបៀរធំ */
     background: transparent; 
     flex-shrink: 0; 
     z-index: 10; 
@@ -123,20 +123,20 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
     margin-bottom: 25px;    
 }
 
-/* 🔄 កែសម្រួល Container ដាក់បៀរឱ្យទូលាយសម្រាប់ទូរស័ព្ទ */
+/* Container ដាក់បៀរឱ្យទូលាយ និងលុបចោលរបារ Scrollbar */
 .card-container { 
     display: flex; 
     justify-content: center; 
     flex-wrap: nowrap; 
-    overflow-x: auto; 
+    overflow-x: visible; /* ប្តូរពី auto ទៅ visible ដើម្បីលុបរបារត្រដុសចេញ */
     overflow-y: visible; 
     padding: 10px 0;      
     height: 120px; 
-    width: 75%; /* 🔄 បង្កើនទទឹងពី 60% ទៅ 75% ឱ្យបៀររាលបានទូលាយមិនសូវបាំងគ្នា */
+    width: 80%; /* បង្កើនទទឹងទៅ 80% ដើម្បីឱ្យបៀររាលបានទូលាយមិនសូវបាំងគ្នា */
     align-items: flex-end; 
 }
 
-/* 🔄 កែទំហំបៀរដើមឱ្យធំជាងមុនបន្តិច និងដកឃ្លាឱ្យទូលាយជាងមុន (margin-right: -20px) */
+/* កែទំហំបៀរដើមឱ្យធំជាងមុនបន្តិច និងដកឃ្លាឱ្យទូលាយជាងមុន (margin-right: -20px) */
 .card { 
     width: 64px; 
     height: 94px; 
@@ -148,7 +148,7 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
     box-shadow: -2px 2px 4px rgba(0,0,0,0.4); 
     transition: transform 0.1s ease; 
     flex-shrink: 0; 
-    margin-right: -20px; /* 🔄 កែពី -28px មក -20px ដើម្បីកុំឱ្យវាជិះលើគ្នាបាំងលេខ */
+    margin-right: -20px; /* កែពី -28px មក -20px ដើម្បីកុំឱ្យវាជិះលើគ្នាបាំងលេខ */
     position: relative; 
 }
 .card:last-child { margin-right: 0; }
@@ -188,16 +188,15 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
     box-shadow: 0 4px 8px rgba(0,0,0,0.5);
 }
 
-/* 📱 🛠️ បន្ថែមលក្ខខណ្ឌពិសេសពេលទូរស័ព្ទស្ថិតក្នុងទម្រង់ Landscape (ដេក) ឱ្យបៀរធំទូលាយច្បាស់ល្អ */
+/* 📱 🛠️ លក្ខខណ្ឌពិសេសពេលទូរស័ព្ទស្ថិតក្នុងទម្រង់ Landscape (ដេក) ឱ្យបៀរធំទូលាយច្បាស់ល្អ */
 @media screen and (max-width: 932px) {
-    /* ពេលអេក្រង់ដេក (លេងហ្គេម) */
     body.in-game .card-container {
         width: 85% !important; /* ឱ្យរាលពេញទទឹងអេក្រង់ទូរស័ព្ទ */
     }
     body.in-game .card {
-        width: 72px !important;  /* 🔄 ពង្រីកទទឹងសន្លឹកបៀរឱ្យធំច្បាស់ល្មមនឹងភ្នែក */
-        height: 105px !important; /* 🔄 ពង្រីកកម្ពស់សន្លឹកបៀរ */
-        margin-right: -24px !important; /* 🔄 រក្សាគម្លាតឱ្យឃើញលេខ និងរូបសញ្ញាបៀរបានច្បាស់ល្អមិនបាំង */
+        width: 72px !important;  /* ពង្រីកទទឹងសន្លឹកបៀរឱ្យធំច្បាស់ល្មមនឹងភ្នែក */
+        height: 105px !important; /* ពង្រីកកម្ពស់សន្លឹកបៀរ */
+        margin-right: -24px !important; /* រក្សាគម្លាតឱ្យឃើញលេខ និងរូបសញ្ញាបៀរបានច្បាស់ល្អមិនបាំង */
     }
     body.in-game .hand-and-controls {
         height: 160px !important; /* បង្កើនកម្ពស់តំបន់កាន់បៀរ */
