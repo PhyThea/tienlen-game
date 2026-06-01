@@ -155,7 +155,7 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 .card.first-turn-highlight { box-shadow: 0 0 6px #f59e0b !important; }
 .card.selected { 
     /* 💡 ដំណោះស្រាយ៖ លុប rotate(-3deg) ចេញ ដើម្បីឱ្យបៀរឡើងត្រង់ស្អាត និងកាត់ translateX មកត្រឹម -10px ដើម្បីកុំឱ្យវាខិតទៅឆ្វេងខ្លាំងពេក */
-    transform: translateY(-25px) translateX(-10px) !important; 
+    transform: translateY(-25px) translateX(-25px) !important; 
     box-shadow: 0 6px 12px rgba(59, 130, 246, 0.8) !important; 
     border: 2px solid #3b82f6; 
 }
@@ -199,9 +199,12 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
         width: 85% !important; 
     }
     body.in-game .card {
-        width: 68px !important;         /* ⬆️ ដំឡើងទទឹងបៀរពី 58px ទៅ 68px */
-        height: 100px !important;       /* ⬆️ ដំឡើងកម្ពស់បៀរពី 85px ទៅ 100px */
-        margin-right: -26px !important; /* 💡 ពង្រីកគម្លាតជិះលើគ្នាពី -22px ទៅ -26px ដើម្បីឱ្យសមនឹងទំហំបៀរធំ */
+        width: 58px !important;   
+        height: 85px !important;  
+        margin-right: -22px !important; 
+    }
+    body.in-game .hand-and-controls {
+        height: 125px !important; 
     }
     body.in-game .hand-and-controls {
         height: 140px !important;       /* ⬆️ ដំឡើងកម្ពស់តំបន់កាន់បៀរពី 125px ទៅ 140px ដើម្បីកុំឱ្យហៀរបៀរ */
