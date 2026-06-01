@@ -110,33 +110,40 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 .turn-badge { position: absolute; top: -9px; left: 50%; transform: translateX(-50%); background: #22c55e; color: white; font-size: 8px; font-weight: bold; padding: 0px 5px; border-radius: 10px; white-space: nowrap; }
 .card-counter { background: #1c2541; border-radius: 3px; padding: 0px 4px; font-weight: bold; font-size: 9px; color: #f59e0b; border: 1px solid #3a506b; display: inline-block; margin-top: 1px; }
 
-/* 🔄 កែប្រែផ្ទាំងផ្ទុកធំ ដើម្បីបើកផ្លូវឱ្យប៊ូតុងអណ្ដែតឡើងលើបានខ្ពស់ */
 .hand-and-controls { 
     display: flex; 
     position: relative;
     width: 100%;
-    height: 140px;          /* 🔄 បង្កើនពី 110px ទៅ 140px ដើម្បីឱ្យមានលំហរខាងលើ */
+    height: 140px;          
     background: transparent; 
     flex-shrink: 0; 
     z-index: 10; 
-    align-items: center;    /* 🔄 ដូរពី flex-end មក center ដើម្បីកុំឱ្យវាបង្ខំទាញប៊ូតុងចុះក្រោម */
+    align-items: center;    
     justify-content: center;
+    margin-bottom: 25px;    /* 🔄 ថែមបន្ទាត់នេះ ដើម្បីរុញផ្ទាំងបៀរចុះមកក្រោម ឱ្យផុតពីការកាត់ដាច់គែមអេក្រង់ */
 }
+/* 🔄 កែសម្រួលដើម្បីកុំឱ្យដាច់ក្បាលបៀរពេលវាលៀនឡើងលើ */
 .card-container { 
     display: flex; 
     justify-content: center; 
     flex-wrap: nowrap; 
     overflow-x: auto; 
-    padding: 2px 0; 
+    overflow-y: visible; /* 🔄 ថែមបន្ទាត់នេះ ដើម្បីអនុញ្ញាតឱ្យក្បាលបៀរលៀនឡើងលើបាន */
+    padding: 10px 0;      /* 🔄 ថែម padding ខាងលើបន្តិច */
     height: 110px; 
-    width: 60%; /* ទុកផ្ទៃកណ្ដាលសម្រាប់សន្លឹកបៀរ */
+    width: 60%; 
     align-items: flex-end; 
 }
 .card { width: 58px; height: 85px; background-size: cover; background-position: center; border-radius: 6px; cursor: pointer; user-select: none; box-shadow: -2px 2px 4px rgba(0,0,0,0.4); transition: transform 0.1s ease; flex-shrink: 0; margin-right: -28px; position: relative; }
 .card:last-child { margin-right: 0; }
 .card.first-turn-highlight { box-shadow: 0 0 6px #f59e0b !important; }
 .card.selected { transform: translateY(-20px) !important; box-shadow: 0 6px 12px rgba(59, 130, 246, 0.8) !important; border: 2px solid #3b82f6; }
-.card.disabled-card { opacity: 0.4; cursor: not-allowed; box-shadow: none !important; }
+.card.disabled-card { 
+    opacity: 0.95;            /* 🔄 បង្កើនឱ្យភ្លឺច្បាស់ស្ទើរតែ ១០០% ទោះអត់ទាន់ដល់វេន */
+    cursor: not-allowed; 
+    box-shadow: none !important; 
+    filter: brightness(0.85); /* 💡 ថែមបន្ទាត់នេះ៖ ធ្វើឱ្យងងឹតតែបន្តិចៗ ដើម្បីឱ្យដឹងថាអត់ទាន់ដល់វេន ប៉ុន្តែនៅតែមើលលេខច្បាស់ល្អ */
+}
 .table-card-img { width: 42px; height: auto; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.5); flex-shrink: 0; user-select: none; }
 
 /* 👑 រក្សាប៊ូតុងនៅសងខាងឆ្វេង-ស្ដាំដដែល ប៉ុន្តែលើកឱ្យខ្ពស់ផុតពីក្បាលបៀរ */
@@ -450,13 +457,37 @@ function renderMyCards() {
         tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត! ជុំថ្មី...')
     );
 
+    // 💡 ប្រសិនបើមិនមែនជាវេនរបស់យើងទេ ត្រូវសម្អាតបៀរដែលធ្លាប់បានជ្រើសរើស (Selected) ចេញទាំងអស់
+    // ដើម្បីកុំឱ្យបៀរអណ្ដែតឡើងលើចោល នាំឱ្យទើសភ្នែកពេលកំពុងចាំវេនគេលេង
+    if (!myTurn) {
+        selectedCards = [];
+    }
+
     myHand.forEach((card, index) => {
         const el = document.createElement('div'); el.className = 'card'; el.style.backgroundImage = `url('${getCardFileName(card)}')`; el.style.zIndex = index + 1;
-        if (!myTurn) el.classList.add('disabled-card');
-        else if (isNewRound && ((!lastRoundWinnerId && card.value === '3' && card.suit === '♠') || (myId === lastRoundWinnerId))) el.classList.add('first-turn-highlight');
+        
+        if (!myTurn) {
+            el.classList.add('disabled-card'); // 👈 បន្ថែមថ្នាក់នេះដដែល (ដែលយើងបានកែ CSS ឱ្យភ្លឺច្បាស់រួចហើយ)
+        } else if (isNewRound && ((!lastRoundWinnerId && card.value === '3' && card.suit === '♠') || (myId === lastRoundWinnerId))) {
+            el.classList.add('first-turn-highlight');
+        }
+        
         const isSelected = selectedCards.some(c => c.value === card.value && c.suit === card.suit);
-        if (isSelected && myTurn) { el.classList.add('selected'); el.style.zIndex = 200 + index; }
-        el.onclick = () => { if (isMyTurn()) toggleCard(card); }; div.appendChild(el);
+        
+        // 🔒 បន្ថែមលក្ខខណ្ឌ && myTurn ដើម្បីធានាថាបៀរអណ្ដែតឡើងលើបាន លុះត្រាតែដល់វេនលេងប៉ុណ្ណោះ
+        if (isSelected && myTurn) { 
+            el.classList.add('selected'); 
+            el.style.zIndex = 200 + index;
+        }
+        
+        // 🔒 អនុញ្ញាតឱ្យចុចកាតបាន លុះត្រាតែដល់វេនរបស់ខ្លួនប៉ុណ្ណោះ (isMyTurn)
+        el.onclick = () => { 
+            if (isMyTurn()) { 
+                toggleCard(card); 
+            } 
+        }; 
+        
+        div.appendChild(el);
     });
 }
 
