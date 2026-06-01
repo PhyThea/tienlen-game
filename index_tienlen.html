@@ -6,56 +6,53 @@
 <title>🃏 Tien Len Online</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-body { font-family: Arial, sans-serif; background: #0f172a; color: white; overflow: hidden; position: fixed; width: 100vw; height: 100vh; height: 100dvh; }
-.container { max-width: 1200px; margin: auto; padding: 10px; width: 100%; height: 100%; display: flex; flex-direction: column; }
+body { font-family: Arial, sans-serif; background: #0b1329; color: white; overflow: hidden; position: fixed; width: 100vw; height: 100vh; height: 100dvh; }
+.container { max-width: 1200px; margin: auto; padding: 10px; width: 100%; height: 100%; display: flex; flex-direction: column; position: relative; }
 h1 { text-align: center; margin-bottom: 12px; font-size: 22px; color: #f59e0b; }
-.panel { background: #1e293b; padding: 20px; border-radius: 15px; margin-bottom: 20px; }
+.panel { background: #1c2541; padding: 20px; border-radius: 15px; margin-bottom: 20px; }
 input { width: 100%; padding: 12px; margin-top: 10px; border: none; border-radius: 10px; font-size: 16px; background: #334155; color: white; }
 button { padding: 12px 20px; margin-top: 15px; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; transition: background 0.2s ease, transform 0.1s ease; }
 button:active { transform: scale(0.98); }
 button:disabled { background: #475569 !important; color: #94a3b8 !important; cursor: not-allowed; transform: none !important; opacity: 0.6; }
 .btn-blue { background: #3b82f6; color: white; }
-.btn-blue:hover:not(:disabled) { background: #2563eb; }
 .btn-green { background: #22c55e; color: white; }
-.btn-green:hover:not(:disabled) { background: #16a34a; }
 .btn-red { background: #ef4444; color: white; }
-.btn-red:hover:not(:disabled) { background: #dc2626; }
-.room-item { background: #334155; padding: 15px; border-radius: 10px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center; }
+.room-item { background: #3a506b; padding: 15px; border-radius: 10px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center; }
 
-#gameArea { display: none; width: 100%; height: 100%; position: relative; }
+#gameArea { display: none; width: 100%; height: 100%; position: relative; flex-direction: column; justify-content: space-between; }
 
 /* 📱 បង្វិលអេក្រង់ស្វ័យប្រវត្តិពេលលេងតាមទូរស័ព្ទ */
 @media screen and (max-width: 932px) and (orientation: portrait) {
     body.in-game .container, body.round-over .container { padding: 0; max-width: 100%; width: 100%; height: 100%; }
-    body.in-game #gameArea { position: fixed; top: 50%; left: 50%; width: 100dvh; height: 100dvw; transform: translate(-50%, -50%) rotate(90deg); transform-origin: center center; background: #0f172a; padding: 10px; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
-    body.round-over #resultArea { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; max-height: 100vh !important; background: #0f172a; box-sizing: border-box; padding: 15px; display: block; overflow-y: auto; transform: none; }
+    body.in-game #gameArea { position: fixed; top: 50%; left: 50%; width: 100dvh; height: 100dvw; transform: translate(-50%, -50%) rotate(90deg); transform-origin: center center; background: #0b1329; padding: 10px; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
+    body.round-over #resultArea { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; max-height: 100vh !important; background: #0b1329; box-sizing: border-box; padding: 15px; display: block; overflow-y: auto; transform: none; }
 }
 @media screen and (min-width: 600px) and (orientation: landscape), screen and (min-width: 933px) {
     body.in-game #gameArea { display: flex; flex-direction: column; justify-content: space-between; height: 100%; width: 100%; gap: 6px; transform: none !important; position: static !important; }
 }
 
-.game-header { display: flex; justify-content: space-between; align-items: center; background: #1e293b; padding: 5px 10px; border-radius: 8px; flex-shrink: 0; height: 32px; width: 100%; z-index: 10; }
+.game-header { display: flex; justify-content: space-between; align-items: center; background: #1c2541; padding: 5px 10px; border-radius: 8px; flex-shrink: 0; height: 32px; width: 100%; z-index: 99; }
 
-/* 👑 ស្ទីលរចនាតុបៀរពងក្រពើ និងទីតាំងអង្គុយ ៤ ទិស ដូចក្នុងរូបភាព */
+/* 👑 ស្ទីលរចនាតុបៀរពងក្រពើធំចំកណ្ដាលអេក្រង់ */
 .main-stage {
     position: relative;
     flex: 1;
     width: 100%;
-    min-height: 240px;
-    margin: 10px 0;
+    min-height: 220px;
+    margin: 5px 0;
 }
 
 .poker-table {
     position: absolute;
-    top: 52%;
+    top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 76%;
-    height: 72%;
-    background: #0f766e; /* ពណ៌ផ្ទៃតុបៃតងចាស់ */
-    border: 12px solid #5c3a21; /* គែមឈើប្រណីតជុំវិញតុ */
-    border-radius: 120px; /* ធ្វើឱ្យចេញរាងពងក្រពើស្អាត */
-    box-shadow: inset 0 0 40px rgba(0,0,0,0.8), 0 10px 20px rgba(0,0,0,0.6);
+    width: 75%;
+    height: 80%;
+    background: #14532d; /* ពណ៌ផ្ទៃតុបៃតងចាស់កាស៊ីណូ */
+    border: 10px solid #5c3a21; /* គែមឈើព័ទ្ធជុំវិញតុ */
+    border-radius: 500px; /* បង្ខំឱ្យចេញរាងពងក្រពើដាច់ខាត */
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.8), 0 8px 16px rgba(0,0,0,0.6);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -63,18 +60,18 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 }
 
 .table-area {
-    width: 90%;
+    width: 85%;
     height: 80%;
     display: flex;
     justify-content: center;
     align-items: center;
     flex-wrap: nowrap;
     overflow-x: auto;
-    gap: 4px;
-    padding: 6px;
+    gap: 6px;
+    padding: 10px;
 }
 
-/* 👤 ការកំណត់ទីតាំងអ្នកលេង ៤ ទិសជុំវិញតុ */
+/* 👤 ប្រព័ន្ធរៀបចំទីតាំងអ្នកលេង ៤ ទិសដាច់ដោយឡែក */
 #players {
     position: absolute;
     top: 0;
@@ -82,53 +79,53 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
     width: 100%;
     height: 100%;
     pointer-events: none;
-    z-index: 2;
+    z-index: 5;
 }
 
 .player {
     position: absolute;
-    background: #1e293b;
-    padding: 6px 12px;
+    background: #1c2541;
+    padding: 5px 10px;
     border-radius: 8px;
-    min-width: 90px;
-    max-width: 130px;
-    border: 2px solid #475569;
+    min-width: 95px;
+    max-width: 120px;
+    border: 1.5px solid #3a506b;
     text-align: center;
     font-size: 11px;
     pointer-events: auto;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    transition: all 0.25s ease;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+    transition: all 0.2s ease;
 }
 
-/* រៀបទិស៖ ០=ក្រោម(ខ្លួនយើង), ១=ឆ្វេង, ២=លើ(គូប្រកួតចំកណ្ដាល), ៣=ស្ដាំ */
-.player-pos-0 { bottom: 2px; left: 12%; transform: translateX(0); }
-.player-pos-1 { left: 10px; top: 50%; transform: translateY(-50%); }
-.player-pos-2 { top: 2px; left: 50%; transform: translateX(-50%); }
-.player-pos-3 { right: 10px; top: 50%; transform: translateY(-50%); }
+/* បង្ខំទីតាំងអ្នកលេង ៤ ទិសជុំវិញតុ (ខ្លួនឯងនៅក្រោម, ដៃគូនៅ ឆ្វេង-លើ-ស្ដាំ) */
+.player-pos-0 { bottom: 2px; left: 50%; transform: translateX(-50%); } /* ខ្លួនយើង */
+.player-pos-1 { left: 2px; top: 50%; transform: translateY(-50%); } /* អ្នកខាងឆ្វេង */
+.player-pos-2 { top: 2px; left: 50%; transform: translateX(-50%); }  /* អ្នកខាងលើ */
+.player-pos-3 { right: 2px; top: 50%; transform: translateY(-50%); } /* អ្នកខាងស្ដាំ */
 
-.player.active-turn { border: 2.5px solid #22c55e !important; box-shadow: 0 0 12px rgba(34, 197, 94, 0.8) !important; background: #0f172a !important; }
-.player-passed { background: #451a1a !important; border: 2px solid #ef4444 !important; opacity: 0.6; }
-.player-rank-1 { background: #422006 !important; border: 2px solid #eab308 !important; }
-.player-rank-2 { background: #1e293b !important; border: 2px solid #3b82f6 !important; }
-.turn-badge { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #22c55e; color: white; font-size: 8px; font-weight: bold; padding: 1px 6px; border-radius: 10px; white-space: nowrap; }
-.card-counter { background: #0f172a; border-radius: 4px; padding: 1px 4px; font-weight: bold; font-size: 10px; color: #f59e0b; border: 1px solid #475569; display: inline-block; margin-top: 2px; }
+.player.active-turn { border: 2px solid #22c55e !important; box-shadow: 0 0 10px rgba(34, 197, 94, 0.8) !important; background: #0b1329 !important; }
+.player-passed { background: #2d1717 !important; border: 1.5px solid #ef4444 !important; opacity: 0.6; }
+.player-rank-1 { background: #3f2b0f !important; border: 1.5px solid #f59e0b !important; }
+.player-rank-2 { background: #1c2541 !important; border: 1.5px solid #3b82f6 !important; }
+.turn-badge { position: absolute; top: -9px; left: 50%; transform: translateX(-50%); background: #22c55e; color: white; font-size: 8px; font-weight: bold; padding: 0px 5px; border-radius: 10px; white-space: nowrap; }
+.card-counter { background: #1c2541; border-radius: 3px; padding: 0px 4px; font-weight: bold; font-size: 9px; color: #f59e0b; border: 1px solid #3a506b; display: inline-block; margin-top: 1px; }
 
-.hand-and-controls { display: flex; flex-direction: column; gap: 4px; background: #1e293b; padding: 6px; border-radius: 10px; flex-shrink: 0; padding-bottom: max(6px, env(safe-area-inset-bottom)); z-index: 10; }
+.hand-and-controls { display: flex; flex-direction: column; gap: 4px; background: #1c2541; padding: 6px; border-radius: 10px; flex-shrink: 0; z-index: 10; }
 .card-container { display: flex; justify-content: center; flex-wrap: nowrap; overflow-x: auto; padding: 2px 0; height: 110px; align-items: flex-end; }
-.card { width: 60px; height: 88px; background-size: cover; background-position: center; border-radius: 6px; cursor: pointer; user-select: none; box-shadow: -2px 2px 4px rgba(0,0,0,0.4); transition: transform 0.1s ease, box-shadow 0.1s ease; flex-shrink: 0; margin-right: -28px; position: relative; }
+.card { width: 58px; height: 85px; background-size: cover; background-position: center; border-radius: 6px; cursor: pointer; user-select: none; box-shadow: -2px 2px 4px rgba(0,0,0,0.4); transition: transform 0.1s ease; flex-shrink: 0; margin-right: -28px; position: relative; }
 .card:last-child { margin-right: 0; }
-.card.first-turn-highlight { box-shadow: 0 0 8px #eab308 !important; filter: drop-shadow(0 0 5px #eab308); }
-.card.selected { transform: translate(-15px, -20px) !important; box-shadow: 0 8px 15px rgba(59, 130, 246, 0.8) !important; border: 2px solid #3b82f6; position: relative; }
+.card.first-turn-highlight { box-shadow: 0 0 6px #f59e0b !important; }
+.card.selected { transform: translateY(-20px) !important; box-shadow: 0 6px 12px rgba(59, 130, 246, 0.8) !important; border: 2px solid #3b82f6; }
 .card.disabled-card { opacity: 0.4; cursor: not-allowed; box-shadow: none !important; }
-.table-card-img { width: 45px; height: auto; border-radius: 4px; box-shadow: 0 3px 6px rgba(0,0,0,0.5); flex-shrink: 0; user-select: none; }
+.table-card-img { width: 42px; height: auto; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.5); flex-shrink: 0; user-select: none; }
 .controls { display: flex; gap: 6px; }
 .controls button { margin-top: 0; padding: 7px; font-size: 13px; border-radius: 6px; height: 36px; display: flex; justify-content: center; align-items: center; }
-.bubble-msg { position: absolute; top: -22px; left: 50%; transform: translateX(-50%); background: #ef4444; color: white; padding: 2px 6px; border-radius: 5px; font-size: 10px; font-weight: bold; white-space: nowrap; z-index: 99; box-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+.bubble-msg { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); background: #ef4444; color: white; padding: 1px 5px; border-radius: 4px; font-size: 9px; font-weight: bold; white-space: nowrap; z-index: 99; }
 #resultArea { display: none; text-align: center; overflow-y: auto; max-height: 90vh; }
-.result-player { background: #334155; padding: 10px; border-radius: 10px; margin-top: 10px; text-align: left; }
+.result-player { background: #1c2541; padding: 10px; border-radius: 10px; margin-top: 10px; text-align: left; }
 .result-cards { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; align-items: center; min-height: 40px; }
 .animate-play-card { animation: popInCard 0.2s ease-out forwards; }
-@keyframes popInCard { 0% { opacity: 0; transform: scale(0.5) translateY(30px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+@keyframes popInCard { 0% { opacity: 0; transform: scale(0.6); } 100% { opacity: 1; transform: scale(1); } }
 .mic-btn { background: #f59e0b; color: black; font-size: 11px; padding: 2px 8px; width: auto; height: 24px; margin-top: 0; display: inline-flex; align-items: center; gap: 4px; border-radius: 6px; }
 .mic-btn.muted { background: #ef4444; color: white; }
 </style>
@@ -147,7 +144,7 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
                 <button class="btn-green" onclick="joinRoom()">🚪 ចូលរួមបន្ទប់</button>
             </div>
         </div>
-        <hr style="margin-top: 20px; border-color: #334155;">
+        <hr style="margin-top: 20px; border-color: #3a506b;">
         <h3 style="margin-top: 15px;">🏰 បញ្ជីបន្ទប់កំពុងរង់ចាំ៖</h3>
         <div id="roomList"></div>
     </div>
@@ -362,11 +359,9 @@ function renderPlayers(players) {
     const div = document.getElementById('players'), lobby = document.getElementById('lobbyPlayers');
     div.innerHTML = ''; lobby.innerHTML = '';
     
-    // ស្វែងរក Index របស់ខ្លួនយើងក្នុងលំដាប់តារាង
     const myIndexInRoom = players.findIndex(p => p.id === myId);
     
     players.forEach((p, index) => {
-        // គណនាទីតាំងឱ្យអង្គុយរលូនតាមទិស (ខ្លួនឯងនៅក្រោមជានិច្ច)
         let relativePos = 0;
         if (myIndexInRoom !== -1) {
             relativePos = (index - myIndexInRoom + players.length) % players.length;
