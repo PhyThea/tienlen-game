@@ -188,18 +188,27 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
     box-shadow: 0 4px 8px rgba(0,0,0,0.5);
 }
 
-/* 📱 🛠️ លក្ខខណ្ឌពិសេសពេលទូរស័ព្ទស្ថិតក្នុងទម្រង់ Landscape (ដេក) ឱ្យបៀរធំទូលាយច្បាស់ល្អ */
+/* 📱 🛠️ លក្ខខណ្ឌពិសេសពេលទូរស័ព្ទស្ថិតក្នុងទម្រង់ Landscape (ដេក) */
 @media screen and (max-width: 932px) {
     body.in-game .card-container {
-        width: 85% !important; /* ឱ្យរាលពេញទទឹងអេក្រង់ទូរស័ព្ទ */
+        width: 85% !important; 
     }
     body.in-game .card {
-        width: 72px !important;  /* ពង្រីកទទឹងសន្លឹកបៀរឱ្យធំច្បាស់ល្មមនឹងភ្នែក */
-        height: 105px !important; /* ពង្រីកកម្ពស់សន្លឹកបៀរ */
-        margin-right: -24px !important; /* រក្សាគម្លាតឱ្យឃើញលេខ និងរូបសញ្ញាបៀរបានច្បាស់ល្អមិនបាំង */
+        width: 58px !important;   /* 💡 បន្ថយទទឹងបៀរបន្តិច (ពី 72px មក 58px) */
+        height: 85px !important;  /* 💡 បន្ថយកម្ពស់បៀរបន្តិច (ពី 105px មក 85px) ដើម្បីកុំឱ្យបាំងបាតទូរស័ព្ទ */
+        margin-right: -22px !important; /* គម្លាតជិះលើគ្នាសមល្មមមើលលេខច្បាស់ */
     }
     body.in-game .hand-and-controls {
-        height: 160px !important; /* បង្កើនកម្ពស់តំបន់កាន់បៀរ */
+        height: 125px !important; /* 💡 បន្ថយកម្ពស់តំបន់កាន់បៀរ ដើម្បីសល់កន្លែងទំនេរច្រើន */
+    }
+    body.in-game .controls {
+        top: -45px !important;    /* 💡 លើកប៊ូតុងទាំងពីរ (Play/Pass) ឱ្យខិតឡើងលើផុតពីក្បាលបៀរ */
+        padding: 0 5px !important; /* បន្ថយគម្លាតសងខាងឱ្យសល់កន្លែងសម្រាប់ប៊ូតុង */
+    }
+    body.in-game .controls button {
+        height: 38px !important;  /* 💡 បង្រួមកម្ពស់ប៊ូតុងឱ្យស្អាតសមរម្យ */
+        width: 95px !important;   /* 💡 កាត់បន្ថយទទឹងប៊ូតុងមកត្រឹម 95px ដើម្បីកុំឱ្យវាជាន់គ្នាលើអេក្រង់តូច */
+        font-size: 11px !important; /* បន្ថយទំហំអក្សរបន្តិចដើម្បីឱ្យសមនឹងទំហំប៊ូតុង */
     }
 }
 
@@ -389,7 +398,8 @@ socket.on('gameStarted', ({ players, currentTurnIndex: turn, lastRoundWinnerId: 
     document.getElementById('resultArea').style.display = 'none';
     document.getElementById('gameArea').style.display = 'block';
     document.getElementById('table').innerHTML = '<div style="color: #a7f3d0; font-size:12px;">ចាប់ផ្ដើមហ្គេម!</div>';
-    if (playersData[currentTurnIndex]) document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
+    const activePlayer = playersData[turn];
+    if (activePlayer) document.getElementById('status').innerHTML = `🎯 វេន៖ ${activePlayer.name}`;
     document.getElementById('actionControls').style.display = amISpectator ? 'none' : 'flex';
     renderPlayers(players); updateControlsState(); setTimeout(() => { renderMyCards(); }, 50);
 });
@@ -494,7 +504,10 @@ function renderMyCards() {
     }
 
     myHand.forEach((card, index) => {
-        const el = document.createElement('div'); el.className = 'card'; el.style.backgroundImage = `url('${getCardFileName(card)}')`; el.style.zIndex = index + 1;
+        const el = document.createElement('div'); el.className = 'card'; el.style.backgroundImage = `url('${getCardFileName(card)}')`; 
+        
+        // 💡 កែសម្រួលលំដាប់ Z-Index ឱ្យមានរបៀបរៀបរយ (បៀរដំបូងៗនៅពីលើ ដើម្បីកុំឱ្យបាំងលេខទំហំបៀរ)
+        el.style.zIndex = index + 1; 
         
         if (!myTurn) {
             el.classList.add('disabled-card'); 
@@ -506,7 +519,8 @@ function renderMyCards() {
         
         if (isSelected && myTurn) { 
             el.classList.add('selected'); 
-            el.style.zIndex = 200 + index;
+            // 💡 ពេលចុចលើបៀរឱ្យហោះឡើងលើ (Selected) គឺឱ្យវាឡើងទៅលើគេបង្អស់ដាច់ខាត (Z-Index ខ្ពស់ជាងគេ)
+            el.style.zIndex = 500 + index; 
         }
         
         el.onclick = () => { 
@@ -534,7 +548,8 @@ function passTurn() { if (isMyTurn()) socket.emit('passTurn', currentRoom); }
 
 socket.on('turnChanged', ({ currentTurnIndex: turn, players }) => {
     currentTurnIndex = turn; if (players) playersData = players;
-    if (playersData[currentTurnIndex]) document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
+    const activePlayer = playersData.find((p, idx) => idx === turn);
+    if (activePlayer) document.getElementById('status').innerHTML = `🎯 វេន៖ ${activePlayer.name}`;
     renderPlayers(playersData); updateControlsState(); renderMyCards();
 });
 
@@ -542,7 +557,8 @@ socket.on('cardPlayed', ({ by, cards, nextTurn, cardCount, updatedHands }) => {
     currentTurnIndex = nextTurn; playersData = updatedHands;
     const me = updatedHands.find(p => p.id === myId); if (me && me.hand) myHand = me.hand;
     renderPlayers(updatedHands);
-    if (playersData[currentTurnIndex]) document.getElementById('status').innerHTML = `🎯 វេន៖ ${playersData[currentTurnIndex].name}`;
+    const activePlayer = updatedHands[nextTurn];
+    if (activePlayer) document.getElementById('status').innerHTML = `🎯 វេន៖ ${activePlayer.name}`;
     const tableDiv = document.getElementById('table'); tableDiv.innerHTML = '';
     if (cards && cards.length > 0) {
         cards.forEach((card, index) => {
