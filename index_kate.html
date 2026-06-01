@@ -119,13 +119,14 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
     pointer-events: auto;
     box-shadow: 0 4px 6px rgba(0,0,0,0.4);
 }
-/* កំណត់កូអរដោនេសម្រាប់ ៦ នាក់ឱ្យដើរជាវង់ */
+
+/* កំណត់កូអរដោនេសម្រាប់ ៦ នាក់ឱ្យដើរជាវង់ (កែសម្រួលទីតាំង ២, ៣, ៤, ៥ ឡើងលើ) */
 .player-pos-0 { bottom: 2px; left: 50%; transform: translateX(-50%); } 
-.player-pos-1 { left: 2px; top: 65%; transform: translateY(-50%); } 
-.player-pos-2 { left: 2px; top: 35%; transform: translateY(-50%); }  
+.player-pos-1 { left: 2px; top: 60%; transform: translateY(-50%); } 
+.player-pos-2 { left: 35px; top: 12%; transform: translateY(-50%); }  /* 🎯 លេខ ៣ ចាស់ រំកិលទៅជ្រុងលើឆ្វេងដែលបានគូសរង្វង់ */
 .player-pos-3 { top: 2px; left: 50%; transform: translateX(-50%); } 
-.player-pos-4 { right: 2px; top: 35%; transform: translateY(-50%); } 
-.player-pos-5 { right: 2px; top: 65%; transform: translateY(-50%); } 
+.player-pos-4 { right: 35px; top: 12%; transform: translateY(-50%); } /* 🎯 លេខ ៥ ចាស់ រំកិលទៅជ្រុងលើស្តាំដែលបានគូសរង្វង់ */
+.player-pos-5 { right: 2px; top: 60%; transform: translateY(-50%); } 
 
 .player.active-turn { border: 2px solid #22c55e !important; box-shadow: 0 0 8px rgba(34, 197, 94, 0.7) !important; }
 .player-dead { background: #2d1717 !important; opacity: 0.5; border: 1.5px solid #ef4444 !important; }
@@ -173,6 +174,19 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
     align-items: center; 
     pointer-events: auto; 
     box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+}
+
+/* ស្ទីលរចនាប្រអប់បង្ហាញឈ្មោះអ្នកលេងក្នុង Lobby ឱ្យដូចទៀនឡេន */
+.player-lobby { 
+    background: #3a506b; 
+    padding: 10px 15px; 
+    border-radius: 8px; 
+    font-weight: bold; 
+    font-size: 14px; 
+    border: 1px solid #4f6d7a;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    display: inline-block;
+    margin: 5px;
 }
 
 .mic-btn { background: #f59e0b; color: black; font-size: 11px; padding: 2px 8px; width: auto; height: 24px; margin-top: 0; display: inline-flex; align-items: center; gap: 4px; border-radius: 6px; }
@@ -250,7 +264,6 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
             </div>
         </div>
         
-        <!-- 👑 ទម្រង់តុពងក្រពើពណ៌បៃតងចំកណ្ដាលបែប ទៀនឡេន -->
         <div class="main-stage">
             <div class="poker-table">
                 <div class="table-area" id="table">
@@ -263,7 +276,6 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
             <div id="players"></div>
         </div>
 
-        <!-- 🃏 កាតក្នុងដៃ និងប៊ូតុងបញ្ជាអណ្ដែតចំហៀងសងខាងបែប ទៀនឡេន -->
         <div class="hand-and-controls">
             <div class="card-container" id="myCards"></div>
             <div class="controls" id="actionControls">
@@ -328,28 +340,24 @@ function getPlayerName() {
     localStorage.setItem('tienlen_name', name); return name;
 }
 
-// ១. ស្វែងរក និងកែសម្រួលអនុគមន៍ createRoom() ក្នុង index_kate.html
 function createRoom() {
     const playerName = getPlayerName(); if (!playerName) return;
     const roomId = document.getElementById('roomInput').value.trim();
     const password = document.getElementById('roomPass').value;
     if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!");
     
-    // 👇 ថែម ២ បន្ទាត់នេះចូល៖
     localStorage.setItem('last_kt_room_id', roomId);
     localStorage.setItem('player_name', playerName);
 
     socket.emit('kt_createRoom', { roomId, password, playerName });
 }
 
-// ២. ស្វែងរក និងកែសម្រួលអនុគមន៍ joinRoom() ក្នុង index_kate.html
 function joinRoom() {
     const playerName = getPlayerName(); if (!playerName) return;
     const roomId = document.getElementById('roomInput').value.trim();
     const password = document.getElementById('roomPass').value;
     if (!roomId) return alert("សូមបញ្ចូលលេខបន្ទប់!");
     
-    // 👇 ថែម ២ បន្ទាត់នេះចូល៖
     localStorage.setItem('last_kt_room_id', roomId);
     localStorage.setItem('player_name', playerName);
 
@@ -450,11 +458,9 @@ function renderPlayers(players) {
     const div = document.getElementById('players'), lobby = document.getElementById('lobbyPlayers');
     div.innerHTML = ''; lobby.innerHTML = '';
     
-    // 🎯 ស្វែងរកលេខរៀង index របស់ខ្លួនយើងនៅក្នុងបន្ទប់
     const myIndexInRoom = players.findIndex(p => p.id === myId);
     
     players.forEach((p, index) => {
-        // គណនាទីតាំងរត់ជាវង់ជុំវិញតុ (Relative Position 0 ដល់ 5)
         let relativePos = 0;
         if (myIndexInRoom !== -1) {
             relativePos = (index - myIndexInRoom + players.length) % players.length;
@@ -463,7 +469,6 @@ function renderPlayers(players) {
         }
 
         const el = document.createElement('div'); 
-        // ប្រើប្រាស់ Class ទីតាំងតាមទិសដៅជុំវិញតុពងក្រពើ
         el.className = `player player-pos-${relativePos}`; 
         
         if (currentTurnIndex === index && !p.isSpectator && !p.isTiv) el.classList.add('active-turn');
@@ -491,7 +496,8 @@ function renderPlayers(players) {
         el.innerHTML = `${turnBadge}<strong>👤 ${p.name.substring(0,5)}</strong><br>${roleText}`;
         div.appendChild(el);
 
-        const el2 = document.createElement('div'); el2.className = 'player'; el2.style.marginBottom = '10px';
+        const el2 = document.createElement('div'); 
+        el2.className = 'player-lobby'; 
         let lobbyStatus = p.isSpectator ? ' <span style="color:#ef4444;">(លង់/អ្នកមើល)</span>' : (p.isTiv ? ' <span style="color:#f87171;">(ទីវហើយ)</span>' : '');
         el2.innerHTML = `👤 ${p.name} ${p.id === myId ? '(ខ្ញុំ)' : ''}${lobbyStatus}`; 
         lobby.appendChild(el2);
@@ -575,7 +581,6 @@ socket.on('moveRecorded', (data) => {
 
         const box = document.createElement('div'); box.className = 'player-card-box';
         
-        // 🚨 កែសម្រួល៖ ជុំទី៥ និងជុំទី៦ មិនផ្កាប់បៀរពណ៌ក្រហមទេ គឺផ្ងារបង្ហាញរូបបៀរលើតុទាំងអស់ដើម្បីឱ្យដឹងថាបៀអ្វី
         const isFoldedMove = (m.action === 'ធីបហើយ'); 
 
         if (isFoldedMove) {
@@ -692,7 +697,6 @@ socket.on('gameWon', (data) => {
 function leaveRoom() { 
     if (confirm("តើអ្នកចង់ចាកចេញមែនទេ?")) { 
         closeAllVoiceConnections(); 
-        // បញ្ជាឱ្យ Browser រត់ទៅកាន់ទំព័រដើមភ្លាមៗ
         location.href = "/"; 
     } 
 }
