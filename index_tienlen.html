@@ -110,16 +110,61 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 .turn-badge { position: absolute; top: -9px; left: 50%; transform: translateX(-50%); background: #22c55e; color: white; font-size: 8px; font-weight: bold; padding: 0px 5px; border-radius: 10px; white-space: nowrap; }
 .card-counter { background: #1c2541; border-radius: 3px; padding: 0px 4px; font-weight: bold; font-size: 9px; color: #f59e0b; border: 1px solid #3a506b; display: inline-block; margin-top: 1px; }
 
-.hand-and-controls { display: flex; flex-direction: column; gap: 4px; background: #1c2541; padding: 6px; border-radius: 10px; flex-shrink: 0; z-index: 10; }
-.card-container { display: flex; justify-content: center; flex-wrap: nowrap; overflow-x: auto; padding: 2px 0; height: 110px; align-items: flex-end; }
+/* 🕹️ ការរៀបចំទីតាំងផ្ទាំងបៀរ និងប៊ូតុងបញ្ជាសងខាងការពារកុំឱ្យបាំងគ្នា */
+.hand-and-controls { 
+    display: flex; 
+    position: relative;
+    width: 100%;
+    height: 110px; 
+    background: transparent; 
+    flex-shrink: 0; 
+    z-index: 10; 
+    align-items: flex-end;
+    justify-content: center;
+}
+.card-container { 
+    display: flex; 
+    justify-content: center; 
+    flex-wrap: nowrap; 
+    overflow-x: auto; 
+    padding: 2px 0; 
+    height: 110px; 
+    width: 60%; /* ទុកផ្ទៃកណ្ដាលសម្រាប់សន្លឹកបៀរ */
+    align-items: flex-end; 
+}
 .card { width: 58px; height: 85px; background-size: cover; background-position: center; border-radius: 6px; cursor: pointer; user-select: none; box-shadow: -2px 2px 4px rgba(0,0,0,0.4); transition: transform 0.1s ease; flex-shrink: 0; margin-right: -28px; position: relative; }
 .card:last-child { margin-right: 0; }
 .card.first-turn-highlight { box-shadow: 0 0 6px #f59e0b !important; }
 .card.selected { transform: translateY(-20px) !important; box-shadow: 0 6px 12px rgba(59, 130, 246, 0.8) !important; border: 2px solid #3b82f6; }
 .card.disabled-card { opacity: 0.4; cursor: not-allowed; box-shadow: none !important; }
 .table-card-img { width: 42px; height: auto; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.5); flex-shrink: 0; user-select: none; }
-.controls { display: flex; gap: 6px; }
-.controls button { margin-top: 0; padding: 7px; font-size: 13px; border-radius: 6px; height: 36px; display: flex; justify-content: center; align-items: center; }
+
+/* 👑 បង្ខំប៊ូតុងរត់ទៅនៅសងខាងឆ្វេង-ស្ដាំដាច់ (កន្លែងរង្វង់មូល) */
+.controls { 
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    transform: translateY(-50%);
+    display: flex; 
+    justify-content: space-between;
+    pointer-events: none; /* ទុកឱ្យចុចបៀរឆ្លងកាត់បាន */
+    padding: 0 15px;
+}
+.controls button { 
+    margin-top: 0; 
+    padding: 0 15px;
+    font-size: 13px; 
+    border-radius: 8px; 
+    height: 44px; 
+    width: 120px; /* កំណត់ទំហំប៊ូតុងឱ្យល្មមស្អាត */
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    pointer-events: auto; /* បើកឱ្យចុចលើប៊ូតុងបានធម្មតា */
+    box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+}
+
 .bubble-msg { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); background: #ef4444; color: white; padding: 1px 5px; border-radius: 4px; font-size: 9px; font-weight: bold; white-space: nowrap; z-index: 99; }
 #resultArea { display: none; text-align: center; overflow-y: auto; max-height: 90vh; }
 .result-player { background: #1c2541; padding: 10px; border-radius: 10px; margin-top: 10px; text-align: left; }
