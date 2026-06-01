@@ -153,7 +153,12 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 }
 .card:last-child { margin-right: 0; }
 .card.first-turn-highlight { box-shadow: 0 0 6px #f59e0b !important; }
-.card.selected { transform: translateY(-20px) !important; box-shadow: 0 6px 12px rgba(59, 130, 246, 0.8) !important; border: 2px solid #3b82f6; }
+.card.selected { 
+    /* 💡 កែប្រែ៖ ឱ្យហោះឡើងលើ (-24px) រំកិលទៅឆ្វេង (-12px) និងបង្វិលផ្អៀងទៅឆ្វេងបន្តិច (-3deg) */
+    transform: translateY(-25px) translateX(-25px) rotate(-3deg) !important; 
+    box-shadow: 0 6px 12px rgba(59, 130, 246, 0.8) !important; 
+    border: 2px solid #3b82f6; 
+}
 .card.disabled-card { 
     opacity: 0.95;            
     cursor: not-allowed; 
@@ -194,9 +199,12 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
         width: 85% !important; 
     }
     body.in-game .card {
-        width: 58px !important;   /* 💡 បន្ថយទទឹងបៀរបន្តិច (ពី 72px មក 58px) */
-        height: 85px !important;  /* 💡 បន្ថយកម្ពស់បៀរបន្តិច (ពី 105px មក 85px) ដើម្បីកុំឱ្យបាំងបាតទូរស័ព្ទ */
-        margin-right: -22px !important; /* គម្លាតជិះលើគ្នាសមល្មមមើលលេខច្បាស់ */
+        width: 68px !important;         /* ⬆️ ដំឡើងទទឹងបៀរពី 58px ទៅ 68px */
+        height: 100px !important;       /* ⬆️ ដំឡើងកម្ពស់បៀរពី 85px ទៅ 100px */
+        margin-right: -26px !important; /* 💡 ពង្រីកគម្លាតជិះលើគ្នាពី -22px ទៅ -26px ដើម្បីឱ្យសមនឹងទំហំបៀរធំ */
+    }
+    body.in-game .hand-and-controls {
+        height: 140px !important;       /* ⬆️ ដំឡើងកម្ពស់តំបន់កាន់បៀរពី 125px ទៅ 140px ដើម្បីកុំឱ្យហៀរបៀរ */
     }
     body.in-game .hand-and-controls {
         height: 125px !important; /* 💡 បន្ថយកម្ពស់តំបន់កាន់បៀរ ដើម្បីសល់កន្លែងទំនេរច្រើន */
