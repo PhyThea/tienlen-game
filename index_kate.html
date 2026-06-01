@@ -34,8 +34,8 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
     flex: 1;
     width: 100%;
     min-height: 240px;
-    margin: 5px 0;
-    z-index: 1; /* 🎯 កំណត់ឱ្យតុស្ថិតនៅជួរក្រោម */
+    margin: 5px 0 5px 0; 
+    z-index: 1; 
 }
 
 .poker-table {
@@ -122,7 +122,7 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 }
 
 /* កំណត់កូអរដោនេសម្រាប់ ៦ នាក់ឱ្យដើរជាវង់ (កែសម្រួលទីតាំង ២, ៣, ៤, ៥ ឡើងលើ) */
-.player-pos-0 { bottom: 2px; left: 50%; transform: translateX(-50%); } 
+.player-pos-0 { bottom: 15px; left: 50%; transform: translateX(-50%); z-index: 6; } /* 🎯 រុញអ្នកលេងលេខ ២ ឡើងលើបន្តិចដើម្បីកុំឱ្យប្រអប់ឈ្មោះធ្លាក់មកបាំងកាត */
 .player-pos-1 { left: 2px; top: 60%; transform: translateY(-50%); } 
 .player-pos-2 { left: 35px; top: 12%; transform: translateY(-50%); }  
 .player-pos-3 { top: 2px; left: 50%; transform: translateX(-50%); } 
@@ -139,30 +139,30 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
     display: flex; 
     position: relative;
     width: 100%;
-    height: 140px;
+    height: 150px; 
     background: transparent; 
     flex-shrink: 0; 
-    z-index: 99; /* 🎯 ដំឡើង z-index ឱ្យខ្ពស់ជាងគេដើម្បីកុំឱ្យផ្ទៃតុបាំងបៀរក្នុងដៃ */
+    z-index: 999; /* 🎯 ធានាដំឡើង z-index ឱ្យខ្ពស់ដាច់ពីផ្ទៃតុ និងប្រអប់ឈ្មោះអ្នកលេងលើ Computer */
     align-items: center;    
     justify-content: center;
-    margin-bottom: 15px;    
+    margin-bottom: 5px;    
 }
-.card-container { display: flex; justify-content: center; flex-wrap: nowrap; overflow-x: auto; padding: 2px 0; height: 110px; width: 80%; align-items: flex-end; }
-.card { width: 65px; height: 95px; background-size: cover; background-position: center; border-radius: 6px; cursor: pointer; user-select: none; box-shadow: -2px 2px 4px rgba(0,0,0,0.4); flex-shrink: 0; margin-right: -25px; transition: transform 0.1s; }
+.card-container { display: flex; justify-content: center; flex-wrap: nowrap; overflow-x: visible; overflow-y: visible; padding: 2px 0; height: 120px; width: 80%; align-items: flex-end; }
+.card { width: 65px; height: 95px; background-size: cover; background-position: center; border-radius: 6px; cursor: pointer; user-select: none; box-shadow: -2px 2px 4px rgba(0,0,0,0.4); flex-shrink: 0; margin-right: -25px; transition: transform 0.1s; position: relative; z-index: 10; }
 .card:last-child { margin-right: 0; }
-.card.selected { transform: translateY(-20px) !important; border: 2px solid #3b82f6; box-shadow: 0 5px 10px rgba(59, 130, 246, 0.6) !important; z-index: 999 !important; }
+.card.selected { transform: translateY(-25px) !important; border: 2px solid #3b82f6; box-shadow: 0 6px 12px rgba(59, 130, 246, 0.6) !important; z-index: 9999 !important; } /* 🎯 ធានាឱ្យបៀរ select អណ្ដែតឡើងលើគេបង្អស់ជានិច្ច */
 
 /* 🎛️ ប៊ូតុងបញ្ជាអណ្ដែតពីលើកាត (ទម្រង់ដូច ទៀនឡេន) */
 .controls { 
     position: absolute;
-    top: -25px; 
+    top: -32px; 
     left: 0;
     width: 100%;
     display: flex; 
     justify-content: space-between;
     pointer-events: none; 
     padding: 0 20px;
-    z-index: 100;
+    z-index: 1000;
 }
 .controls button { 
     margin-top: 0; 
@@ -216,9 +216,10 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 /* 📱 លក្ខខណ្ឌពិសេសពេលទូរស័ព្ទស្ថិតក្នុងទម្រង់ Landscape (ដេក) */
 @media screen and (max-width: 932px) {
     body.in-game .card { width: 55px !important; height: 80px !important; margin-right: -25px !important; }
-    body.in-game .hand-and-controls { height: 80px !important; margin-bottom: 5px !important; z-index: 99 !important; }
+    body.in-game .hand-and-controls { height: 85px !important; margin-bottom: 5px !important; z-index: 999 !important; }
     body.in-game .controls { top: -35px !important; padding: 0 5px !important; }
     body.in-game .controls button { height: 34px !important; width: 110px !important; font-size: 11px !important; }
+    body.in-game .player-pos-0 { bottom: 2px !important; } /* រក្សាទីតាំងចាស់លើទូរស័ព្ទដដែល */
 }
 </style>
 </head>
