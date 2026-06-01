@@ -110,16 +110,16 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 .turn-badge { position: absolute; top: -9px; left: 50%; transform: translateX(-50%); background: #22c55e; color: white; font-size: 8px; font-weight: bold; padding: 0px 5px; border-radius: 10px; white-space: nowrap; }
 .card-counter { background: #1c2541; border-radius: 3px; padding: 0px 4px; font-weight: bold; font-size: 9px; color: #f59e0b; border: 1px solid #3a506b; display: inline-block; margin-top: 1px; }
 
-/* 🕹️ ការរៀបចំទីតាំងផ្ទាំងបៀរ និងប៊ូតុងបញ្ជាសងខាងការពារកុំឱ្យបាំងគ្នា */
+/* 🔄 កែប្រែផ្ទាំងផ្ទុកធំ ដើម្បីបើកផ្លូវឱ្យប៊ូតុងអណ្ដែតឡើងលើបានខ្ពស់ */
 .hand-and-controls { 
     display: flex; 
     position: relative;
     width: 100%;
-    height: 110px; 
+    height: 140px;          /* 🔄 បង្កើនពី 110px ទៅ 140px ដើម្បីឱ្យមានលំហរខាងលើ */
     background: transparent; 
     flex-shrink: 0; 
     z-index: 10; 
-    align-items: flex-end;
+    align-items: center;    /* 🔄 ដូរពី flex-end មក center ដើម្បីកុំឱ្យវាបង្ខំទាញប៊ូតុងចុះក្រោម */
     justify-content: center;
 }
 .card-container { 
@@ -139,10 +139,10 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 .card.disabled-card { opacity: 0.4; cursor: not-allowed; box-shadow: none !important; }
 .table-card-img { width: 42px; height: auto; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.5); flex-shrink: 0; user-select: none; }
 
-/* 👑 បង្ខំប៊ូតុងរត់ទៅនៅសងខាងឆ្វេង-ស្ដាំដាច់ (កន្លែងរង្វង់មូល) */
+/* 👑 រក្សាប៊ូតុងនៅសងខាងឆ្វេង-ស្ដាំដដែល ប៉ុន្តែលើកឱ្យខ្ពស់ផុតពីក្បាលបៀរ */
 .controls { 
     position: absolute;
-    top: -50px; /* 🔄 លើកឡើងលើឱ្យខ្ពស់ជាងមុនដើម្បីកុំឱ្យបាំងសន្លឹកបៀរខាងដើម */
+    top: -50px;            /* លើកឡើងលើផុតពីក្បាលបៀរយ៉ាងស្អាត */
     left: 0;
     width: 100%;
     transform: none; 
