@@ -1,5 +1,5 @@
 // =================================================================
-// server_tienlen.js (ច្បាប់លេង ទៀនឡេន ពេញលេញ - មិនឱ្យបាត់មុខងារ)
+// server_tienlen.js (ច្បាប់កែសម្រួល៖ ៣គូមិនកាត់ហាយ, រៀងប៉ូលីសស៊ីរៀងធម្មតាបាន)
 // =================================================================
 
 const CARD_ORDER = ['3','4','5','6','7','8','9','10','J','Q','K','A','2'];
@@ -69,13 +69,13 @@ function getComboType(cards) {
     if (sameValue) {
         if (len === 2) return 'pair';
         if (len === 3) return 'triple'; 
-        if (len === 4) return 'bomb';   
+        if (len === 4) return 'bomb';   // ការ៉េ (ប៊ុម)
     }
 
     if (isConsecutivePairs(cards)) {
         if (len === 4) return 'double_pair'; 
-        if (len === 6) return 'triple_pair'; 
-        if (len === 8) return 'quad_pair';   
+        if (len === 6) return 'triple_pair'; // ៣ គូរៀប
+        if (len === 8) return 'quad_pair';   // ៤ គូរៀប
         return 'consec_pairs';
     }
 
@@ -85,11 +85,10 @@ function getComboType(cards) {
         if (sorted[i].value === '2' || sorted[i-1].value === '2') isStr = false; 
     }
 
-    // 🚨 កែសម្រួល៖ ឲ្យប្រព័ន្ធស្គាល់ថា 'straight_flush' (រៀងប៉ូលីស) ក៏ជា 'straight' (រៀង) មួយប្រភេទដែរ
     if (isStr && len >= 3) {
         const sameSuit = cards.every(c => c.suit === cards[0].suit);
-        if (sameSuit) return 'straight_flush'; 
-        return 'straight'; 
+        if (sameSuit) return 'straight_flush'; // រៀងប៉ូលីស
+        return 'straight'; // រៀងធម្មតា
     }
 
     return null;
@@ -100,7 +99,6 @@ function checkInstantWin(hand) {
     if (!hand || hand.length !== 13) return null;
     const sorted = sortCards([...hand]);
 
-    // ១. ករណីខ្សែនាគ (Straight ១៣ សន្លឹកពីលេខ ៣ ដល់ អាត់)
     let isDragonStraight = true;
     for (let i = 0; i < 12; i++) {
         if (CARD_ORDER.indexOf(sorted[i+1].value) !== CARD_ORDER.indexOf(sorted[i].value) + 1) {
@@ -110,12 +108,10 @@ function checkInstantWin(hand) {
     }
     if (isDragonStraight) return "បៀមួយទឹកខ្សែនាគ (ស៊ុយដាច់)!";
 
-    // ២. ករណីបៀសន្លឹកពណ៌ដូចគ្នាទាំងអស់ (ខ្មៅទាំងអស់ ឬ ក្រហមទាំងអស់)
     const isRed = (card) => card.suit === '♦' || card.suit === '♥';
     const isBlack = (card) => card.suit === '♠' || card.suit === '♣';
     if (hand.every(isRed) || hand.every(isBlack)) return "បៀមួយពណ៌ (ស៊ុយដាច់)!";
 
-    // ៣. ករណីបៀមាន ៦ គូ
     let pairCount = 0;
     let i = 0;
     while (i < 12) {
@@ -128,14 +124,13 @@ function checkInstantWin(hand) {
     }
     if (pairCount >= 6) return "បៀមាន ៦ គូ (ស៊ុយដាច់)!";
 
-    // ៤. ករណីបៀមាន អាត់២ ទាំងបួនសន្លឹក (ប៊ុមលេខ ២)
     const twos = hand.filter(c => c.value === '2');
     if (twos.length === 4) return "ប៊ុមលេខ ២ ទាំងបួន (ស៊ុយដាច់)!";
 
     return null;
 }
 
-// ប្រៀបធៀបបៀរដែលចុះថ្មី ជាមួយនឹងបៀរនៅលើតុ (ច្បាប់វាយកាត់បៀរ ២)
+// 👑 ប្រៀបធៀបបៀរវាយកាត់តាមច្បាប់ថ្មី (រួមទាំងច្បាប់រៀងប៉ូលីស)
 function comparePlay(newCards, oldCards) {
     if (!oldCards || oldCards.length === 0) return true;
     
@@ -144,56 +139,67 @@ function comparePlay(newCards, oldCards) {
 
     if (!newType) return false; 
 
-    // 🚨 ជួសជុល៖ បើបៀរនៅលើតុ ឬបៀរចុះថ្មីជា "រៀងប៉ូលីស" (straight_flush) 
-    // គឺយើងចាត់ទុកវាជាប្រភេទ "រៀង" (straight) ដូចគ្នា ដើម្បីអាចឱ្យវាយវាស់កម្លាំងគ្នាបានធម្មតា
-    if (newType === 'straight_flush') newType = 'straight';
-    if (oldType === 'straight_flush') oldType = 'straight';
-
     const sortedNew = sortCards([...newCards]);
     const sortedOld = sortCards([...oldCards]);
 
     const newMax = getCardPower(sortedNew[sortedNew.length - 1]);
     const oldMax = getCardPower(sortedOld[sortedOld.length - 1]);
 
-    // ច្បាប់វាយកាត់បៀរ ២ ទោល (Single 2) -> អាចកាត់បានដោយ ៣គូរៀប, ៤គូរៀប ឬ ប៊ុម (Bomb)
+    // 🚨 ច្បាប់ទី ១៖ ប្រព័ន្ធបៀររៀង (Straight និង Straight Flush)
+    // បើបៀរទាំងពីរជាប្រភេទបៀររៀង (ទោះជា ប៉ូលីស ឬ ធម្មតា) ហើយចំនួនសន្លឹកស្មើគ្នា
+    if ((newType === 'straight' || newType === 'straight_flush') && 
+        (oldType === 'straight' || oldType === 'straight_flush') && 
+        newCards.length === oldCards.length) {
+        
+        // ឱ្យតែសន្លឹកចុងក្រោយបង្អស់មាន កម្លាំង (សន្លឹក+ទឹកបៀរ) ធំជាង គឺអាចស៊ីកាត់បានធម្មតា
+        return newMax > oldMax;
+    }
+
+    // 🚨 ច្បាប់ទី ២៖ ហាយទោល (Single 2)
     if (oldType === 'single' && oldCards[0].value === '2') {
-        if (newType === 'triple_pair' || newType === 'quad_pair' || newType === 'bomb') return true;
+        if (newType === 'bomb' || newType === 'quad_pair') return true;
+        return false;
     }
 
-    // ច្បាប់វាយកាត់បៀរគូ ២ (Pair 2) -> អាចកាត់បានដោយ ៤គូរៀប ឬ ប៊ុម (Bomb)
+    // 🚨 ច្បាប់ទី ៣៖ ហាយគូ (Pair 2)
     if (oldType === 'pair' && oldCards[0].value === '2') {
-        if (newType === 'quad_pair' || newType === 'bomb') return true;
+        if (newType === 'bomb' || newType === 'quad_pair') return true;
+        return false;
     }
 
-    // ច្បាប់ប៊ុម (Bomb) កាត់ប៊ុម ឬកាត់គូរៀប
+    // 🚨 ច្បាប់ទី ៤៖ ការ៉េ (Bomb) វាយកាត់ ការ៉េដូចគ្នាដែលតូចជាង
     if (oldType === 'bomb') {
         if (newType === 'bomb' && newMax > oldMax) return true;
-        if (newType === 'quad_pair') return true;
+        if (newType === 'quad_pair') return true; 
+        return false;
     }
 
-    // ៣ គូរៀប កាត់គ្នា ឬត្រូវប៊ុម/៤គូរៀប កាត់
+    // 🚨 ច្បាប់ទី ៥៖ ៣ គូរៀប (triple_pair) កាត់គ្នាវាបានធម្មតា
     if (oldType === 'triple_pair') {
         if (newType === 'triple_pair' && newMax > oldMax) return true;
-        if (newType === 'quad_pair' || newType === 'bomb') return true;
+        if (newType === 'bomb' || newType === 'quad_pair') return true;
+        return false;
     }
 
     // ៤ គូរៀប កាត់ ៤គូរៀប ធំជាង
     if (oldType === 'quad_pair') {
         if (newType === 'quad_pair' && newMax > oldMax) return true;
+        return false;
     }
 
-    // ករណីប្រភេទ Combo ដូចគ្នា (រួមទាំង រៀង ផ្ដួល រៀងប៉ូលីស) និងចំនួនសន្លឹកស្មើគ្នា គឺវាស់កម្លាំងសន្លឹកធំបំផុត
+    // ករណីប្រភេទ Combo ធម្មតាដូចគ្នាផ្សេងទៀត (ដូចជា ចុះសន្លឹកទោល, គូ, ឬបីសន្លឹកដូចគ្នា)
     if (newType === oldType && newCards.length === oldCards.length) {
         return newMax > oldMax;
     }
 
     return false;
 }
+
 module.exports = {
     CARD_ORDER,
     SUIT_ORDER,
     createDeck,
-    shuffleDeck, // 🛠️ ថែមមុខងារនេះចូល ដើម្បីកុំឱ្យហ្គេមកាតេ Crash ពេលចាប់ផ្ដើម
+    shuffleDeck,
     getCardPower,
     sortCards,
     getComboType,
