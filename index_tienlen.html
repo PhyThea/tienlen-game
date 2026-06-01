@@ -120,16 +120,15 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
     z-index: 10; 
     align-items: center;    
     justify-content: center;
-    margin-bottom: 25px;    /* 🔄 ថែមបន្ទាត់នេះ ដើម្បីរុញផ្ទាំងបៀរចុះមកក្រោម ឱ្យផុតពីការកាត់ដាច់គែមអេក្រង់ */
+    margin-bottom: 25px;    
 }
-/* 🔄 កែសម្រួលដើម្បីកុំឱ្យដាច់ក្បាលបៀរពេលវាលៀនឡើងលើ */
 .card-container { 
     display: flex; 
     justify-content: center; 
     flex-wrap: nowrap; 
     overflow-x: auto; 
-    overflow-y: visible; /* 🔄 ថែមបន្ទាត់នេះ ដើម្បីអនុញ្ញាតឱ្យក្បាលបៀរលៀនឡើងលើបាន */
-    padding: 10px 0;      /* 🔄 ថែម padding ខាងលើបន្តិច */
+    overflow-y: visible; 
+    padding: 10px 0;      
     height: 110px; 
     width: 60%; 
     align-items: flex-end; 
@@ -139,20 +138,20 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 .card.first-turn-highlight { box-shadow: 0 0 6px #f59e0b !important; }
 .card.selected { transform: translateY(-20px) !important; box-shadow: 0 6px 12px rgba(59, 130, 246, 0.8) !important; border: 2px solid #3b82f6; }
 .card.disabled-card { 
-    opacity: 0.95;            /* 🔄 បង្កើនឱ្យភ្លឺច្បាស់ស្ទើរតែ ១០០% ទោះអត់ទាន់ដល់វេន */
+    opacity: 0.95;            
     cursor: not-allowed; 
     box-shadow: none !important; 
-    filter: brightness(0.85); /* 💡 ថែមបន្ទាត់នេះ៖ ធ្វើឱ្យងងឹតតែបន្តិចៗ ដើម្បីឱ្យដឹងថាអត់ទាន់ដល់វេន ប៉ុន្តែនៅតែមើលលេខច្បាស់ល្អ */
+    filter: brightness(0.85); 
 }
 .table-card-img { width: 42px; height: auto; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.5); flex-shrink: 0; user-select: none; }
 
 /* 👑 រក្សាប៊ូតុងនៅសងខាងឆ្វេង-ស្ដាំដដែល ប៉ុន្តែលើកឱ្យខ្ពស់ផុតពីក្បាលបៀរ */
 .controls { 
     position: absolute;
-    top: -20px; /* 🔄 កែពី 50% មក -20px ដើម្បីរុញប៊ូតុងឡើងទៅលើផុតពីសន្លឹកបៀរ */
+    top: -20px; 
     left: 0;
     width: 100%;
-    transform: none; /* 🔄 ដក translateY(-50%) ចេញ */
+    transform: none; 
     display: flex; 
     justify-content: space-between;
     pointer-events: none; 
@@ -164,11 +163,11 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
     font-size: 13px; 
     border-radius: 8px; 
     height: 44px; 
-    width: 120px; /* កំណត់ទំហំប៊ូតុងឱ្យល្មមស្អាត */
+    width: 120px; 
     display: flex; 
     justify-content: center; 
     align-items: center; 
-    pointer-events: auto; /* បើកឱ្យចុចលើប៊ូតុងបានធម្មតា */
+    pointer-events: auto; 
     box-shadow: 0 4px 8px rgba(0,0,0,0.5);
 }
 
@@ -232,15 +231,10 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 
         <div class="hand-and-controls">
             <div class="card-container" id="myCards"></div>
-        <div class="controls" id="actionControls">
-            <button id="playBtn" class="btn-green" onclick="playSelectedCards()">🎯 ចុះបៀរ (Play)</button>
-            <button id="passBtn" class="btn-red" onclick="passTurn()">❌ រំលង (Pass)</button>
-        </div>
-
-        <div class="controls" id="actionControls">
-            <button id="passBtn" class="btn-red" onclick="passTurn()">❌ រំលង (Pass)</button>
-            <button id="playBtn" class="btn-green" onclick="playSelectedCards()">🎯 ចុះបៀរ (Play)</button>
-        </div>
+            <div class="controls" id="actionControls">
+                <button id="passBtn" class="btn-red" onclick="passTurn()">❌ រំលង (Pass)</button>
+                <button id="playBtn" class="btn-green" onclick="playSelectedCards()">🎯 ចុះបៀរ (Play)</button>
+            </div>
         </div>
     </div>
 
@@ -395,16 +389,22 @@ function isMyTurn() { return !amISpectator && playersData[currentTurnIndex] && p
 function updateControlsState() {
     const playBtn = document.getElementById('playBtn');
     const passBtn = document.getElementById('passBtn');
+    
     if (playBtn && passBtn) {
         if (isMyTurn()) {
             playBtn.disabled = false;
+            
             const tableDiv = document.getElementById('table');
             const isNewRound = tableDiv && (
                 tableDiv.innerHTML.includes('ចាប់ផ្ដើមហ្គេម!') || 
                 tableDiv.innerHTML.includes('មិនទាន់មានបៀរចុះឡើយ') || 
                 tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត! ជុំថ្មី...')
             );
-            if (isNewRound) passBtn.disabled = true; else passBtn.disabled = false;
+            if (isNewRound) {
+                passBtn.disabled = true; 
+            } else {
+                passBtn.disabled = false;
+            }
         } else {
             playBtn.disabled = true;
             passBtn.disabled = true;
@@ -457,8 +457,6 @@ function renderMyCards() {
         tableDiv.innerHTML.includes('តុត្រូវបានសម្អាត! ជុំថ្មី...')
     );
 
-    // 💡 ប្រសិនបើមិនមែនជាវេនរបស់យើងទេ ត្រូវសម្អាតបៀរដែលធ្លាប់បានជ្រើសរើស (Selected) ចេញទាំងអស់
-    // ដើម្បីកុំឱ្យបៀរអណ្ដែតឡើងលើចោល នាំឱ្យទើសភ្នែកពេលកំពុងចាំវេនគេលេង
     if (!myTurn) {
         selectedCards = [];
     }
@@ -467,20 +465,18 @@ function renderMyCards() {
         const el = document.createElement('div'); el.className = 'card'; el.style.backgroundImage = `url('${getCardFileName(card)}')`; el.style.zIndex = index + 1;
         
         if (!myTurn) {
-            el.classList.add('disabled-card'); // 👈 បន្ថែមថ្នាក់នេះដដែល (ដែលយើងបានកែ CSS ឱ្យភ្លឺច្បាស់រួចហើយ)
+            el.classList.add('disabled-card'); 
         } else if (isNewRound && ((!lastRoundWinnerId && card.value === '3' && card.suit === '♠') || (myId === lastRoundWinnerId))) {
             el.classList.add('first-turn-highlight');
         }
         
         const isSelected = selectedCards.some(c => c.value === card.value && c.suit === card.suit);
         
-        // 🔒 បន្ថែមលក្ខខណ្ឌ && myTurn ដើម្បីធានាថាបៀរអណ្ដែតឡើងលើបាន លុះត្រាតែដល់វេនលេងប៉ុណ្ណោះ
         if (isSelected && myTurn) { 
             el.classList.add('selected'); 
             el.style.zIndex = 200 + index;
         }
         
-        // 🔒 អនុញ្ញាតឱ្យចុចកាតបាន លុះត្រាតែដល់វេនរបស់ខ្លួនប៉ុណ្ណោះ (isMyTurn)
         el.onclick = () => { 
             if (isMyTurn()) { 
                 toggleCard(card); 
