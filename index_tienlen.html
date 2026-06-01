@@ -142,13 +142,13 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 /* 👑 បង្ខំប៊ូតុងរត់ទៅនៅសងខាងឆ្វេង-ស្ដាំដាច់ (កន្លែងរង្វង់មូល) */
 .controls { 
     position: absolute;
-    top: 50%;
+    top: -20px; /* 🔄 កែពី 50% មក -20px ដើម្បីរុញប៊ូតុងឡើងទៅលើផុតពីសន្លឹកបៀរ */
     left: 0;
     width: 100%;
-    transform: translateY(-50%);
+    transform: none; /* 🔄 ដក translateY(-50%) ចេញ */
     display: flex; 
     justify-content: space-between;
-    pointer-events: none; /* ទុកឱ្យចុចបៀរឆ្លងកាត់បាន */
+    pointer-events: none; 
     padding: 0 15px;
 }
 .controls button { 
@@ -225,10 +225,15 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 
         <div class="hand-and-controls">
             <div class="card-container" id="myCards"></div>
-            <div class="controls" id="actionControls">
-                <button id="playBtn" class="btn-green" onclick="playSelectedCards()">🎯 ចុះបៀរ (Play)</button>
-                <button id="passBtn" class="btn-red" onclick="passTurn()">❌ រំលង (Pass)</button>
-            </div>
+        <div class="controls" id="actionControls">
+            <button id="playBtn" class="btn-green" onclick="playSelectedCards()">🎯 ចុះបៀរ (Play)</button>
+            <button id="passBtn" class="btn-red" onclick="passTurn()">❌ រំលង (Pass)</button>
+        </div>
+
+        <div class="controls" id="actionControls">
+            <button id="passBtn" class="btn-red" onclick="passTurn()">❌ រំលង (Pass)</button>
+            <button id="playBtn" class="btn-green" onclick="playSelectedCards()">🎯 ចុះបៀរ (Play)</button>
+        </div>
         </div>
     </div>
 
