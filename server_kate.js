@@ -63,29 +63,38 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
             broadcastRoomLists();
         });
 
-        // ចាប់ផ្ដើមហ្គេម
+        // ចាប់ផ្ដើមហ្គេមកាតេ (កំណែទម្រង់ជួសជុលការទាញ Spectator មកលេងវគ្គថ្មី)
         socket.on('kt_startGame', (roomId) => {
             const room = ktRooms[roomId]; if (!room) return;
             
+            // 🎯 ជួសជុល៖ កំណត់ស្ថានភាពអ្នកលេងឡើងវិញ និងកំណត់ឱ្យអ្នកនៅក្នុងបន្ទប់ទាំងអស់ (មិនលើសពី ៦នាក់) ក្លាយជាអ្នកលេងធម្មតា
             room.players.forEach((p, idx) => {
                 p.isTiv = false;       
                 p.winRounds = 0;       
                 p.hasCat = false;      
                 p.finalWinner = false; 
-                if (idx < 6) p.isSpectator = false; else p.isSpectator = true; 
+                if (idx < 6) {
+                    p.isSpectator = false; // អនុញ្ញាតឱ្យចូលលេង និងទទួលបានបៀរចែកនៅវគ្គថ្មីនេះ
+                } else {
+                    p.isSpectator = true;  // លើសពី ៦ នាក់ទើបបង្ខំឱ្យអង្គុយមើល
+                }
             });
 
+            // 🎯 ទាញយកតែអ្នកលេងដែលត្រូវលេងពិតប្រាកដ (isSpectator === false) បន្ទាប់ពីបានកែប្រែស្ថានភាពខាងលើរួច
             const activePlayers = room.players.filter(p => !p.isSpectator);
             if (activePlayers.length < 2) return socket.emit('errorMsg', 'ត្រូវការអ្នកលេងយ៉ាងតិច ២ នាក់ ទើបអាចលេងបាន!');
 
+            // ក្រឡុកបៀរកាតេ
             const deck = tlModule.shuffleDeck(ktModule.createKateDeck());
             room.status = 'playing'; room.currentRound = 1; room.tableCards = []; room.roundSuit = null; room.finalSuit = null; room.round5WinnerId = null;
             
+            // ចែកបៀរឱ្យបានត្រឹមត្រូវ ៦ សន្លឹកស្មើៗគ្នាសម្រាប់អ្នកលេងសកម្មម្នាក់ៗ
             activePlayers.forEach((p, i) => {
                 p.hand = ktModule.sortKateCards(deck.slice(i * 6, (i + 1) * 6));
                 p.initialHandCopy = [...p.hand]; 
             });
 
+            // បញ្ជូនបៀរទៅឱ្យ Client នីមួយៗ
             room.players.forEach(p => { 
                 if(!p.isSpectator) io.to(p.id).emit('dealCards', { hand: p.hand }); 
             });
