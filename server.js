@@ -215,11 +215,44 @@ function handleTurnAndRoundStatus(room) {
 io.on('connection', (socket) => {
     broadcastRoomLists();
 
-    // បញ្ជូនសញ្ញា Voice Chat (WebRTC Signaling)
+    // =================================================================
+    // ផ្នែក VOICE SIGNAL នៅក្នុង server.js (រក្សាទុក និងកែសម្រួលឱ្យត្រូវស្តង់ដារ)
+    // =================================================================
     socket.on('voice_signal', (data) => {
+        // បញ្ជូនខ្សែសំឡេងទៅកាន់គោលដៅចំៗ ដោយមិនបារម្ភរឿងច្រឡំបន្ទប់ហ្គេម
         io.to(data.target).emit('voice_signal', { sender: socket.id, signal: data.signal });
     });
 
+    // =================================================================
+    // អនុគមន៍ cleanLeave នៅក្នុង server.js (កែសម្រួលកន្លែងដាច់សំឡេង)
+    // =================================================================
+    const cleanLeave = (roomId, type) => {
+        const roomsObj = type === 'tl' ? tlRooms : ktRooms; 
+        const room = roomsObj[roomId]; 
+        if (!room) return;
+
+        const idx = room.players.findIndex(p => p.id === socket.id);
+        if (idx !== -1) {
+            const leavingPlayerId = socket.id; 
+            room.players.splice(idx, 1); 
+            
+            // 🛠️ ជួសជុល៖ ផ្ញើទៅកាន់ Room ឱ្យត្រូវតាមទម្រង់ Prefix (tl_ ឬ kt_) 
+            // ប៉ុន្តែប្រើឈ្មោះ Event "voice_user_left" ឱ្យត្រូវជាមួយ Client
+            io.to(type + '_' + roomId).emit('voice_user_left', leavingPlayerId);
+            
+            if (room.players.length === 0) { 
+                delete roomsObj[roomId]; 
+            } else {
+                if (room.creatorId === leavingPlayerId) room.creatorId = room.players[0].id;
+                if (room.lastWinnerId === leavingPlayerId) { 
+                    const nextP = room.players.find(p => !p.isSpectator); 
+                    room.lastWinnerId = nextP ? nextP.id : null; 
+                }
+                io.to(type + '_' + roomId).emit('updatePlayers', room.players);
+            }
+        }
+        broadcastRoomLists();
+    };
     // --- TIEN LEN EVENTS ---
     socket.on('createRoom', ({ roomId, password, playerName }) => {
         if (tlRooms[roomId]) return socket.emit('errorMsg', 'បន្ទប់នេះមានរួចហើយ!');
