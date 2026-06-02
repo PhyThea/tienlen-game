@@ -391,14 +391,27 @@ socket.on('updatePlayers', (players) => {
 
 function startGame() { socket.emit('kt_startGame', currentRoom); }
 
+
 socket.on('gameStarted', ({ players, currentTurnIndex: turn, currentRound, lastRoundWinnerId: serverWinner }) => {
-    currentTurnIndex = turn; playersData = players; lastRoundWinnerId = serverWinner;
+    currentTurnIndex = turn; 
+    playersData = players; 
+    lastRoundWinnerId = serverWinner;
     selectedCard = null; 
-    document.body.classList.remove('round-over'); document.body.classList.add('in-game');
+
+    // 🎯 បន្ថែមបន្ទាត់នេះ៖ ឱ្យ Client ធ្វើបច្ចុប្បន្នភាពស្ថានភាព Spectator របស់ខ្លួនឯងភ្លាមៗ
+    const me = players.find(p => p.id === myId);
+    if (me) {
+        amISpectator = me.isSpectator;
+    }
+
+    document.body.classList.remove('round-over'); 
+    document.body.classList.add('in-game');
     document.getElementById('lobbyArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'none';
     document.getElementById('gameArea').style.display = 'block';
     document.getElementById('status').innerText = `ជុំទី៖ ${currentRound}`;
+    
+    // បើលែងធ្វើជាអ្នកមើល ត្រូវបង្ហាញប៊ូតុង 'ស៊ីបៀរ / ផ្កាប់បៀរ'
     document.getElementById('actionControls').style.display = amISpectator ? 'none' : 'flex';
     document.getElementById('centerBadges').innerHTML = '';
     document.getElementById('tableCardsRow').innerHTML = `<div style="color: #a7f3d0; font-size: 12px;">ចាប់ផ្ដើមចែកបៀរ!</div>`;
