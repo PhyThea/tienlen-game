@@ -111,6 +111,9 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 .turn-badge { position: absolute; top: -9px; left: 50%; transform: translateX(-50%); background: #22c55e; color: white; font-size: 8px; font-weight: bold; padding: 0px 5px; border-radius: 10px; white-space: nowrap; }
 .card-counter { background: #1c2541; border-radius: 3px; padding: 0px 4px; font-weight: bold; font-size: 9px; color: #f59e0b; border: 1px solid #3a506b; display: inline-block; margin-top: 1px; }
 
+/* ⏳ បន្ថែមស្ទីលបង្ហាញនាទីរាប់ថយក្រោយ */
+.timer-text { font-size: 10px; color: #ef4444; font-weight: bold; margin-top: 2px; display: block; }
+
 .hand-and-controls { 
     display: flex; 
     position: relative;
@@ -320,6 +323,7 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 const socket = io();
 let myId = null, currentRoom = null, isCreator = false, myHand = [], selectedCards = [], currentTurnIndex = 0, playersData = [], amISpectator = false, lastRoundWinnerId = null, micEnabled = true;
 let peers = {}, localStream = null;
+let currentTimerSeconds = 60; // រក្សាទុកតម្លៃវិនាទី
 
 function getCardFileName(card) {
     let valStr = card.value;
@@ -521,15 +525,29 @@ function renderPlayers(players) {
         if (p.passed && count > 0) el.classList.add('player-passed');
         if (!p.isSpectator && p.rank !== null && p.rank > 0) el.classList.add(p.rank === 1 ? 'player-rank-1' : 'player-rank-2');
 
+        let timerHTML = '';
+        if (isCurrentTurn) {
+            timerHTML = `<span class="timer-text" id="tl_timer_disp">⏳ ${currentTimerSeconds}s</span>`;
+        }
+
         let roleText = p.isSpectator ? '<span style="color: #94a3b8;">(អ្នកមើល)</span>' : (p.rank ? `<div style="color: ${p.rank===1?'#eab308':'#3b82f6'}; font-weight: bold; font-size:9px;">${p.rank===1?'👑 លំដាប់ ១':'🥈 លំដាប់ ២'}</div>` : `<div class="card-counter">🃏 សល់៖ ${count}</div>`);
         if (p.passed && !p.isSpectator && count > 0) roleText += '<br><span style="color: #ef4444; font-weight: bold; font-size: 9px;">❌ Pass</span>';
-        el.innerHTML = `${isCurrentTurn ? `<div class="turn-badge">${p.id === myId ? '🟢 ខ្ញុំ' : '🎯 លេង'}</div>` : ''}<strong>👤 ${p.name.substring(0,5)}</strong><br>${roleText}`;
+        el.innerHTML = `${isCurrentTurn ? `<div class="turn-badge">${p.id === myId ? '🟢 ខ្ញុំ' : '🎯 លេង'}</div>` : ''}<strong>👤 ${p.name.substring(0,5)}</strong><br>${roleText}${timerHTML}`;
         div.appendChild(el);
 
         const el2 = document.createElement('div'); el2.className = 'player-lobby'; el2.style.marginBottom = '10px';
         el2.innerHTML = `👤 ${p.name} ${p.id === myId ? '(ខ្ញុំ)' : ''} ${p.isSpectator ? '<span style="color: #ef4444;">(អ្នកមើល)</span>' : ''}`; lobby.appendChild(el2);
     });
 }
+
+// ទទួលសញ្ញា Timer ធ្វើបច្ចុប្បន្នភាពលើកញ្ចក់អេក្រង់ Tien Len
+socket.on('tl_timer_update', ({ seconds, currentTurnIndex: serverTurn }) => {
+    currentTimerSeconds = seconds;
+    const timerDisp = document.getElementById('tl_timer_disp');
+    if (timerDisp && currentTurnIndex === serverTurn) {
+        timerDisp.innerText = `⏳ ${seconds}s`;
+    }
+});
 
 function renderMyCards() {
     const div = document.getElementById('myCards'); div.innerHTML = '';
@@ -590,6 +608,7 @@ socket.on('turnChanged', ({ currentTurnIndex: turn, players }) => {
     currentTurnIndex = turn; if (players) playersData = players;
     const activePlayer = playersData.find((p, idx) => idx === turn);
     if (activePlayer) document.getElementById('status').innerHTML = `🎯 វេន៖ ${activePlayer.name}`;
+    currentTimerSeconds = 60; // reset នាទីជំនួយដំបូង
     renderPlayers(playersData); updateControlsState(); renderMyCards();
 });
 
