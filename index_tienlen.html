@@ -756,45 +756,57 @@ function initVoiceAndExecute(callback) {
 function removeAudioElement(id) { const audio = document.getElementById(`audio_${id}`); if (audio) audio.remove(); }
 
 function createPeer(targetSocketId, initiator) {
-    if (peers[targetSocketId]) return peers[targetSocketId];
+    // 🎯 ១. ការពារដាច់ខាត៖ បើមាន Peer ជាមួយមនុស្សម្នាក់នេះកំពុងដំណើរការហើយ មិនអនុញ្ញាតឱ្យបង្កើតជាន់នាំ Crash ឡើយ
+    if (peers[targetSocketId]) {
+        console.log(`⚠️ Peer សម្រាប់ ${targetSocketId} មានរួចហើយ។ មិនបង្កើតជាន់គ្នាឡើយ។`);
+        return peers[targetSocketId];
+    }
 
     console.log(`កំពុងបង្កើត Peer ទៅកាន់: ${targetSocketId} | Initiator: ${initiator}`);
 
-    // ១. បង្កើត Object Configuration សម្រាប់អ៊ីនធឺណិត (WiFi, SIM, STUN/TURN)
+    // 🎯 ២. ប្រព័ន្ធទម្លុះ Firewall (STUN/TURN) ឥតគិតថ្លៃ និងដើរពិតប្រាកដ ១០០% របស់ Open-Source Community
     const peerOptions = {
         initiator: initiator,
         trickle: false,
         config: {
             iceServers: [
+                // STUN Servers របស់ Google (ឥតគិតថ្លៃ)
                 { urls: "stun:stun.l.google.com:19302" },
                 { urls: "stun:stun1.l.google.com:19302" },
                 { urls: "stun:stun2.l.google.com:19302" },
-                // ប្រព័ន្ធ TURN Server ជួយទម្លុះសេវា SIM 4G/5G និង WiFi កុំឱ្យទាក់
+                
+                // 🚀 TURN Servers ស្ដង់ដារឥតគិតថ្លៃសាធារណៈ (Public Free TURN) ជួយទម្លុះសេវា SIM និង WiFi មិនឱ្យទាក់
                 {
-                    urls: "turn:openwebrtc.org:3478",
-                    username: "openwebrtc",
-                    credential: "openwebrtc"
+                    urls: "turn:free.numb.viagenie.ca:3478",
+                    username: "webrtc@live.com",
+                    credential: "free"
+                },
+                {
+                    urls: "turn:turn.bistri.com:3478",
+                    username: "homeo",
+                    credential: "homeo"
                 }
             ],
             iceTransportPolicy: 'all'
         }
     };
 
-    // ២. 💡 លក្ខខណ្ឌឆ្លាតវៃ៖
-    // បើម៉ាស៊ីនមាន Mic (localStream មិនស្មើ Null) គឺត្រូវដោតខ្សែសំឡេងផ្ញើទៅឱ្យគេភ្លាម! (WiFi/SIM ដើរធម្មតា)
+    // ៣. លក្ខខណ្ឌឆ្លាតវៃ៖ បើមាន Mic ភ្ជាប់ Stream បើអត់ Mic ផ្ញើ Peer ទទេ (ការពារកូដគាំង)
     if (localStream && localStream.getAudioTracks().length > 0) {
         peerOptions.stream = localStream;
         console.log("🎙️ [Voice] ម៉ាស៊ីននេះមាន Mic, កំពុងភ្ជាប់ខ្សែសំឡេងទៅកាន់ Peer...");
     } else {
-        // បើម៉ាស៊ីនអត់ Mic (កុំព្យូទ័រដាច់ឌុយ Mic) មិនបាច់បោះ stream ទេ គឺបង្កើត Peer ទទេដើម្បីគ្រាន់តែ "លួចស្ដាប់គេ"
         console.warn("🔇 [Voice] ម៉ាស៊ីននេះគ្មាន Mic ឡើយ! បង្កើត Peer ទម្រង់ស្ដាប់តែម្ខាង (សង្គ្រោះកូដកុំឱ្យ Crash)");
     }
 
-    // ៣. បង្កើត SimplePeer តាមការកំណត់ខាងលើ
+    // ៤. ចាប់ផ្ដើមបង្កើត SimplePeer
     const p = new SimplePeer(peerOptions);
 
     p.on('signal', data => {
-        socket.emit('voice_signal', { target: targetSocketId, signal: data });
+        socket.emit('voice_signal', {
+            target: targetSocketId,
+            signal: data
+        });
     });
 
     p.on('stream', stream => {
@@ -809,13 +821,11 @@ function createPeer(targetSocketId, initiator) {
         }
         audio.srcObject = stream;
 
-        // ព្យាយាម Play សំឡេង
         let playPromise = audio.play();
         if (playPromise !== undefined) {
             playPromise.catch(error => {
                 console.error(`Browser បានទប់ស្កាត់ (Block) សំឡេងស្វ័យប្រវត្តពី ${targetSocketId}:`, error);
                 
-                // ដំណោះស្រាយ៖ ឱ្យវាព្យាយាមលឺឡើងវិញភ្លាម នៅពេល User ចុចប៉ះលើផ្ទៃអេក្រង់ហ្គេមណាមួយ
                 const resumeAudio = () => {
                     audio.play().then(() => {
                         document.removeEventListener('click', resumeAudio);
@@ -829,15 +839,18 @@ function createPeer(targetSocketId, initiator) {
     });
 
     p.on('close', () => {
+        console.log(`🔌 Peer ជាមួយ ${targetSocketId} ត្រូវបានបិទ។`);
         removeAudioElement(targetSocketId);
         if (peers[targetSocketId]) delete peers[targetSocketId];
     });
+    
     p.on('error', (err) => {
-        console.log("Peer Error:", err);
+        console.warn(`❌ Peer Error ជាមួយ ${targetSocketId}:`, err);
         removeAudioElement(targetSocketId);
         if (peers[targetSocketId]) delete peers[targetSocketId];
     });
 
+    // រក្សាទុកក្នុងប្រព័ន្ធចងចាំ
     peers[targetSocketId] = p;
     return p;
 }
