@@ -790,17 +790,17 @@ function closeAllVoiceConnections() {
 }
 
 function initVoiceAndExecute(callback) {
-    if (localStream || localStorage.getItem('has_no_mic') === 'true') {
+    if (localStream) { 
+        if (callback) callback(); 
+        return; 
+    }
+    if (localStorage.getItem('has_no_mic') === 'true') {
         if (callback) callback();
         return;
     }
     
     navigator.mediaDevices.getUserMedia({ 
-        audio: {
-            echoCancellation: true,    
-            noiseSuppression: true,    
-            autoGainControl: true      
-        }, 
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, 
         video: false 
     })
     .then(stream => {
@@ -808,17 +808,17 @@ function initVoiceAndExecute(callback) {
         localStorage.setItem('has_no_mic', 'false');
         
         micEnabled = localStorage.getItem('mic_enabled') !== 'false';
-        localStream.getAudioTracks().forEach(track => {
-            track.enabled = micEnabled;
-        });
+        localStream.getAudioTracks().forEach(track => { track.enabled = micEnabled; });
         updateMicButtonUI();
 
         if (callback) callback();
     })
     .catch(err => {
+        console.warn("មិនអាចបើក Mic បានទេ ឬឧបករណ៍មិនមាន Mic:", err);
         localStorage.setItem('has_no_mic', 'true');
         updateMicButtonUI();
-        if (callback) callback();
+        // ទោះបីជាគ្មាន Mic ក៏ត្រូវហៅ Callback ដើម្បីអាចស្ដាប់សំឡេងគេបានដែរ
+        if (callback) callback(); 
     });
 }
 
@@ -869,10 +869,21 @@ function createPeer(targetSocketId, initiator) {
         }
         audio.srcObject = stream;
 
+        // ព្យាយាម Play សំឡេង
         let playPromise = audio.play();
         if (playPromise !== undefined) {
             playPromise.catch(error => {
-                console.error(`ទូរស័ព្ទ Block សំឡេងពី ${targetSocketId}:`, error);
+                console.error(`Browser បានទប់ស្កាត់ (Block) សំឡេងស្វ័យប្រវត្តពី ${targetSocketId}:`, error);
+                
+                // ដំណោះស្រាយ៖ ឱ្យវាព្យាយាមលឺឡើងវិញភ្លាម នៅពេល User ចុចប៉ះលើផ្ទៃអេក្រង់ហ្គេមណាមួយ
+                const resumeAudio = () => {
+                    audio.play().then(() => {
+                        document.removeEventListener('click', resumeAudio);
+                        document.removeEventListener('touchstart', resumeAudio);
+                    }).catch(e => console.log("នៅតែមិនទាន់អាចលឺ:", e));
+                };
+                document.addEventListener('click', resumeAudio);
+                document.addEventListener('touchstart', resumeAudio);
             });
         }
     });
@@ -900,16 +911,20 @@ function removeAudioElement(id) {
 socket.on('voice_user_joined', (data) => {
     const userSocketId = typeof data === 'object' ? data.id : data;
     if (userSocketId === socket.id) return;
+    
+    // រង់ចាំឱ្យបើក Mic ខ្លួនឯងរួចរាល់ ទើបបង្កើត Peer ទៅភ្ជាប់ជាមួយគេ
     initVoiceAndExecute(() => {
-        setTimeout(() => { createPeer(userSocketId, false); }, 500);
+        createPeer(userSocketId, false);
     });
 });
 
 socket.on('voice_initiate_peer', (data) => {
     const targetSocketId = data.target;
     if (targetSocketId === socket.id) return;
+    
+    // រង់ចាំឱ្យបើក Mic ខ្លួនឯងរួចរាល់ ទើបបង្កើត Peer ទៅភ្ជាប់ជាមួយគេ
     initVoiceAndExecute(() => {
-        setTimeout(() => { createPeer(targetSocketId, true); }, 1000); 
+        createPeer(targetSocketId, true);
     });
 });
 
@@ -926,22 +941,32 @@ socket.on('voice_user_left', (data) => {
     removeAudioElement(userSocketId);
 });
 
+// ✅ កូដថ្មី៖ ធានាថាប្រព័ន្ធ Voice ចាប់ Stream បានសិន ទើបអនុញ្ញាតឱ្យ Join ចូលបន្ទប់
 socket.on('connect', () => {
-    console.log("🔄 បានតភ្ជាប់ឡើងវិញ! កំពុង Rejoin បន្ទប់កាតេចាស់...");
-    
-    const savedRoomId = localStorage.getItem('last_kt_room_id');
-    const playerName = localStorage.getItem('player_name');
-    
-    if (savedRoomId && playerName && document.body.classList.contains('in-game')) {
-        socket.emit('kt_joinRoom', { roomId: savedRoomId, playerName: playerName });
-    }
-
+    console.log("🔄 សញ្ញា Socket កាតេ បានតភ្ជាប់...");
     closeAllVoiceConnections(); 
+    
     const wasMicEnabled = localStorage.getItem('mic_enabled') !== 'false';
+    
+    // បង្កើតមុខងារ Rejoin បន្ទប់ដាច់ដោយឡែកមួយ
+    const triggerKateRoomJoin = () => {
+        const savedRoomId = localStorage.getItem('last_kt_room_id');
+        const playerName = localStorage.getItem('player_name');
+        if (savedRoomId && playerName && document.body.classList.contains('in-game')) {
+            console.log("🚀 កំពុងបញ្ជូនសញ្ញាចូលរួមបន្ទប់កាតេឡើងវិញ...");
+            socket.emit('kt_joinRoom', { roomId: savedRoomId, playerName: playerName });
+        }
+    };
+
     if (wasMicEnabled) {
+        // រង់ចាំឱ្យទទួលបាន Local Stream រួចរាល់ជាមុនសិន
         initVoiceAndExecute(() => {
-            console.log("Voice Chat ដំណើរការឡើងវិញរួចរាល់។");
+            console.log("🎙️ ប្រព័ន្ធអូឌីយ៉ូដំបូងសម្រាប់កាតេត្រូវបានរៀបចំរួចរាល់!");
+            triggerKateRoomJoin();
         });
+    } else {
+        // បើបិទ Mic គឺឱ្យ Join ភ្លាមៗ
+        triggerKateRoomJoin();
     }
 });
 
