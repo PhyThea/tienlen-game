@@ -150,9 +150,19 @@ function comparePlay(newCards, oldCards) {
 
     // 🚨 ច្បាប់ទី ១៖ ប្រព័ន្ធបៀររៀង (Straight និង Straight Flush)
     if (newCards.length === oldCards.length) {
-        // ឱ្យតែបៀរទាំងចាស់ទាំងថ្មីជាពពួក "បៀររៀង" ដូចគ្នា គឺដឹងតែធៀបសន្លឹកចុងក្រោយ (newMax > oldMax) ទាំងអស់
         if ((newType === 'straight' || newType === 'straight_flush') && (oldType === 'straight' || oldType === 'straight_flush')) {
-            return newMax > oldMax;
+            
+            // ករណីទី១៖ បើបៀរនៅលើតុ (old) ជា «រៀងប៉ូលីស»
+            if (oldType === 'straight_flush') {
+                // អ្នកមកក្រោយ (new) ដាច់ខាតត្រូវតែជា «រៀងប៉ូលីស» ដូចគ្នា និងមានសន្លឹកចុងក្រោយធំជាង ទើបស៊ីបាន
+                return newType === 'straight_flush' && newMax > oldMax;
+            }
+
+            // ករណីទី២៖ បើបៀរនៅលើតុ (old) ជា «រៀងចម្រុះធម្មតា»
+            if (oldType === 'straight') {
+                // អនុញ្ញាតឱ្យទាំង រៀងធម្មតា និង រៀងប៉ូលីស ស៊ីបាន ឱ្យតែសន្លឹកចុងក្រោយធំជាង (newMax > oldMax)
+                return newMax > oldMax;
+            }
         }
     }
 
