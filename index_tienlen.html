@@ -756,7 +756,7 @@ function initVoiceAndExecute(callback) {
 function removeAudioElement(id) { const audio = document.getElementById(`audio_${id}`); if (audio) audio.remove(); }
 
 function createPeer(targetSocketId, initiator) {
-    // 🎯 ១. ការពារដាច់ខាត៖ បើមាន Peer ជាមួយមនុស្សម្នាក់នេះកំពុងដំណើរការហើយ មិនអនុញ្ញាតឱ្យបង្កើតជាន់នាំ Crash ឡើយ
+    // 🎯 ១. ការពារដាច់ខាត៖ បើមាន Peer ជាមួយមនុស្សម្នាក់នេះកំពុងដំណើរការហើយ មិនអនុញ្ញាតឱ្យបង្កើតជាន់នាំដាច់ការតភ្ជាប់ឡើយ
     if (peers[targetSocketId]) {
         console.log(`⚠️ Peer សម្រាប់ ${targetSocketId} មានរួចហើយ។ មិនបង្កើតជាន់គ្នាឡើយ។`);
         return peers[targetSocketId];
@@ -774,7 +774,8 @@ function createPeer(targetSocketId, initiator) {
                 { urls: "stun:stun.l.google.com:19302" },
                 { urls: "stun:stun1.l.google.com:19302" },
                 { urls: "stun:stun2.l.google.com:19302" },
-                
+                { urls: "stun:global.stun.twilio.com:3478" },
+
                 // 🚀 TURN Servers ស្ដង់ដារឥតគិតថ្លៃសាធារណៈ (Public Free TURN) ជួយទម្លុះសេវា SIM និង WiFi មិនឱ្យទាក់
                 {
                     urls: "turn:free.numb.viagenie.ca:3478",
