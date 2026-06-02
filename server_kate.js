@@ -63,47 +63,44 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
             broadcastRoomLists();
         });
 
-        // ចាប់ផ្ដើមហ្គេមកាតេ (កំណែទម្រង់ជួសជុលការទាញ Spectator មកលេងវគ្គថ្មី)
+        // ក្នុង server_kate.js
         socket.on('kt_startGame', (roomId) => {
             const room = ktRooms[roomId]; if (!room) return;
             
-            // កូដកែសម្រួលក្នុង server_kate.js ត្រង់ socket.on('kt_startGame')
+            // 🎯 ប្ដូរអ្នកមើល (Spectator) មកជាអ្នកលេងធម្មតាវិញទាំងអស់ (អតិបរមា ៦ នាក់សម្រាប់កាតេ)
             room.players.forEach((p, idx) => {
                 p.isTiv = false;       
                 p.winRounds = 0;       
                 p.hasCat = false;      
                 p.finalWinner = false; 
                 if (idx < 6) {
-                    p.isSpectator = false; // បើកសិទ្ធិឱ្យអ្នកមើលទាំងអស់ចូលមកលេងធម្មតា
+                    p.isSpectator = false; 
                 } else {
-                    p.isSpectator = true;  // លើសពី ៦ នាក់ទើបឱ្យអង្គុយមើល
+                    p.isSpectator = true;  
                 }
             });
 
-            // 🎯 ទាញយកតែអ្នកលេងដែលត្រូវលេងពិតប្រាកដ (isSpectator === false) បន្ទាប់ពីបានកែប្រែស្ថានភាពខាងលើរួច
             const activePlayers = room.players.filter(p => !p.isSpectator);
             if (activePlayers.length < 2) return socket.emit('errorMsg', 'ត្រូវការអ្នកលេងយ៉ាងតិច ២ នាក់ ទើបអាចលេងបាន!');
 
-            // ក្រឡុកបៀរកាតេ
-            const deck = tlModule.shuffleDeck(ktModule.createKateDeck());
-            room.status = 'playing'; room.currentRound = 1; room.tableCards = []; room.roundSuit = null; room.finalSuit = null; room.round5WinnerId = null;
+            const deck = tlModule.shuffleDeck(ktModule.createKateDeck()); //
+            room.status = 'playing'; room.currentRound = 1; room.tableCards = []; room.roundSuit = null; room.finalSuit = null; room.round5WinnerId = null; //
             
-            // ចែកបៀរឱ្យបានត្រឹមត្រូវ ៦ សន្លឹកស្មើៗគ្នាសម្រាប់អ្នកលេងសកម្មម្នាក់ៗ
             activePlayers.forEach((p, i) => {
-                p.hand = ktModule.sortKateCards(deck.slice(i * 6, (i + 1) * 6));
-                p.initialHandCopy = [...p.hand]; 
+                p.hand = ktModule.sortKateCards(deck.slice(i * 6, (i + 1) * 6)); //
+                p.initialHandCopy = [...p.hand]; //
             });
 
-            // បញ្ជូនបៀរទៅឱ្យ Client នីមួយៗ
             room.players.forEach(p => { 
-                if(!p.isSpectator) io.to(p.id).emit('dealCards', { hand: p.hand }); 
+                if(!p.isSpectator) io.to(p.id).emit('dealCards', { hand: p.hand }); //
             });
 
-            room.currentTurnIndex = room.lastWinnerId ? room.players.findIndex(p => p.id === room.lastWinnerId) : room.players.findIndex(p => !p.isSpectator);
-            if (room.currentTurnIndex === -1) room.currentTurnIndex = 0;
+            room.currentTurnIndex = room.lastWinnerId ? room.players.findIndex(p => p.id === room.lastWinnerId) : room.players.findIndex(p => !p.isSpectator); //
+            if (room.currentTurnIndex === -1) room.currentTurnIndex = 0; //
             
+            // 📣 បញ្ជូនទិន្នន័យ players ទៅឱ្យ Client ទាំងអស់
             io.to('kt_' + roomId).emit('gameStarted', { players: room.players, currentTurnIndex: room.currentTurnIndex, currentRound: room.currentRound, lastRoundWinnerId: room.lastWinnerId });
-            broadcastRoomLists();
+            broadcastRoomLists(); //
         });
 
         // ដំណើរការទម្លាក់បៀរដោយដៃ
