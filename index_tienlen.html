@@ -323,7 +323,7 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 const socket = io();
 let myId = null, currentRoom = null, isCreator = false, myHand = [], selectedCards = [], currentTurnIndex = 0, playersData = [], amISpectator = false, lastRoundWinnerId = null, micEnabled = true;
 let peers = {}, localStream = null;
-let currentTimerSeconds = 60; // រក្សាទុកតម្លៃវិនាទី
+let currentTimerSeconds = 30; // រក្សាទុកតម្លៃវិនាទី
 
 function getCardFileName(card) {
     let valStr = card.value;
@@ -608,7 +608,7 @@ socket.on('turnChanged', ({ currentTurnIndex: turn, players }) => {
     currentTurnIndex = turn; if (players) playersData = players;
     const activePlayer = playersData.find((p, idx) => idx === turn);
     if (activePlayer) document.getElementById('status').innerHTML = `🎯 វេន៖ ${activePlayer.name}`;
-    currentTimerSeconds = 60; // reset នាទីជំនួយដំបូង
+    currentTimerSeconds = 30; // reset នាទីជំនួយដំបូង
     renderPlayers(playersData); updateControlsState(); renderMyCards();
 });
 
