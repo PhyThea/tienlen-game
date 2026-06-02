@@ -67,16 +67,16 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
         socket.on('kt_startGame', (roomId) => {
             const room = ktRooms[roomId]; if (!room) return;
             
-            // 🎯 ជួសជុល៖ កំណត់ស្ថានភាពអ្នកលេងឡើងវិញ និងកំណត់ឱ្យអ្នកនៅក្នុងបន្ទប់ទាំងអស់ (មិនលើសពី ៦នាក់) ក្លាយជាអ្នកលេងធម្មតា
+            // កូដកែសម្រួលក្នុង server_kate.js ត្រង់ socket.on('kt_startGame')
             room.players.forEach((p, idx) => {
                 p.isTiv = false;       
                 p.winRounds = 0;       
                 p.hasCat = false;      
                 p.finalWinner = false; 
                 if (idx < 6) {
-                    p.isSpectator = false; // អនុញ្ញាតឱ្យចូលលេង និងទទួលបានបៀរចែកនៅវគ្គថ្មីនេះ
+                    p.isSpectator = false; // បើកសិទ្ធិឱ្យអ្នកមើលទាំងអស់ចូលមកលេងធម្មតា
                 } else {
-                    p.isSpectator = true;  // លើសពី ៦ នាក់ទើបបង្ខំឱ្យអង្គុយមើល
+                    p.isSpectator = true;  // លើសពី ៦ នាក់ទើបឱ្យអង្គុយមើល
                 }
             });
 
