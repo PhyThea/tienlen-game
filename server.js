@@ -172,65 +172,53 @@ io.on('connection', (socket) => {
     });
 
 socket.on('startGame', (roomId) => {
-        const room = tlRooms[roomId]; if (!room) return;
+    const room = tlRooms[roomId]; if (!room) return;
 
-        const isWinnerStillInRoom = room.players.some(p => p.id === room.lastWinnerId);
-        if (!isWinnerStillInRoom) { room.lastWinnerId = null; }
+    const isWinnerStillInRoom = room.players.some(p => p.id === room.lastWinnerId);
+    if (!isWinnerStillInRoom) { room.lastWinnerId = null; }
 
-        if (!room.lastWinnerId ? room.creatorId !== socket.id : room.lastWinnerId !== socket.id) {
-            return socket.emit('errorMsg', 'អ្នកគ្មានសិទ្ធិចាប់ផ្ដើមហ្គេមឡើយ!');
+    // ឆែកសិទ្ធិ៖ បើគ្មានមេឈ្នះ គឺសិទ្ធិលើអ្នកបង្កើតបន្ទប់ បើមានមេឈ្នះ គឺសិទ្ធិលើមេឈ្នះ
+    if (!room.lastWinnerId ? room.creatorId !== socket.id : room.lastWinnerId !== socket.id) {
+        return socket.emit('errorMsg', 'អ្នកគ្មានសិទ្ធិចាប់ផ្ដើមហ្គេមឡើយ!');
+    }
+
+    // 🎯 ជំរុញឱ្យអ្នកទាំងអស់គ្នាក្នុងបន្ទប់មកលេង (លុបស្ថានភាព Spectator)
+    room.players.forEach((p, idx) => {
+        if (idx < 4) { // ទៀនឡេនលេងបានអតិបរមា ៤ នាក់
+            p.isSpectator = false; 
+            p.hand = [];
+            p.passed = false;
+            p.rank = null;
+        } else {
+            p.isSpectator = true; 
+            p.hand = [];
+            p.passed = false;
+            p.rank = null;
         }
-
-        // កូដកែសម្រួលក្នុង server.js ត្រង់ socket.on('startGame')
-        room.players.forEach((p, idx) => {
-            if (idx < 4) {
-                p.isSpectator = false; // ប្ដូរអ្នកមើល (Spectator) មកជាអ្នកលេងធម្មតាវិញ
-                p.hand = [];
-                p.passed = false;
-                p.rank = null;
-            } else {
-                p.isSpectator = true;  // លើសពី ៤ នាក់ទើបបង្ខំឱ្យអង្គុយមើល
-                p.hand = [];
-                p.passed = false;
-                p.rank = null;
-            }
-        });
-
-        const activePlayers = room.players.filter(p => !p.isSpectator);
-        if (activePlayers.length < 2) return socket.emit('errorMsg', 'ត្រូវការអ្នកលេងយ៉ាងតិច ២ នាក់!');
-
-        const deck = tlModule.shuffleDeck(tlModule.createDeck());
-        room.status = 'playing'; room.playedCards = []; room.lastPlayerId = null; room.nextRank = 1;
-
-        activePlayers.forEach((p, i) => { 
-            p.hand = tlModule.sortCards(deck.slice(i * 13, (i + 1) * 13)); 
-        });
-
-        let instantWinner = null; let winReason = "";
-        for (let p of activePlayers) {
-            const reason = tlModule.checkInstantWin(p.hand);
-            if (reason) { instantWinner = p; winReason = reason; break; }
-        }
-
-        if (instantWinner) {
-            instantWinner.rank = 1; room.lastWinnerId = instantWinner.id; let currentRank = 2;
-            room.players.forEach(p => { if (!p.isSpectator && p.id !== instantWinner.id) p.rank = currentRank++; });
-            room.status = 'waiting';
-            const results = room.players.map(p => ({ id: p.id, name: p.name, remaining: [...p.hand], isSpectator: p.isSpectator, rank: p.rank }));
-            io.to('tl_' + roomId).emit('instantWinOccurred', { winnerName: instantWinner.name, reason: winReason, allHands: results });
-            broadcastRoomLists(); return;
-        }
-
-        room.players.forEach(p => {
-            if (!p.isSpectator) io.to(p.id).emit('dealCards', { hand: p.hand });
-        });
-
-        let startIdx = room.lastWinnerId ? room.players.findIndex(p => p.id === room.lastWinnerId) : room.players.findIndex(p => p.hand.some(c => c.value === '3' && c.suit === '♠'));
-        room.currentTurnIndex = startIdx === -1 ? 0 : startIdx;
-
-        io.to('tl_' + roomId).emit('gameStarted', { players: room.players, currentTurnIndex: room.currentTurnIndex, lastRoundWinnerId: room.lastWinnerId });
-        broadcastRoomLists();
     });
+
+    const activePlayers = room.players.filter(p => !p.isSpectator);
+    if (activePlayers.length < 2) return socket.emit('errorMsg', 'ត្រូវការអ្នកលេងយ៉ាងតិច ២ នាក់!');
+
+    const deck = tlModule.shuffleDeck(tlModule.createDeck()); //
+    room.status = 'playing'; room.playedCards = []; room.lastPlayerId = null; room.nextRank = 1; //
+
+    activePlayers.forEach((p, i) => { 
+        p.hand = tlModule.sortCards(deck.slice(i * 13, (i + 1) * 13)); //
+    });
+
+    // ផ្ញើបៀរថ្មីទៅឱ្យគ្រប់គ្នាដែលមិនមែនជា Spectator
+    room.players.forEach(p => {
+        if (!p.isSpectator) io.to(p.id).emit('dealCards', { hand: p.hand });
+    });
+
+    let startIdx = room.lastWinnerId ? room.players.findIndex(p => p.id === room.lastWinnerId) : room.players.findIndex(p => p.hand.some(c => c.value === '3' && c.suit === '♠')); //
+    room.currentTurnIndex = startIdx === -1 ? 0 : startIdx; //
+
+    // 📣 ផ្សាយដំណឹងទៅគ្រប់គ្នា (រួមទាំងបញ្ជូនទិន្នន័យ players ថ្មីដែលបានកែប្រែ status រួច)
+    io.to('tl_' + roomId).emit('gameStarted', { players: room.players, currentTurnIndex: room.currentTurnIndex, lastRoundWinnerId: room.lastWinnerId });
+    broadcastRoomLists(); //
+});
 
 socket.on('playCard', ({ roomId, cards }) => {
         const room = tlRooms[roomId]; if (!room) return;
