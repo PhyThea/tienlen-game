@@ -22,7 +22,7 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 #gameArea { display: none; width: 100%; height: 100%; position: relative; flex-direction: column; justify-content: space-between; }
 
 /* 📱 បង្វិលអេក្រង់ស្វ័យប្រវត្តិពេលលេងតាមទូរស័ព្ទ */
-@media screen and (max-width: 932px) and (orientation: portrait) {
+@media screen and (max-width: 932px) and (orientation: portrait) and (pointer: coarse) {
     body.in-game .container, body.round-over .container { padding: 0; max-width: 100%; width: 100%; height: 100%; }
     body.in-game #gameArea { position: fixed; top: 50%; left: 50%; width: 100dvh; height: 100dvw; transform: translate(-50%, -50%) rotate(90deg); transform-origin: center center; background: #0b1329; padding: 10px; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
     body.round-over #resultArea { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; max-height: 100vh !important; background: #0b1329; box-sizing: border-box; padding: 15px; display: block; overflow-y: auto; transform: none; }
