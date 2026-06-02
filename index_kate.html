@@ -134,6 +134,9 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 .turn-badge { position: absolute; top: -8px; left: 50%; transform: translateX(-50%); background: #22c55e; color: white; font-size: 7px; font-weight: bold; padding: 0px 4px; border-radius: 10px; white-space: nowrap; }
 .card-counter { background: #1c2541; border-radius: 3px; padding: 0px 3px; font-weight: bold; font-size: 9px; color: #f59e0b; border: 1px solid #3a506b; display: inline-block; }
 
+/* ⏳ បន្ថែមស្ទីលបង្ហាញនាទីរាប់ថយក្រោយ */
+.timer-text { font-size: 10px; color: #ef4444; font-weight: bold; margin-top: 2px; display: block; }
+
 /* 🃏 ផ្នែកបង្ហាញកាតនៅក្នុងដៃ និងប៊ូតុងបញ្ជា */
 .hand-and-controls { 
     display: flex; 
@@ -309,6 +312,7 @@ button:disabled { background: #475569 !important; color: #94a3b8 !important; cur
 const socket = io();
 let myId = null, currentRoom = null, isCreator = false, myHand = [], selectedCard = null, currentTurnIndex = 0, playersData = [], amISpectator = false, lastRoundWinnerId = null, micEnabled = true;
 let peers = {}, localStream = null;
+let currentTimerSeconds = 60; // រក្សាវិនាទី
 
 function getCardFileName(card) {
     let val = card.value.toLowerCase();
@@ -490,7 +494,8 @@ function renderPlayers(players) {
         const el = document.createElement('div'); 
         el.className = `player player-pos-${relativePos}`; 
         
-        if (currentTurnIndex === index && !p.isSpectator && !p.isTiv) el.classList.add('active-turn');
+        const isCurrentTurn = (currentTurnIndex === index && !p.isSpectator && !p.isTiv);
+        if (isCurrentTurn) el.classList.add('active-turn');
         
         const statusText = document.getElementById('status').innerText;
         const currentRound = parseInt(statusText.replace(/[^0-9]/g, '')) || 1;
@@ -501,6 +506,11 @@ function renderPlayers(players) {
             el.classList.add('player-dead');
         }
         
+        let timerHTML = '';
+        if (isCurrentTurn) {
+            timerHTML = `<span class="timer-text" id="kt_timer_disp">⏳ ${currentTimerSeconds}s</span>`;
+        }
+
         let roleText = `<div class="card-counter">🏆 ស៊ីបាន៖ ${p.winRounds || 0}</div>`;
         if (p.isSpectator) {
             roleText = '<span style="color: #ef4444; font-weight: bold;">(លង់/អ្នកមើល)</span>';
@@ -510,9 +520,9 @@ function renderPlayers(players) {
             roleText = '<span style="color: #f87171; font-weight: bold;">🖐️ ផ្កាប់គូទអូតូ</span>';
         }
         
-        let turnBadge = (currentTurnIndex === index && !p.isSpectator && !(currentRound < 6 && p.isTiv)) ? `<div class="turn-badge">${p.id === myId ? '🟢 ខ្ញុំ' : '🎯 វេន'}</div>` : '';
+        let turnBadge = isCurrentTurn ? `<div class="turn-badge">${p.id === myId ? '🟢 ខ្ញុំ' : '🎯 វេន'}</div>` : '';
         
-        el.innerHTML = `${turnBadge}<strong>👤 ${p.name.substring(0,5)}</strong><br>${roleText}`;
+        el.innerHTML = `${turnBadge}<strong>👤 ${p.name.substring(0,5)}</strong><br>${roleText}${timerHTML}`;
         div.appendChild(el);
 
         const el2 = document.createElement('div'); 
@@ -522,6 +532,15 @@ function renderPlayers(players) {
         lobby.appendChild(el2);
     });
 }
+
+// ទទួលសញ្ញា Timer ធ្វើបច្ចុប្បន្នភាពលើកញ្ចក់អេក្រង់ Ka Te
+socket.on('kt_timer_update', ({ seconds, currentTurnIndex: serverTurn }) => {
+    currentTimerSeconds = seconds;
+    const timerDisp = document.getElementById('kt_timer_disp');
+    if (timerDisp && currentTurnIndex === serverTurn) {
+        timerDisp.innerText = `⏳ ${seconds}s`;
+    }
+});
 
 function renderHand() {
     const container = document.getElementById('myCards'); container.innerHTML = '';
@@ -619,6 +638,7 @@ socket.on('moveRecorded', (data) => {
 
 socket.on('turnChanged', ({ currentTurnIndex: turn }) => { 
     currentTurnIndex = turn; 
+    currentTimerSeconds = 60; // reset
     renderPlayers(playersData); 
     updateControlsState(); 
 });
@@ -631,6 +651,7 @@ socket.on('nextRoundStarted', (data) => {
     currentTurnIndex = data.currentTurnIndex; 
     playersData = data.players; 
     selectedCard = null;
+    currentTimerSeconds = 60;
     
     renderPlayers(playersData); 
     renderHand(); 
