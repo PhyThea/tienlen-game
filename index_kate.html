@@ -830,16 +830,16 @@ function createPeer(targetSocketId, initiator) {
 
     console.log(`កំពុងបង្កើត Peer ទៅកាន់: ${targetSocketId} | Initiator: ${initiator}`);
 
-    const p = new SimplePeer({
+    // ១. បង្កើត Object Configuration សម្រាប់អ៊ីនធឺណិត (WiFi, SIM, STUN/TURN)
+    const peerOptions = {
         initiator: initiator,
         trickle: false,
-        stream: localStream,
         config: {
             iceServers: [
                 { urls: "stun:stun.l.google.com:19302" },
                 { urls: "stun:stun1.l.google.com:19302" },
                 { urls: "stun:stun2.l.google.com:19302" },
-                // 🎯 ថែមប្រព័ន្ធ TURN Server ឥតគិតថ្លៃ និងបើកចំហរ (Open-Source) ចូលទីនេះ
+                // ប្រព័ន្ធ TURN Server ជួយទម្លុះសេវា SIM 4G/5G និង WiFi កុំឱ្យទាក់
                 {
                     urls: "turn:openwebrtc.org:3478",
                     username: "openwebrtc",
@@ -848,7 +848,20 @@ function createPeer(targetSocketId, initiator) {
             ],
             iceTransportPolicy: 'all'
         }
-    });
+    };
+
+    // ២. 💡 លក្ខខណ្ឌឆ្លាតវៃ៖
+    // បើម៉ាស៊ីនមាន Mic (localStream មិនស្មើ Null) គឺត្រូវដោតខ្សែសំឡេងផ្ញើទៅឱ្យគេភ្លាម! (WiFi/SIM ដើរធម្មតា)
+    if (localStream && localStream.getAudioTracks().length > 0) {
+        peerOptions.stream = localStream;
+        console.log("🎙️ [Voice] ម៉ាស៊ីននេះមាន Mic, កំពុងភ្ជាប់ខ្សែសំឡេងទៅកាន់ Peer...");
+    } else {
+        // បើម៉ាស៊ីនអត់ Mic (កុំព្យូទ័រដាច់ឌុយ Mic) មិនបាច់បោះ stream ទេ គឺបង្កើត Peer ទទេដើម្បីគ្រាន់តែ "លួចស្ដាប់គេ"
+        console.warn("🔇 [Voice] ម៉ាស៊ីននេះគ្មាន Mic ឡើយ! បង្កើត Peer ទម្រង់ស្ដាប់តែម្ខាង (សង្គ្រោះកូដកុំឱ្យ Crash)");
+    }
+
+    // ៣. បង្កើត SimplePeer តាមការកំណត់ខាងលើ
+    const p = new SimplePeer(peerOptions);
 
     p.on('signal', data => {
         socket.emit('voice_signal', {
