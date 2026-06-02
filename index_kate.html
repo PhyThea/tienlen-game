@@ -838,9 +838,15 @@ function createPeer(targetSocketId, initiator) {
             iceServers: [
                 { urls: "stun:stun.l.google.com:19302" },
                 { urls: "stun:stun1.l.google.com:19302" },
-                { urls: "stun:stun2.l.google.com:19302" }
+                { urls: "stun:stun2.l.google.com:19302" },
+                // 🎯 ថែមប្រព័ន្ធ TURN Server ឥតគិតថ្លៃ និងបើកចំហរ (Open-Source) ចូលទីនេះ
+                {
+                    urls: "turn:openwebrtc.org:3478",
+                    username: "openwebrtc",
+                    credential: "openwebrtc"
+                }
             ],
-            iceTransportPolicy: 'all' // អនុញ្ញាតឱ្យប្រើប្រាស់គ្រប់ផ្លូវតភ្ជាប់ដែលអាចធ្វើទៅបាន
+            iceTransportPolicy: 'all'
         }
     });
 
