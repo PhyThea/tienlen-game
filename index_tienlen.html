@@ -419,16 +419,32 @@ socket.on('updatePlayers', (players) => {
 function startGame() { socket.emit('startGame', currentRoom); }
 
 socket.on('gameStarted', ({ players, currentTurnIndex: turn, lastRoundWinnerId: serverWinnerId }) => {
-    currentTurnIndex = turn; playersData = players; lastRoundWinnerId = serverWinnerId;
-    document.body.classList.remove('round-over'); document.body.classList.add('in-game');
+    currentTurnIndex = turn; 
+    playersData = players; 
+    lastRoundWinnerId = serverWinnerId;
+
+    // 🎯 បន្ថែមបន្ទាត់នេះ៖ ឆែកមើលស្ថានភាពខ្លួនឯងឡើងវិញពី Server ដើម្បីដកខ្លួនចេញពីអ្នកមើល
+    const me = players.find(p => p.id === myId);
+    if (me) {
+        amISpectator = me.isSpectator; 
+    }
+
+    document.body.classList.remove('round-over'); 
+    document.body.classList.add('in-game');
     document.getElementById('lobbyArea').style.display = 'none';
     document.getElementById('resultArea').style.display = 'none';
     document.getElementById('gameArea').style.display = 'block';
     document.getElementById('table').innerHTML = '<div style="color: #a7f3d0; font-size:12px;">ចាប់ផ្ដើមហ្គេម!</div>';
+    
     const activePlayer = playersData[turn];
     if (activePlayer) document.getElementById('status').innerHTML = `🎯 វេន៖ ${activePlayer.name}`;
+    
+    // បើលែងធ្វើជាអ្នកមើល ត្រូវបង្ហាញប៊ូតុងបញ្ជាបញ្ចេញបៀរមកវិញ
     document.getElementById('actionControls').style.display = amISpectator ? 'none' : 'flex';
-    renderPlayers(players); updateControlsState(); setTimeout(() => { renderMyCards(); }, 50);
+    
+    renderPlayers(players); 
+    updateControlsState(); 
+    setTimeout(() => { renderMyCards(); }, 50);
 });
 
 socket.on('winnerTransferred', (data) => { lastRoundWinnerId = data.newWinnerId; updateRoomUI(data); });
