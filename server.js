@@ -61,6 +61,81 @@ function broadcastRoomLists() {
 }
 
 // -----------------------------------------------------------------
+// ⏳ ប្រព័ន្ធ Timer គ្រប់គ្រងការរាប់ថយក្រោយ ១ នាទីអូតូសម្រាប់ ទៀនឡេន
+// -----------------------------------------------------------------
+function startTienLenTimer(room) {
+    if (room.timerInterval) clearInterval(room.timerInterval);
+    room.timerSeconds = 60; // ១ នាទី
+    io.to('tl_' + room.roomId).emit('tl_timer_update', { seconds: room.timerSeconds, currentTurnIndex: room.currentTurnIndex });
+
+    room.timerInterval = setInterval(() => {
+        if (room.status !== 'playing') {
+            clearInterval(room.timerInterval);
+            return;
+        }
+        room.timerSeconds--;
+        io.to('tl_' + room.roomId).emit('tl_timer_update', { seconds: room.timerSeconds, currentTurnIndex: room.currentTurnIndex });
+
+        if (room.timerSeconds <= 0) {
+            clearInterval(room.timerInterval);
+            handleTienLenTimeout(room);
+        }
+    }, 1000);
+}
+
+function handleTienLenTimeout(room) {
+    const player = room.players[room.currentTurnIndex];
+    if (!player || player.hand.length === 0) return;
+
+    // លក្ខខណ្ឌ៖ បើគ្មានបៀនៅលើតុទេ (ត្រូវចេញបៀរមុនគេ) គឺចុះបៀរតូចជាងគេបំផុតចេញទៅអូតូ
+    if (!room.playedCards || room.playedCards.length === 0) {
+        const sortedHand = tlModule.sortCards([...player.hand]);
+        const smallestCard = [sortedHand[0]];
+
+        // ដកបៀរចេញពីដៃអ្នកលេង
+        const idx = player.hand.findIndex(pc => pc.value === smallestCard[0].value && pc.suit === smallestCard[0].suit);
+        if (idx !== -1) player.hand.splice(idx, 1);
+
+        room.playedCards = smallestCard;
+        room.lastPlayerId = player.id;
+        player.passed = false;
+
+        if (player.hand.length === 0) {
+            player.rank = room.nextRank;
+            room.nextRank++;
+            if (player.rank === 1) room.lastWinnerId = player.id;
+        }
+
+        const playersWithoutRank = room.players.filter(p => !p.isSpectator && p.rank === null);
+        if (playersWithoutRank.length <= 1) {
+            if (room.timerInterval) clearInterval(room.timerInterval); // [កែតម្រូវ] បញ្ឈប់ Timer ឱ្យដាច់ស្រឡះ
+            if (playersWithoutRank.length === 1) playersWithoutRank[0].rank = room.nextRank;
+            room.status = 'waiting';
+            const results = room.players.map(p => ({
+                id: p.id, name: p.name, remaining: [...p.hand], isSpectator: p.isSpectator, rank: p.rank, isDoubleLeaved: false
+            }));
+            io.to('tl_' + room.roomId).emit('cardPlayed', { by: player.name, cards: smallestCard, nextTurn: room.currentTurnIndex, cardCount: player.hand.length, updatedHands: room.players });
+            setTimeout(() => {
+                const finalWinner = room.players.find(p => p.rank === 1);
+                room.lastWinnerId = finalWinner ? finalWinner.id : null;
+                io.to('tl_' + room.roomId).emit('gameWon', { winner: finalWinner ? finalWinner.name : 'រកមិនឃើញ', winnerId: room.lastWinnerId, allHands: results, isDoubleWin: false });
+                broadcastRoomLists();
+            }, 1500);
+        } else {
+            handleTurnAndRoundStatus(room);
+            io.to('tl_' + room.roomId).emit('cardPlayed', { by: player.name, cards: smallestCard, nextTurn: room.currentTurnIndex, cardCount: player.hand.length, updatedHands: room.players });
+            if (room.status === 'playing') startTienLenTimer(room); // [កែតម្រូវ] បន្តដំណើរការ Timer សម្រាប់វេនបន្ទាប់
+        }
+    } else {
+        // បើមានបៀរនៅលើតុស្រាប់ហើយ គឺប្រព័ន្ធចុច Pass ឱ្យតែម្តង
+        player.passed = true;
+        io.to('tl_' + room.roomId).emit('playerPassed', { name: player.name, id: player.id });
+        handleTurnAndRoundStatus(room);
+        if (room.status === 'playing') startTienLenTimer(room);
+    }
+}
+
+// -----------------------------------------------------------------
 // 🃏 Logic សម្រាប់ហ្គេម ទៀនឡេន (Tien Len Server Logic)
 // -----------------------------------------------------------------
 function moveToNextTurn(room) {
@@ -217,6 +292,7 @@ socket.on('startGame', (roomId) => {
 
     // 📣 ផ្សាយដំណឹងទៅគ្រប់គ្នា (រួមទាំងបញ្ជូនទិន្នន័យ players ថ្មីដែលបានកែប្រែ status រួច)
     io.to('tl_' + roomId).emit('gameStarted', { players: room.players, currentTurnIndex: room.currentTurnIndex, lastRoundWinnerId: room.lastWinnerId });
+    startTienLenTimer(room); // ចាប់ផ្តើមរាប់ថយក្រោយ ១ នាទី
     broadcastRoomLists(); //
 });
 
@@ -258,6 +334,7 @@ socket.on('playCard', ({ roomId, cards }) => {
             const playersWithoutRank = room.players.filter(p => !p.isSpectator && p.rank === null);
             
             if (playersWithoutRank.length <= 1 || isDoubleWin) {
+                if (room.timerInterval) clearInterval(room.timerInterval); // បញ្ឈប់ Timer
                 // ប្រគល់ចំណាត់ថ្នាក់ចុងក្រោយជូនអ្នកដែលនៅសល់បៀរម្នាក់ឯងនោះ
                 if (playersWithoutRank.length === 1 && !isDoubleWin) {
                     playersWithoutRank[0].rank = room.nextRank;
@@ -285,6 +362,7 @@ socket.on('playCard', ({ roomId, cards }) => {
                 // 🎯 បើហ្គេមមិនទាន់បញ្ចប់ទេ ទើបឱ្យប្រព័ន្ធដំណើរការផ្ទេរវេន ឬឆែកដាច់តុធម្មតា
                 handleTurnAndRoundStatus(room);
                 io.to('tl_' + roomId).emit('cardPlayed', { by: player.name, cards, nextTurn: room.currentTurnIndex, cardCount: player.hand.length, updatedHands: room.players });
+                startTienLenTimer(room); // ដំណើរការ Timer សម្រាប់អ្នកបន្ទាប់
             }
         } else {
             socket.emit('errorMsg', 'ចុះមិនត្រូវក្បួន ឬបៀតូចជាង!');
@@ -297,6 +375,7 @@ socket.on('playCard', ({ roomId, cards }) => {
         player.passed = true;
         io.to('tl_' + roomId).emit('playerPassed', { name: player.name, id: player.id });
         handleTurnAndRoundStatus(room);
+        if (room.status === 'playing') startTienLenTimer(room);
     });
 
     socket.on('leaveRoom', () => {
@@ -306,9 +385,12 @@ socket.on('playCard', ({ roomId, cards }) => {
                 const wasSpectator = room.players[pIdx].isSpectator;
                 socket.to('tl_' + id).emit('voice_user_left', { id: socket.id });
                 room.players.splice(pIdx, 1); socket.leave('tl_' + id); socket.emit('leftRoom');
-                if (room.players.length === 0) { delete tlRooms[id]; } else {
+                if (room.players.length === 0) { if (room.timerInterval) clearInterval(room.timerInterval); delete tlRooms[id]; } else {
                     if (room.creatorId === socket.id) room.creatorId = room.players[0].id;
-                    if (room.status === 'playing' && !wasSpectator && room.currentTurnIndex === pIdx) handleTurnAndRoundStatus(room);
+                    if (room.status === 'playing' && !wasSpectator && room.currentTurnIndex === pIdx) {
+                        handleTurnAndRoundStatus(room);
+                        startTienLenTimer(room);
+                    }
                     io.to('tl_' + id).emit('updatePlayers', room.players);
                     io.to('tl_' + id).emit('winnerTransferred', { newWinnerId: room.lastWinnerId, creatorId: room.creatorId });
                 }
@@ -326,9 +408,12 @@ socket.on('playCard', ({ roomId, cards }) => {
                 const wasSpectator = room.players[pIdx].isSpectator;
                 socket.to('tl_' + id).emit('voice_user_left', { id: socket.id });
                 room.players.splice(pIdx, 1);
-                if (room.players.length === 0) { delete tlRooms[id]; } else {
+                if (room.players.length === 0) { if (room.timerInterval) clearInterval(room.timerInterval); delete tlRooms[id]; } else {
                     if (room.creatorId === socket.id) room.creatorId = room.players[0].id;
-                    if (room.status === 'playing' && !wasSpectator && room.currentTurnIndex === pIdx) handleTurnAndRoundStatus(room);
+                    if (room.status === 'playing' && !wasSpectator && room.currentTurnIndex === pIdx) {
+                        handleTurnAndRoundStatus(room);
+                        startTienLenTimer(room);
+                    }
                     io.to('tl_' + id).emit('updatePlayers', room.players);
                 }
             }
@@ -342,12 +427,14 @@ socket.on('playCard', ({ roomId, cards }) => {
                 room.players.splice(pIdx, 1);
                 
                 if (room.players.length === 0) {
+                    if (room.timerInterval) clearInterval(room.timerInterval);
                     delete ktRooms[id]; 
                 } else {
                     if (room.creatorId === socket.id) room.creatorId = room.players[0].id;
                     if (room.status === 'playing' && !wasSpectator && room.currentTurnIndex === pIdx) {
                         room.currentTurnIndex = room.currentTurnIndex % room.players.length;
                         io.to('kt_' + id).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex, players: room.players });
+                        if (typeof room.startTimer === 'function') room.startTimer();
                     }
                     io.to('kt_' + id).emit('updatePlayers', room.players);
                     io.to('kt_' + id).emit('winnerTransferred', { newWinnerId: room.lastWinnerId, creatorId: room.creatorId });
