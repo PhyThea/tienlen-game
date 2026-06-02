@@ -181,15 +181,15 @@ socket.on('startGame', (roomId) => {
             return socket.emit('errorMsg', 'អ្នកគ្មានសិទ្ធិចាប់ផ្ដើមហ្គេមឡើយ!');
         }
 
-        // 🎯 កែសម្រួលត្រង់ចំណុចនេះ៖ ឲ្យតែចាប់ផ្ដើមវគ្គថ្មី អ្នកនៅក្នុងបន្ទប់ទាំងអស់ (មិនលើសពី ៤ នាក់) ត្រូវតែបានលេង និងដកស្ថានភាព Spectator ចេញ
+        // កូដកែសម្រួលក្នុង server.js ត្រង់ socket.on('startGame')
         room.players.forEach((p, idx) => {
             if (idx < 4) {
-                p.isSpectator = false; // លែងធ្វើជាអ្នកមើលទៀតហើយ គឺត្រូវចូលលេងស្មើភាពគ្នា
+                p.isSpectator = false; // ប្ដូរអ្នកមើល (Spectator) មកជាអ្នកលេងធម្មតាវិញ
                 p.hand = [];
                 p.passed = false;
                 p.rank = null;
             } else {
-                p.isSpectator = true; // លើសពី ៤ នាក់ទើបបង្ខំឲ្យមើល
+                p.isSpectator = true;  // លើសពី ៤ នាក់ទើបបង្ខំឱ្យអង្គុយមើល
                 p.hand = [];
                 p.passed = false;
                 p.rank = null;
