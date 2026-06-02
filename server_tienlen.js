@@ -1,5 +1,5 @@
 // =================================================================
-// server_tienlen.js (ច្បាប់កែសម្រួល៖ ៣គូមិនកាត់ហាយ, រៀងប៉ូលីសស៊ីរៀងធម្មតាបាន)
+// server_tienlen.js (ច្បាប់កែសម្រួល៖ ៣គូមិនកាត់ហាយ, ៤គូកាត់ហាយទោល/ហាយគូបាន, រៀងប៉ូលីសស៊ីរៀងធម្មតាបាន)
 // =================================================================
 
 const CARD_ORDER = ['3','4','5','6','7','8','9','10','J','Q','K','A','2'];
@@ -36,16 +36,19 @@ function sortCards(cards) {
     return cards.sort((a, b) => getCardPower(a) - getCardPower(b));
 }
 
-// ពិនិត្យមើលលក្ខខណ្ឌគូរៀប (Consecutive Pairs) ចាប់ពី ២ គូរៀបឡើងទៅ (៤ សន្លឹក)
+// ពិនិត្យមើលលក្ខខណ្ឌគូរៀប (Consecutive Pairs) ចាប់ពី ៣ គូរៀបឡើងទៅ (៦ សន្លឹក)
 function isConsecutivePairs(cards) {
     const len = cards.length;
-    if (len < 4 || len % 2 !== 0) return false;
+    // គូរៀបត្រូវតែមានចាប់ពី ៦ សន្លឹកឡើងទៅ (៣ គូរៀប) និងជាចំនួនគូ
+    if (len < 6 || len % 2 !== 0) return false;
     const sorted = sortCards([...cards]);
 
+    // ពិនិត្យមើលថាវាសន្លឹកគូពិតមែនឬទេ (ឧទាហរណ៍៖ 3-3, 4-4, 5-5)
     for (let i = 0; i < len; i += 2) {
         if (sorted[i].value !== sorted[i+1].value) return false;
     }
 
+    // ពិនិត្យមើលលំដាប់លំដោយរៀបគ្នាពីតូចទៅធំ និងមិនឱ្យមានលេខ ២ ឡើយ
     for (let i = 0; i < len - 2; i += 2) {
         const currentIdx = CARD_ORDER.indexOf(sorted[i].value);
         const nextIdx = CARD_ORDER.indexOf(sorted[i+2].value);
@@ -73,12 +76,12 @@ function getComboType(cards) {
     }
 
     if (isConsecutivePairs(cards)) {
-        if (len === 4) return 'double_pair'; 
         if (len === 6) return 'triple_pair'; // ៣ គូរៀប
         if (len === 8) return 'quad_pair';   // ៤ គូរៀប
         return 'consec_pairs';
     }
 
+    // ពិនិត្យលក្ខខណ្ឌបៀររៀង (Straight)
     let isStr = true;
     for (let i = 1; i < len; i++) {
         if (CARD_ORDER.indexOf(sorted[i].value) !== CARD_ORDER.indexOf(sorted[i-1].value) + 1) isStr = false;
@@ -130,7 +133,7 @@ function checkInstantWin(hand) {
     return null;
 }
 
-// 👑 ប្រៀបធៀបបៀរវាយកាត់តាមច្បាប់ថ្មី (រួមទាំងច្បាប់រៀងប៉ូលីស នឹងហាយស៊ីហាយ)
+// 👑 ប្រៀបធៀបបៀរវាយកាត់តាមច្បាប់ថ្មី (កែសម្រួល៖ ៣គូមិនកាត់ហាយ, ៤គូកាត់ហាយទោល/ហាយគូបាន, រៀងប៉ូលីសស៊ីរៀងធម្មតាបាន)
 function comparePlay(newCards, oldCards) {
     if (!oldCards || oldCards.length === 0) return true;
     
@@ -146,47 +149,60 @@ function comparePlay(newCards, oldCards) {
     const oldMax = getCardPower(sortedOld[sortedOld.length - 1]);
 
     // 🚨 ច្បាប់ទី ១៖ ប្រព័ន្ធបៀររៀង (Straight និង Straight Flush)
-    if ((newType === 'straight' || newType === 'straight_flush') && 
-        (oldType === 'straight' || oldType === 'straight_flush') && 
-        newCards.length === oldCards.length) {
-        return newMax > oldMax;
+    if (newCards.length === oldCards.length) {
+        // ករណីទី ១៖ ប្រភេទដូចគ្នា (រៀងធម្មតាកាត់រៀងធម្មតា ឬ ប៉ូលីសកាត់ប៉ូលីស) -> សន្លឹកចុងក្រោយធំជាងទើបស៊ីបាន
+        if (newType === oldType && (newType === 'straight' || newType === 'straight_flush')) {
+            return newMax > oldMax;
+        }
+        // ករណីទី ២៖ រៀងប៉ូលីស (Straight Flush) វាយកាត់ រៀងធម្មតា (Straight) -> ឱ្យតែចំនួនសន្លឹកស្មើគ្នា គឺស៊ីបានដាច់តែម្ដង!
+        if (newType === 'straight_flush' && oldType === 'straight') {
+            return true;
+        }
+        // ករណីទី ៣៖ រៀងធម្មតា (Straight) មិនអាចវាយកាត់ រៀងប៉ូលីស (Straight Flush) វិញបានឡើយ
+        if (newType === 'straight' && oldType === 'straight_flush') {
+            return false;
+        }
     }
 
-    // 🚨 ច្បាប់ទី ២៖ ហាយទោល (Single 2) - កែសម្រួលឲ្យហាយធំស៊ីហាយតូចបាន
+    // 🚨 ច្បាប់ទី ២៖ ហាយទោល (Single 2) 
     if (oldType === 'single' && oldCards[0].value === '2') {
+        // ហាយទោលធំជាង ស៊ីហាយទោលតូចជាង (ឧទាហរណ៍៖ ២ការ៉ូ ស៊ី ២ក្ដាម)
         if (newType === 'single' && newCards[0].value === '2' && newMax > oldMax) return true;
+        // កាត់បានតែ ការ៉េ (Bomb) ឬ ៤ គូរៀប (Quad Pair) ប៉ុណ្ណោះ (៣ គូរៀបលែងកាត់បានទៀតហើយ)
         if (newType === 'bomb' || newType === 'quad_pair') return true;
         return false;
     }
 
-    // 🚨 ច្បាប់ទី ៣៖ ហាយគូ (Pair 2) - កែសម្រួលឲ្យគូហាយធំស៊ីគូហាយតូចបាន
+    // 🚨 ច្បាប់ទី ៣៖ ហាយគូ (Pair 2)
     if (oldType === 'pair' && oldCards[0].value === '2') {
+        // គូហាយធំជាង ស៊ីគូហាយតូចជាង
         if (newType === 'pair' && newCards[0].value === '2' && newMax > oldMax) return true;
+        // កាត់បានដោយ ការ៉េ (Bomb) ឬ ៤ គូរៀប (Quad Pair) តាមច្បាប់ថ្មីរបស់អ្នក
         if (newType === 'bomb' || newType === 'quad_pair') return true;
         return false;
     }
 
-    // 🚨 ច្បាប់ទី ៤៖ ការ៉េ (Bomb) វាយកាត់ ការ៉េដូចគ្នាដែលតូចជាង
+    // 🚨 ច្បាប់ទី ៤៖ ការ៉េ (Bomb)
     if (oldType === 'bomb') {
         if (newType === 'bomb' && newMax > oldMax) return true;
-        if (newType === 'quad_pair') return true; 
+        if (newType === 'quad_pair') return true; // ៤ គូរៀប កាត់ការ៉េបាន
         return false;
     }
 
-    // 🚨 ច្បាប់ទី ៥៖ ៣ គូរៀប (triple_pair) កាត់គ្នាវាបានធម្មតា
+    // 🚨 ច្បាប់ទី ៥៖ ៣ គូរៀប (Triple Pair)
     if (oldType === 'triple_pair') {
         if (newType === 'triple_pair' && newMax > oldMax) return true;
-        if (newType === 'bomb' || newType === 'quad_pair') return true;
+        if (newType === 'bomb' || newType === 'quad_pair') return true; // ការ៉េ ឬ ៤គូរៀប កាត់ ៣គូរៀបបាន
         return false;
     }
 
-    // ៤ គូរៀប កាត់ ៤គូរៀប ធំជាង
+    // 🚨 ច្បាប់ទី ៦៖ ៤ គូរៀប (Quad Pair)
     if (oldType === 'quad_pair') {
         if (newType === 'quad_pair' && newMax > oldMax) return true;
         return false;
     }
 
-    // ករណីប្រភេទ Combo ធម្មតាដូចគ្នាផ្សេងទៀត (ដូចជា ចុះសន្លឹកទោល, គូ, ឬបីសន្លឹកដូចគ្នា)
+    // ករណីប្រភេទ Combo ធម្មតាដូចគ្នាផ្សេងទៀត (ដូចជា ចុះសន្លឹកទោល, គូ, ឬបីសន្លឹកដូចគ្នាដែលមិនមែនជាលេខ ២)
     if (newType === oldType && newCards.length === oldCards.length) {
         return newMax > oldMax;
     }
