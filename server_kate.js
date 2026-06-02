@@ -60,54 +60,44 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
             executeKateMove(room, player, action, smallestCard, null);
         }
 
-        // បង្កើតបន្ទប់លេងកាតេ
+        // =================================================================
+        // កែសម្រួលកូដមួយផ្នែកក្នុង server_kate.js ត្រង់វគ្គចូលបន្ទប់
+        // =================================================================
+
+        // ត្រង់ព្រឹត្តិការណ៍៖ បង្កើតបន្ទប់លេងកាតេ
         socket.on('kt_createRoom', ({ roomId, password, playerName }) => {
             if (ktRooms[roomId]) return socket.emit('errorMsg', 'បន្ទប់នេះមានរួចហើយ!');
             ktRooms[roomId] = {
                 roomId, password: password || "", status: 'waiting', creatorId: socket.id,
                 players: [{ id: socket.id, name: playerName || 'អ្នកលេង ១', hand: [], isSpectator: false, hasCat: false, winRounds: 0, finalWinner: false, initialHandCopy: [], isTiv: false }],
-                currentTurnIndex: 0, currentRound: 1, tableCards: [], roundSuit: null, lastWinnerId: null, finalSuit: null, round5WinnerId: null
+                currentTurnIndex: 0, currentRound: 1, tableCards: [], roundSuit: null, lastWinnerId: null, finalSuit: null
             };
-            ktRooms[roomId].startTimer = () => startKateTimer(ktRooms[roomId]);
-            socket.join('kt_' + roomId);
+            socket.join('kt_' + roomId); // អ្នកលេងចូលបន្ទប់ Socket រួចរាល់
             socket.emit('roomCreated', { roomId, playerId: socket.id });
             io.to('kt_' + roomId).emit('updatePlayers', ktRooms[roomId].players);
             
-            io.to('kt_' + roomId).emit('voice_user_joined', { id: socket.id });
+            // 🛠️ ជួសជុល៖ ផ្ញើដំណឹងប្រាប់អ្នកដទៃក្នុងបន្ទប់ 'kt_' + roomId
+            socket.to('kt_' + roomId).emit('voice_user_joined', socket.id);
             broadcastRoomLists();
         });
 
-        // ចូលរួមបន្ទប់កាតេ
+        // ត្រង់ព្រឹត្តិការណ៍៖ ចូលរួមបន្ទប់កាតេ
         socket.on('kt_joinRoom', ({ roomId, password, playerName }) => {
             const room = ktRooms[roomId];
             if (!room) return socket.emit('errorMsg', 'រកមិនឃើញបន្ទប់!');
             if (room.password && room.password !== password) return socket.emit('errorMsg', 'លេខកូដសម្ងាត់មិនត្រឹមត្រូវ!');
-
-            const existingPlayer = room.players.find(p => p.name === playerName);
-
-            if (existingPlayer) {
-                existingPlayer.id = socket.id;
-                socket.join('kt_' + roomId);
-                socket.emit('roomJoined', { roomId, playerId: socket.id, isSpectator: existingPlayer.isSpectator });
-                
-                socket.to('kt_' + roomId).emit('voice_user_joined', { id: socket.id });
-                room.players.forEach(p => { if(p.id !== socket.id) socket.emit('voice_initiate_peer', { target: p.id }); });
-
-                io.to('kt_' + roomId).emit('updatePlayers', room.players);
-                broadcastRoomLists();
-                return;
-            }
-
             if (room.players.length >= 6) return socket.emit('errorMsg', 'បន្ទប់ពេញហើយ (កាតេលីមីតត្រឹម ៦ នាក់)!');
 
             const isSpectator = (room.status === 'playing'); 
             
-            socket.to('kt_' + roomId).emit('voice_user_joined', { id: socket.id });
+            socket.join('kt_' + roomId); // 🛠️ រំកិលការចូលរួមបន្ទប់មកលើមុនគេ ដើម្បីកុំឱ្យដាច់ខ្សែសំឡេង
+            
+            // ផ្ញើប្រាប់អ្នកនៅក្នុងបន្ទប់ស្រាប់ឱ្យបង្កើតខ្សែតភ្ជាប់សំឡេងមកកាន់សមាជិកថ្មី
+            socket.to('kt_' + roomId).emit('voice_user_joined', socket.id);
             room.players.forEach(p => socket.emit('voice_initiate_peer', { target: p.id }));
 
             room.players.push({ id: socket.id, name: playerName || 'ភ្ញៀវ', hand: [], isSpectator, hasCat: false, winRounds: 0, finalWinner: false, initialHandCopy: [], isTiv: false });
             
-            socket.join('kt_' + roomId);
             socket.emit('roomJoined', { roomId, playerId: socket.id, isSpectator });
             io.to('kt_' + roomId).emit('updatePlayers', room.players);
             broadcastRoomLists();
