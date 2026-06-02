@@ -1,10 +1,49 @@
 // =================================================================
-// server_kate.js (កូដកែសម្រួល៖ លេងដោយដៃទាំងជុំទី៥ និងទី៦ - ដកអូតូចេញទាំងស្រុង)
+// server_kate.js (កូដកែសម្រួល៖ លេងដោយដៃទាំងជុំទី៥ និងទី៦ - ដកអូតូចេញទាំងស្រុង + បន្ថែម Timer ១នាទី)
 // =================================================================
 
 module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
 
     io.on('connection', (socket) => {
+
+        // បង្កើតប្រព័ន្ធ Timer សម្រាប់ Ka Te
+        function startKateTimer(room) {
+            if (room.timerInterval) clearInterval(room.timerInterval);
+            room.timerSeconds = 60; // ១ នាទី
+            io.to('kt_' + room.roomId).emit('kt_timer_update', { seconds: room.timerSeconds, currentTurnIndex: room.currentTurnIndex });
+
+            room.timerInterval = setInterval(() => {
+                if (room.status !== 'playing') {
+                    clearInterval(room.timerInterval);
+                    return;
+                }
+                room.timerSeconds--;
+                io.to('kt_' + room.roomId).emit('kt_timer_update', { seconds: room.timerSeconds, currentTurnIndex: room.currentTurnIndex });
+
+                if (room.timerSeconds <= 0) {
+                    clearInterval(room.timerInterval);
+                    handleKateTimeout(room);
+                }
+            }, 1000);
+        }
+        
+        function handleKateTimeout(room) {
+            const player = room.players[room.currentTurnIndex];
+            if (!player || player.hand.length === 0) return;
+            
+            // រៀបពីតូចទៅធំដើម្បីទាញយកបៀរតូចជាងគេបង្អស់
+            const sortedCards = ktModule.sortKateCards([...player.hand]);
+            const smallestCard = sortedCards[0];
+            
+            let action = 'play';
+            // ជុំទី ១ ដល់ ៤៖ បើមិនមែនជាអ្នកចេញបៀរមុនគេទេ គឺកំណត់ធីបអូតូ (fold)
+            if (room.currentRound <= 4 && room.tableCards.length > 0) {
+                action = 'fold';
+            }
+            
+            // បញ្ជូនទិន្នន័យទម្លាក់អូតូទៅឲ្យប្រព័ន្ធ Logic ចម្បងប្រហាក់ប្រហែលការលេងដោយដៃ
+            executeKateMove(room, player, action, smallestCard);
+        }
 
         // បង្កើតបន្ទប់លេងកាតេ
         socket.on('kt_createRoom', ({ roomId, password, playerName }) => {
@@ -14,6 +53,7 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                 players: [{ id: socket.id, name: playerName || 'អ្នកលេង ១', hand: [], isSpectator: false, hasCat: false, winRounds: 0, finalWinner: false, initialHandCopy: [], isTiv: false }],
                 currentTurnIndex: 0, currentRound: 1, tableCards: [], roundSuit: null, lastWinnerId: null, finalSuit: null, round5WinnerId: null
             };
+            ktRooms[roomId].startTimer = () => startKateTimer(ktRooms[roomId]);
             socket.join('kt_' + roomId);
             socket.emit('roomCreated', { roomId, playerId: socket.id });
             io.to('kt_' + roomId).emit('updatePlayers', ktRooms[roomId].players);
@@ -66,6 +106,7 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
         // ក្នុង server_kate.js
         socket.on('kt_startGame', (roomId) => {
             const room = ktRooms[roomId]; if (!room) return;
+            if (!room.startTimer) room.startTimer = () => startKateTimer(room);
             
             // 🎯 ប្ដូរអ្នកមើល (Spectator) មកជាអ្នកលេងធម្មតាវិញទាំងអស់ (អតិបរមា ៦ នាក់សម្រាប់កាតេ)
             room.players.forEach((p, idx) => {
@@ -100,16 +141,14 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
             
             // 📣 បញ្ជូនទិន្នន័យ players ទៅឱ្យ Client ទាំងអស់
             io.to('kt_' + roomId).emit('gameStarted', { players: room.players, currentTurnIndex: room.currentTurnIndex, currentRound: room.currentRound, lastRoundWinnerId: room.lastWinnerId });
+            startKateTimer(room); // ចាប់ផ្តើមនាទី
             broadcastRoomLists(); //
         });
 
-        // ដំណើរការទម្លាក់បៀរដោយដៃ
-        socket.on('kt_playMove', ({ roomId, action, card }) => {
-            const room = ktRooms[roomId]; if (!room) return; 
-            let player = room.players[room.currentTurnIndex]; if (player.id !== socket.id) return;
-
+        // បំបែក Core Logic ចេញមកក្រៅដើម្បីប្រើរួមគ្នាទាំងចុចដៃ និងអូតូពេលអស់នាទី
+        function executeKateMove(room, player, action, card) {
             const cardIdx = player.hand.findIndex(c => c.value === card.value && c.suit === card.suit);
-            if (cardIdx === -1) return socket.emit('errorMsg', 'រកមិនឃើញសន្លឹកបៀរនេះនៅក្នុងដៃរបស់អ្នកឡើយ!');
+            if (cardIdx === -1) return;
 
             let verifiedAction = '';
 
@@ -136,7 +175,7 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
             } 
             // ជុំទី ៥ (វគ្គគប់បៀរទី៥)
             else if (room.currentRound === 5) {
-                if (player.isTiv) return socket.emit('errorMsg', 'អ្នកបាន "ទីវ" ហើយ!');
+                if (player.isTiv) return;
                 if (room.tableCards.length === 0) {
                     room.roundSuit = card.suit; 
                     room.finalSuit = card.suit; 
@@ -167,7 +206,7 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                 player.isTiv = true;
             }
 
-            io.to('kt_' + roomId).emit('moveRecorded', { by: player.name, action: verifiedAction, card, tableCards: room.tableCards, round: room.currentRound });
+            io.to('kt_' + room.roomId).emit('moveRecorded', { by: player.name, action: verifiedAction, card, tableCards: room.tableCards, round: room.currentRound });
             io.to(player.id).emit('dealCards', { hand: player.hand }); 
 
             // ចំនួនអ្នកលេងដែលត្រូវលេងក្នុងជុំនេះ
@@ -186,12 +225,14 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                 room.currentTurnIndex = nextTurn;
                 
                 if (room.status === 'playing') {
-                    io.to('kt_' + roomId).emit('updatePlayers', room.players);
-                    io.to('kt_' + roomId).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex, players: room.players }); 
+                    io.to('kt_' + room.roomId).emit('updatePlayers', room.players);
+                    io.to('kt_' + room.roomId).emit('turnChanged', { currentTurnIndex: room.currentTurnIndex, players: room.players }); 
+                    startKateTimer(room); // បន្ត Timer សម្រាប់អ្នកលេងបន្ទាប់
                 }
             } 
             // បញ្ចប់ជុំនីមួយៗ
             else {
+                if (room.timerInterval) clearInterval(room.timerInterval); // ឈប់រាប់ជាបណ្តោះអាសន្ន
                 setTimeout(() => {
                     let winMove = null;
                     if (room.currentRound <= 4) {
@@ -210,7 +251,7 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                             room.lastWinnerId = winnerPl.id; 
                             room.currentTurnIndex = room.players.findIndex(p => p.id === winnerPl.id);
                             if (room.currentRound === 5) room.round5WinnerId = winnerPl.id; // រក្សាមេដែលឈ្នះជុំទី៥ ដើម្បីចេញបៀរមុនគេនៅជុំទី៦
-                            io.to('kt_' + roomId).emit('winnerTransferred', { newWinnerId: room.lastWinnerId, creatorId: room.creatorId });
+                            io.to('kt_' + room.roomId).emit('winnerTransferred', { newWinnerId: room.lastWinnerId, creatorId: room.creatorId });
                         }
                     }
 
@@ -237,11 +278,11 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
 
                             let count = 5;
                             const countdownInterval = setInterval(() => {
-                                io.to('kt_' + roomId).emit('gameCountdown', { seconds: count });
+                                io.to('kt_' + room.roomId).emit('gameCountdown', { seconds: count });
                                 count--;
                                 if (count < 0) {
                                     clearInterval(countdownInterval);
-                                    io.to('kt_' + roomId).emit('gameWon', { winner: survivors[0].name, winnerId: survivors[0].id, allHands: finalHandsResult });
+                                    io.to('kt_' + room.roomId).emit('gameWon', { winner: survivors[0].name, winnerId: survivors[0].id, allHands: finalHandsResult });
                                 }
                             }, 1000);
                         } else { 
@@ -249,7 +290,8 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                             if (room.currentRound === 6 && room.round5WinnerId) {
                                 room.currentTurnIndex = room.players.findIndex(p => p.id === room.round5WinnerId);
                             }
-                            io.to('kt_' + roomId).emit('nextRoundStarted', { currentRound: room.currentRound, winnerName: winMove ? winMove.name : 'គ្មាន', currentTurnIndex: room.currentTurnIndex, players: room.players }); 
+                            io.to('kt_' + room.roomId).emit('nextRoundStarted', { currentRound: room.currentRound, winnerName: winMove ? winMove.name : 'គ្មាន', currentTurnIndex: room.currentTurnIndex, players: room.players }); 
+                            startKateTimer(room); // ចាប់ផ្តើម Timer ជុំថ្មី
                         }
                     } 
                     // ==========================================
@@ -320,11 +362,11 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
 
                         let count = 5;
                         const countdownInterval = setInterval(() => {
-                            io.to('kt_' + roomId).emit('gameCountdown', { seconds: count });
+                            io.to('kt_' + room.roomId).emit('gameCountdown', { seconds: count });
                             count--;
                             if (count < 0) {
                                 clearInterval(countdownInterval);
-                                io.to('kt_' + roomId).emit('gameWon', { 
+                                io.to('kt_' + room.roomId).emit('gameWon', { 
                                     winner: finalWinnerPlayer ? finalWinnerPlayer.name : 'គ្មានអ្នកឈ្នះ', 
                                     winnerId: room.lastWinnerId, 
                                     allHands: finalHandsResult 
@@ -335,6 +377,13 @@ module.exports = (io, ktRooms, broadcastRoomLists, tlModule, ktModule) => {
                     }
                 }, 1500);
             }
+        }
+
+        // ដំណើរការទម្លាក់បៀរដោយដៃ
+        socket.on('kt_playMove', ({ roomId, action, card }) => {
+            const room = ktRooms[roomId]; if (!room) return; 
+            let player = room.players[room.currentTurnIndex]; if (player.id !== socket.id) return;
+            executeKateMove(room, player, action, card);
         });
 
     });
