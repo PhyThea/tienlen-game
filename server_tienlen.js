@@ -130,7 +130,7 @@ function checkInstantWin(hand) {
     return null;
 }
 
-// 👑 ប្រៀបធៀបបៀរវាយកាត់តាមច្បាប់ថ្មី (រួមទាំងច្បាប់រៀងប៉ូលីស)
+// 👑 ប្រៀបធៀបបៀរវាយកាត់តាមច្បាប់ថ្មី (រួមទាំងច្បាប់រៀងប៉ូលីស នឹងហាយស៊ីហាយ)
 function comparePlay(newCards, oldCards) {
     if (!oldCards || oldCards.length === 0) return true;
     
@@ -146,23 +146,22 @@ function comparePlay(newCards, oldCards) {
     const oldMax = getCardPower(sortedOld[sortedOld.length - 1]);
 
     // 🚨 ច្បាប់ទី ១៖ ប្រព័ន្ធបៀររៀង (Straight និង Straight Flush)
-    // បើបៀរទាំងពីរជាប្រភេទបៀររៀង (ទោះជា ប៉ូលីស ឬ ធម្មតា) ហើយចំនួនសន្លឹកស្មើគ្នា
     if ((newType === 'straight' || newType === 'straight_flush') && 
         (oldType === 'straight' || oldType === 'straight_flush') && 
         newCards.length === oldCards.length) {
-        
-        // ឱ្យតែសន្លឹកចុងក្រោយបង្អស់មាន កម្លាំង (សន្លឹក+ទឹកបៀរ) ធំជាង គឺអាចស៊ីកាត់បានធម្មតា
         return newMax > oldMax;
     }
 
-    // 🚨 ច្បាប់ទី ២៖ ហាយទោល (Single 2)
+    // 🚨 ច្បាប់ទី ២៖ ហាយទោល (Single 2) - កែសម្រួលឲ្យហាយធំស៊ីហាយតូចបាន
     if (oldType === 'single' && oldCards[0].value === '2') {
+        if (newType === 'single' && newCards[0].value === '2' && newMax > oldMax) return true;
         if (newType === 'bomb' || newType === 'quad_pair') return true;
         return false;
     }
 
-    // 🚨 ច្បាប់ទី ៣៖ ហាយគូ (Pair 2)
+    // 🚨 ច្បាប់ទី ៣៖ ហាយគូ (Pair 2) - កែសម្រួលឲ្យគូហាយធំស៊ីគូហាយតូចបាន
     if (oldType === 'pair' && oldCards[0].value === '2') {
+        if (newType === 'pair' && newCards[0].value === '2' && newMax > oldMax) return true;
         if (newType === 'bomb' || newType === 'quad_pair') return true;
         return false;
     }
