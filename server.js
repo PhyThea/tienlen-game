@@ -171,7 +171,7 @@ io.on('connection', (socket) => {
         broadcastRoomLists();
     });
 
-    socket.on('startGame', (roomId) => {
+socket.on('startGame', (roomId) => {
         const room = tlRooms[roomId]; if (!room) return;
 
         const isWinnerStillInRoom = room.players.some(p => p.id === room.lastWinnerId);
@@ -181,14 +181,15 @@ io.on('connection', (socket) => {
             return socket.emit('errorMsg', 'អ្នកគ្មានសិទ្ធិចាប់ផ្ដើមហ្គេមឡើយ!');
         }
 
+        // 🎯 កែសម្រួលត្រង់ចំណុចនេះ៖ ឲ្យតែចាប់ផ្ដើមវគ្គថ្មី អ្នកនៅក្នុងបន្ទប់ទាំងអស់ (មិនលើសពី ៤ នាក់) ត្រូវតែបានលេង និងដកស្ថានភាព Spectator ចេញ
         room.players.forEach((p, idx) => {
             if (idx < 4) {
-                p.isSpectator = false;
+                p.isSpectator = false; // លែងធ្វើជាអ្នកមើលទៀតហើយ គឺត្រូវចូលលេងស្មើភាពគ្នា
                 p.hand = [];
                 p.passed = false;
                 p.rank = null;
             } else {
-                p.isSpectator = true;
+                p.isSpectator = true; // លើសពី ៤ នាក់ទើបបង្ខំឲ្យមើល
                 p.hand = [];
                 p.passed = false;
                 p.rank = null;
