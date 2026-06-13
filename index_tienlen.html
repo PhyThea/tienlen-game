@@ -764,31 +764,42 @@ function createPeer(targetSocketId, initiator) {
 
     console.log(`កំពុងបង្កើត Peer ទៅកាន់: ${targetSocketId} | Initiator: ${initiator}`);
 
-    // 🎯 ២. ប្រព័ន្ធទម្លុះ Firewall (STUN/TURN) ឥតគិតថ្លៃ និងដើរពិតប្រាកដ ១០០% របស់ Open-Source Community
+// 🎯 ២. ប្រព័ន្ធទម្លុះសេវា Metered Open Relay (Free មិនកំណត់ និងមិនបាច់ចុះឈ្មោះ)
     const peerOptions = {
         initiator: initiator,
         trickle: false,
         config: {
             iceServers: [
-                // STUN Servers របស់ Google (ឥតគិតថ្លៃ)
+                // STUN Servers របស់ Google (ទុកជាជំនួយបន្ថែម)
                 { urls: "stun:stun.l.google.com:19302" },
                 { urls: "stun:stun1.l.google.com:19302" },
-                { urls: "stun:stun2.l.google.com:19302" },
-                { urls: "stun:global.stun.twilio.com:3478" },
-
-                // 🚀 TURN Servers ស្ដង់ដារឥតគិតថ្លៃសាធារណៈ (Public Free TURN) ជួយទម្លុះសេវា SIM និង WiFi មិនឱ្យទាក់
-                {
-                    urls: "turn:free.numb.viagenie.ca:3478",
-                    username: "webrtc@live.com",
-                    credential: "free"
+                
+                // Open Relay Servers ពី Metered
+                { 
+                    urls: "stun:openrelay.metered.ca:80" 
                 },
                 {
-                    urls: "turn:turn.bistri.com:3478",
-                    username: "homeo",
-                    credential: "homeo"
+                    urls: "turn:openrelay.metered.ca:80",
+                    username: "openrelayproject",
+                    credential: "openrelayproject"
+                },
+                {
+                    urls: "turn:openrelay.metered.ca:80?transport=tcp",
+                    username: "openrelayproject",
+                    credential: "openrelayproject"
+                },
+                {
+                    urls: "turn:openrelay.metered.ca:443",
+                    username: "openrelayproject",
+                    credential: "openrelayproject"
+                },
+                {
+                    urls: "turn:openrelay.metered.ca:443?transport=tcp",
+                    username: "openrelayproject",
+                    credential: "openrelayproject"
                 }
             ],
-            iceTransportPolicy: 'all'
+            iceTransportPolicy: 'all' // បង្ខំឱ្យប្រើ TURN Server ដើម្បីធានាថាលឺសំឡេងឆ្លងប្រព័ន្ធ ១០០%
         }
     };
 
