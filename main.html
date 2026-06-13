@@ -6,9 +6,14 @@
     <title>🎰 មជ្ឈមណ្ឌលហ្គេមបៀអនឡាញ</title>
     <style>
         body { font-family: Arial, sans-serif; background: #0f172a; color: white; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
-        /* 🛠️ រំកិលប្រអប់ឡើងលើដោយប្រើ margin-top តិចតួច និងកំណត់កម្ពស់តាមមាតិកា */
         .menu-container { background: #1e293b; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-width: 450px; width: 100%; margin-top: -5vh; }
         h1 { text-align: center; margin-bottom: 20px; font-size: 22px; color: #f59e0b; }
+        
+        /* 🎨 ស្ទីលសម្រាប់ប្រអប់បញ្ចូលឈ្មោះ */
+        .name-input { width: 100%; padding: 14px; margin-bottom: 20px; border: 2px solid #475569; border-radius: 10px; font-size: 16px; background: #334155; color: white; text-align: center; box-sizing: border-box; outline: none; transition: border-color 0.3s; }
+        .name-input:focus { border-color: #3b82f6; }
+        .name-input::placeholder { color: #94a3b8; }
+
         .btn { display: block; width: 100%; padding: 14px; margin: 10px 0; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; text-decoration: none; text-align: center; color: white; transition: transform 0.2s, background 0.2s; box-sizing: border-box; }
         .btn:active { transform: scale(0.98); }
         .btn-tienlen { background: #3b82f6; }
@@ -20,7 +25,6 @@
         .room-section { margin-top: 25px; border-top: 1px dashed #475569; padding-top: 15px; }
         .room-title { font-size: 15px; font-weight: bold; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
         .room-list { max-height: 180px; overflow-y: auto; margin-bottom: 15px; padding-right: 5px; }
-        /* បន្ថែម Scrollbar ស្អាត */
         .room-list::-webkit-scrollbar { width: 6px; }
         .room-list::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
         
@@ -33,8 +37,11 @@
 <body>
     <div class="menu-container">
         <h1>🃏 សូមជ្រើសរើសហ្គេមលេង</h1>
-        <a href="/tienlen" class="btn btn-tienlen">🃏 លេងបៀរ ទៀនឡេន (Tien Len)</a>
-        <a href="/kate" class="btn btn-kate">🎴 លេងបៀរ កាតេ (Ka Te)</a>
+        
+        <input type="text" id="globalPlayerName" class="name-input" placeholder="📝 សូមបញ្ចូលឈ្មោះរបស់អ្នកទីនេះ...">
+
+        <button onclick="goToGame('/tienlen')" class="btn btn-tienlen">🃏 លេងបៀរ ទៀនឡេន (Tien Len)</button>
+        <button onclick="goToGame('/kate')" class="btn btn-kate">🎴 លេងបៀរ កាតេ (Ka Te)</button>
 
         <div class="room-section">
             <div class="room-title" style="color: #3b82f6;">🏰 បន្ទប់រង់ចាំ ទៀនឡេន (Tien Len)៖</div>
@@ -52,6 +59,35 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
+
+        // ទាញយកឈ្មោះចាស់មកបង្ហាញ (បើធ្លាប់លេង)
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedName = localStorage.getItem('tienlen_name');
+            if (savedName) {
+                document.getElementById('globalPlayerName').value = savedName;
+            }
+        });
+
+        // មុខងារត្រួតពិនិត្យ និងរក្សាទុកឈ្មោះ
+        function validateAndSaveName() {
+            const nameInput = document.getElementById('globalPlayerName').value.trim();
+            if (!nameInput) {
+                alert("⚠️ សូមបញ្ចូលឈ្មោះរបស់អ្នកនៅប្រអប់ខាងលើជាមុនសិន!");
+                document.getElementById('globalPlayerName').focus();
+                return null;
+            }
+            // រក្សាទុកឈ្មោះទៅក្នុង LocalStorage ដើម្បីឱ្យហ្គេមទាញយកទៅប្រើ
+            localStorage.setItem('tienlen_name', nameInput);
+            localStorage.setItem('player_name', nameInput);
+            return nameInput;
+        }
+
+        // មុខងារចូលទៅបង្កើត/លេងហ្គេមថ្មី
+        function goToGame(url) {
+            if (validateAndSaveName()) {
+                window.location.href = url;
+            }
+        }
 
         // ស្តាប់បញ្ជីបន្ទប់ Tien Len
         socket.on('tlRoomList', (rooms) => {
@@ -75,7 +111,6 @@
             rooms.forEach(r => {
                 const item = document.createElement('div');
                 item.className = 'room-item';
-                // កំណត់ចំនួនលីមីត៖ ទៀនឡេន ៤ នាក់ , កាតេ ៦ នាក់
                 const maxPlayers = redirectUrl.includes('kate') ? 6 : 4; 
                 
                 item.innerHTML = `
@@ -93,29 +128,21 @@
             });
         }
 
-        // 🚀 អនុគមន៍ថ្មី៖ ចម្លងទិន្នន័យចូល LocalStorage រួចរត់ចូល direct តែម្ដង
+        // មុខងារចូលបន្ទប់ដោយផ្ទាល់ (កែសម្រួលឈប់ប្រើ prompt សួរឈ្មោះ)
         function directJoinRoom(roomId, hasPassword, redirectUrl) {
-            // ១. សួររកឈ្មោះអ្នកលេងជាមុនសិន បើមិនទាន់មានក្នុងម៉ាស៊ីន
-            let playerName = localStorage.getItem('tienlen_name') || '';
-            if (!playerName) {
-                playerName = prompt("សូមបញ្ចូលឈ្មោះរបស់អ្នកមុននឹងចូលរួមលេង៖");
-                if (!playerName || !playerName.trim()) return alert("ត្រូវការឈ្មោះដើម្បីចូលលេង!");
-                localStorage.setItem('tienlen_name', playerName.trim());
-            }
+            const playerName = validateAndSaveName();
+            if (!playerName) return; // បញ្ឈប់ប្រសិនបើអត់វាយឈ្មោះ
 
             let password = "";
-            // ២. បើបន្ទប់មានជាប់សោរ 🔒 ត្រូវទារលេខកូដសម្ងាត់
             if (hasPassword) {
-                const passInput = prompt("សូមបញ្ចូលលេខកូដសម្ងាត់បន្ទប់៖");
-                if (passInput === null) return; // ចុច Cancel មិនធ្វើអ្វីទាំងអស់
+                const passInput = prompt("🔒 សូមបញ្ចូលលេខកូដសម្ងាត់បន្ទប់៖");
+                if (passInput === null) return; 
                 password = passInput;
             }
 
-            // ៣. រក្សាទុកទិន្នន័យចាំបាច់ទាំងអស់ទៅក្នុង LocalStorage ដើម្បីឱ្យទំព័រហ្គេមទាញយកទៅប្រើភ្លាមៗ
             localStorage.setItem('auto_join_room_id', roomId);
             localStorage.setItem('auto_join_password', password);
             
-            // ៤. រត់ទៅកាន់ទំព័រហ្គេមដោយស្វ័យប្រវត្ត
             location.href = redirectUrl;
         }
     </script>
