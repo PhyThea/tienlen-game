@@ -237,6 +237,25 @@ io.on('connection', (socket) => {
     socket.on('joinRoom', ({ roomId, password, playerName }) => {
         const room = tlRooms[roomId]; if (!room) return socket.emit('errorMsg', 'រកមិនឃើញបន្ទប់!');
         if (room.password && room.password !== password) return socket.emit('errorMsg', 'លេខកូដសម្ងាត់មិនត្រឹមត្រូវ!');
+
+        // 🎯 [ដំណោះស្រាយ] ពិនិត្យមើលថាតើឈ្មោះនេះមាននៅក្នុងបន្ទប់រួចហើយឬនៅ
+        const existingPlayer = room.players.find(p => p.name === playerName);
+
+        if (existingPlayer) {
+            // បើមានហើយ គ្រាន់តែអាប់ដេត Socket ID ថ្មីឱ្យគាត់ (ជៀសវាងការស្ទួន និងគណនីខ្មោច)
+            existingPlayer.id = socket.id;
+            socket.join('tl_' + roomId);
+            socket.emit('roomJoined', { roomId, playerId: socket.id, isSpectator: existingPlayer.isSpectator, playedCards: room.playedCards, currentTurnIndex: room.currentTurnIndex });
+            
+            socket.to('tl_' + roomId).emit('voice_user_joined', { id: socket.id });
+            room.players.forEach(p => { if(p.id !== socket.id) socket.emit('voice_initiate_peer', { target: p.id }); });
+
+            io.to('tl_' + roomId).emit('updatePlayers', room.players);
+            broadcastRoomLists();
+            return;
+        }
+
+        // បើគ្មានឈ្មោះជាន់គ្នាទេ ទើបឆែកមើលថាតើបន្ទប់ពេញឬនៅ
         if (room.players.length >= 4) return socket.emit('errorMsg', 'បន្ទប់ពេញហើយ!');
 
         const isSpectator = room.status === 'playing';
